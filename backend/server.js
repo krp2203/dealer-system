@@ -560,13 +560,14 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 AND a.State != ''
                 AND a.ZipCode IS NOT NULL
                 AND a.ZipCode != ''
+            ORDER BY d.DealershipName
         `);
         
         console.log('SQL Query completed');
         console.log(`Found ${dealers.length} dealers with valid addresses`);
-        console.log('First few dealers:', dealers.slice(0, 3));
+        console.log('Sample dealer:', dealers[0]);
         
-        if (dealers.length === 0) {
+        if (!dealers || dealers.length === 0) {
             console.log('No dealers found with valid addresses');
             return res.json([]);
         }
@@ -580,7 +581,12 @@ app.get('/api/dealers/coordinates', async (req, res) => {
         });
     } finally {
         if (connection) {
-            await connection.end();
+            try {
+                await connection.end();
+                console.log('Database connection closed');
+            } catch (err) {
+                console.error('Error closing connection:', err);
+            }
         }
     }
 });
