@@ -93,6 +93,24 @@ app.get('/api/dealers/coordinates', async (req, res) => {
         console.log('Fetching dealer coordinates...');
         connection = await mysql.createConnection(dbConfig);
         
+        // First, let's check address data quality
+        const [addressStats] = await connection.query(`
+            SELECT 
+                COUNT(*) as total,
+                COUNT(CASE WHEN StreetAddress != '' AND StreetAddress IS NOT NULL THEN 1 END) as hasStreet,
+                COUNT(CASE WHEN City != '' AND City IS NOT NULL THEN 1 END) as hasCity,
+                COUNT(CASE WHEN State != '' AND State IS NOT NULL THEN 1 END) as hasState,
+                COUNT(CASE WHEN ZipCode != '' AND ZipCode IS NOT NULL THEN 1 END) as hasZip,
+                COUNT(CASE 
+                    WHEN StreetAddress != '' AND StreetAddress IS NOT NULL
+                    AND City != '' AND City IS NOT NULL
+                    AND (State != '' OR City LIKE '% VA %' OR City LIKE '% MD %' OR City LIKE '% DE %' OR City LIKE '% NC %')
+                    AND (ZipCode != '' OR City REGEXP '[0-9]{5}$')
+                    THEN 1 END) as hasComplete
+            FROM Addresses
+        `);
+        console.log('Address statistics:', addressStats[0]);
+
         // Get dealers with addresses, handling various formats
         const [dealers] = await connection.query(`
             SELECT DISTINCT
@@ -104,6 +122,7 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                     WHEN a.City LIKE '% VA %' THEN SUBSTRING_INDEX(a.City, ' VA ', 1)
                     WHEN a.City LIKE '% MD %' THEN SUBSTRING_INDEX(a.City, ' MD ', 1)
                     WHEN a.City LIKE '% DE %' THEN SUBSTRING_INDEX(a.City, ' DE ', 1)
+                    WHEN a.City LIKE '% WV %' THEN SUBSTRING_INDEX(a.City, ' WV ', 1)
                     ELSE TRIM(a.City)
                 END as City,
                 CASE 
@@ -111,6 +130,7 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                     WHEN a.State = '' AND a.City LIKE '% VA %' THEN 'VA'
                     WHEN a.State = '' AND a.City LIKE '% MD %' THEN 'MD'
                     WHEN a.State = '' AND a.City LIKE '% DE %' THEN 'DE'
+                    WHEN a.State = '' AND a.City LIKE '% WV %' THEN 'WV'
                     WHEN a.State LIKE '%.%' THEN REPLACE(a.State, '.', '')
                     ELSE a.State
                 END as State,
@@ -118,7 +138,10 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                     WHEN a.ZipCode = '' AND a.City REGEXP '[0-9]{5}$' 
                         THEN SUBSTRING(a.City, -5)
                     ELSE a.ZipCode
-                END as ZipCode
+                END as ZipCode,
+                a.City as RawCity,
+                a.State as RawState,
+                a.ZipCode as RawZip
             FROM Dealerships d
             INNER JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             WHERE a.StreetAddress IS NOT NULL 
@@ -127,18 +150,25 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 AND a.City != ''
         `);
         
+        // Log some sample data for debugging
+        console.log('Sample raw addresses:');
+        dealers.slice(0, 5).forEach(d => {
+            console.log(`${d.DealershipName}:
+                Raw: ${d.StreetAddress}, ${d.RawCity}, ${d.RawState} ${d.RawZip}
+                Parsed: ${d.StreetAddress}, ${d.City}, ${d.State} ${d.ZipCode}`
+            );
+        });
+
         // Filter out dealers with incomplete addresses
         const validDealers = dealers.filter(d => 
             d.StreetAddress && 
             d.City && 
-            (d.State || d.City.match(/\b(NC|VA|MD|DE)\b/)) &&
+            (d.State || d.City.match(/\b(NC|VA|MD|DE|WV)\b/)) &&
             (d.ZipCode || d.City.match(/\d{5}/))
         );
 
+        console.log(`Found ${dealers.length} total dealers`);
         console.log(`Found ${validDealers.length} dealers with valid addresses`);
-        if (validDealers.length > 0) {
-            console.log('Sample dealer:', validDealers[0]);
-        }
         
         res.json(validDealers);
     } catch (error) {
