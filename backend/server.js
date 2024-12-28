@@ -54,12 +54,14 @@ app.get('/api/dealers', async (req, res) => {
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             ORDER BY d.DealershipName
         `);
+        console.log('Base dealer data:', dealers[0]);
 
         // Get states
         const [states] = await connection.query(`
             SELECT DISTINCT KPMDealerNumber, State 
             FROM Addresses
         `);
+        console.log('States data:', states.slice(0, 2));
 
         // Get product lines
         const [lines] = await connection.query(`
@@ -69,25 +71,32 @@ app.get('/api/dealers', async (req, res) => {
             FROM LinesCarried
             GROUP BY KPMDealerNumber
         `);
+        console.log('Product lines data:', lines.slice(0, 2));
 
         // Create maps for quick lookups
         const stateMap = new Map(states.map(s => [s.KPMDealerNumber, s.State || '']));
         const lineMap = new Map(lines.map(l => [l.KPMDealerNumber, l.ProductLines || '']));
 
         // Combine the data
-        const combinedData = dealers.map(dealer => ({
-            ...dealer,
-            State: stateMap.get(dealer.KPMDealerNumber) || '',
-            ProductLines: lineMap.get(dealer.KPMDealerNumber) || ''
-        }));
+        const combinedData = dealers.map(dealer => {
+            const combined = {
+                ...dealer,
+                State: stateMap.get(dealer.KPMDealerNumber) || '',
+                ProductLines: lineMap.get(dealer.KPMDealerNumber) || ''
+            };
+            if (!combined.SalesmanName || !combined.ProductLines) {
+                console.log('Missing data for dealer:', {
+                    name: dealer.DealershipName,
+                    id: dealer.KPMDealerNumber,
+                    salesman: combined.SalesmanName,
+                    lines: combined.ProductLines
+                });
+            }
+            return combined;
+        });
 
         // Log sample data
-        console.log('Sample data:', {
-            total: combinedData.length,
-            first: combinedData[0],
-            salesmen: [...new Set(combinedData.map(r => r.SalesmanName).filter(Boolean))],
-            productLines: [...new Set(combinedData.flatMap(r => (r.ProductLines || '').split(',').map(l => l.trim())).filter(Boolean))]
-        });
+        console.log('Final data sample:', combinedData.slice(0, 2));
 
         res.json(combinedData);
     } catch (error) {
