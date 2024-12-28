@@ -218,6 +218,10 @@ const DealerPicker: React.FC<{
 
     const handleSalesmanChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const salesmanCode = e.target.value;
+        console.log('Salesman selected:', {
+            code: salesmanCode,
+            salesmen: salesmen.map(s => ({ code: s.SalesmanCode, name: s.SalesmanName }))
+        });
         setSelectedSalesman(salesmanCode);
         onSalesmanSelect(salesmanCode);
     };

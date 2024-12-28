@@ -166,10 +166,23 @@ const DealerMap: React.FC<{
     // Filter dealers based on selectedSalesman
     const visibleDealers = dealers.filter(dealer => {
         if (selectedSalesman) {
+            console.log('Filtering dealer:', {
+                dealerName: dealer.DealershipName,
+                dealerSalesman: dealer.SalesmanCode,
+                selectedSalesman: selectedSalesman,
+                matches: dealer.SalesmanCode === selectedSalesman
+            });
             return dealer.SalesmanCode === selectedSalesman;
         }
         return true;
     });
+
+    // Add logging after filtering
+    useEffect(() => {
+        console.log('Selected Salesman:', selectedSalesman);
+        console.log('Total dealers:', dealers.length);
+        console.log('Visible dealers:', visibleDealers.length);
+    }, [selectedSalesman, dealers, visibleDealers]);
 
     if (loading) {
         return <div className="map-container">Loading dealers...</div>;
