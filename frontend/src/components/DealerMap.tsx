@@ -195,6 +195,7 @@ const DealerMap: React.FC<{
                                     setHoveredDealer(null);
                                 }
                             }}
+                            onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
                         />
                     );
                 })}
@@ -216,16 +217,6 @@ const DealerMap: React.FC<{
                             <h3>{hoveredDealer.DealershipName}</h3>
                             <p>{hoveredDealer.StreetAddress}</p>
                             <p>{hoveredDealer.City}, {hoveredDealer.State} {hoveredDealer.ZipCode}</p>
-                            <button 
-                                onClick={() => onDealerSelect(hoveredDealer.KPMDealerNumber)}
-                                style={{ 
-                                    marginTop: '8px',
-                                    padding: '4px 8px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                View Details
-                            </button>
                         </div>
                     </InfoWindow>
                 )}
