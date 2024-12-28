@@ -42,73 +42,52 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // Get base dealer data
-        const [dealers] = await connection.query(`
+        // Create temporary table for product lines
+        await connection.query(`
+            CREATE TEMPORARY TABLE IF NOT EXISTS temp_lines AS
+            SELECT 
+                KPMDealerNumber,
+                GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
+            FROM LinesCarried
+            GROUP BY KPMDealerNumber
+        `);
+
+        // Get all dealer data with joined tables
+        const [rows] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
-                s.SalesmanName
+                s.SalesmanName,
+                MAX(a.State) as State,
+                COALESCE(tl.ProductLines, '') as ProductLines
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            LEFT JOIN temp_lines tl ON d.KPMDealerNumber = tl.KPMDealerNumber
+            GROUP BY 
+                d.KPMDealerNumber,
+                d.DealershipName,
+                d.DBA,
+                d.SalesmanCode,
+                s.SalesmanName,
+                tl.ProductLines
+            ORDER BY d.DealershipName
         `);
-        console.log('Base dealer data:', dealers[0]);
 
-        // Get all states
-        const [states] = await connection.query(`
-            SELECT KPMDealerNumber, State 
-            FROM Addresses
-            WHERE State IS NOT NULL
-        `);
-        console.log('States data:', states.slice(0, 2));
-
-        // Get all product lines
-        const [lines] = await connection.query(`
-            SELECT 
-                KPMDealerNumber,
-                LineName
-            FROM LinesCarried
-            WHERE LineName IS NOT NULL
-        `);
-        console.log('Product lines data:', lines.slice(0, 2));
-
-        // Create maps for quick lookups
-        const stateMap = new Map();
-        states.forEach(s => {
-            if (s.State) stateMap.set(s.KPMDealerNumber, s.State);
-        });
-
-        const lineMap = new Map();
-        lines.forEach(l => {
-            if (!lineMap.has(l.KPMDealerNumber)) {
-                lineMap.set(l.KPMDealerNumber, new Set());
-            }
-            if (l.LineName) {
-                lineMap.get(l.KPMDealerNumber).add(l.LineName);
-            }
-        });
-
-        // Combine the data
-        const combinedData = dealers.map(dealer => {
-            const lines = lineMap.get(dealer.KPMDealerNumber);
-            const combined = {
-                ...dealer,
-                State: stateMap.get(dealer.KPMDealerNumber) || '',
-                ProductLines: lines ? Array.from(lines).sort().join(', ') : ''
-            };
-            return combined;
-        });
+        // Drop temporary table
+        await connection.query('DROP TEMPORARY TABLE IF EXISTS temp_lines');
 
         // Log sample data
-        console.log('Final data sample:', {
-            total: combinedData.length,
-            first: combinedData[0],
-            salesmen: [...new Set(combinedData.map(d => d.SalesmanName).filter(Boolean))],
-            productLines: [...new Set(combinedData.flatMap(d => d.ProductLines ? d.ProductLines.split(',').map(l => l.trim()) : []).filter(Boolean))]
+        console.log('Sample data:', {
+            total: rows.length,
+            first: rows[0],
+            salesmen: [...new Set(rows.map(r => r.SalesmanName).filter(Boolean))],
+            productLines: [...new Set(rows.flatMap(r => (r.ProductLines || '').split(',').map(l => l.trim())).filter(Boolean))]
         });
 
-        res.json(combinedData);
+        res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
         res.status(500).json({ 
@@ -116,7 +95,14 @@ app.get('/api/dealers', async (req, res) => {
             details: error.message
         });
     } finally {
-        if (connection) await connection.end();
+        if (connection) {
+            try {
+                await connection.query('DROP TEMPORARY TABLE IF EXISTS temp_lines');
+            } catch (err) {
+                console.error('Error dropping temp table:', err);
+            }
+            await connection.end();
+        }
     }
 });
 
