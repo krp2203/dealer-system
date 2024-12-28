@@ -28,7 +28,7 @@ interface GeocodeResponse {
     status: string;
 }
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
+const GOOGLE_MAPS_API_KEY = 'your_new_api_key_here';
 
 async function getCoordinates(address: string): Promise<{ lat: number; lng: number } | null> {
     try {
