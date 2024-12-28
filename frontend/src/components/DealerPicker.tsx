@@ -35,6 +35,11 @@ interface DealerDetails {
     };
 }
 
+interface Salesman {
+    SalesmanCode: string;
+    SalesmanName: string;
+}
+
 const API_URL = 'http://35.212.41.99:3002';
 
 const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
@@ -50,6 +55,8 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const detailsRef = useRef<HTMLDivElement>(null);
+    const [salesmen, setSalesmen] = useState<Salesman[]>([]);
+    const [selectedSalesman, setSelectedSalesman] = useState<string>('');
 
     useEffect(() => {
         const fetchDealers = async () => {
@@ -64,6 +71,19 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         };
 
         fetchDealers();
+    }, []);
+
+    useEffect(() => {
+        const fetchSalesmen = async () => {
+            try {
+                const response = await axios.get<Salesman[]>(`${API_URL}/api/salesmen`);
+                setSalesmen(response.data);
+            } catch (err) {
+                console.error('Failed to fetch salesmen:', err);
+            }
+        };
+
+        fetchSalesmen();
     }, []);
 
     const loadDealerDetails = async (dealerNumber: string) => {
@@ -160,10 +180,17 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
     };
 
-    const filteredDealers = dealers.filter(dealer => 
-        dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredDealers = dealers.filter(dealer => {
+        const matchesSearch = 
+            dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        if (selectedSalesman) {
+            return matchesSearch && dealer.SalesmanCode === selectedSalesman;
+        }
+        
+        return matchesSearch;
+    });
 
     useEffect(() => {
         if (initialDealer) {
@@ -191,6 +218,20 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     return (
         <div className="details-section">
             <div className="dealer-picker">
+                <div className="filter-container">
+                    <select
+                        value={selectedSalesman}
+                        onChange={(e) => setSelectedSalesman(e.target.value)}
+                        className="salesman-filter"
+                    >
+                        <option value="">All Salesmen</option>
+                        {salesmen.map(salesman => (
+                            <option key={salesman.SalesmanCode} value={salesman.SalesmanCode}>
+                                {salesman.SalesmanName}
+                            </option>
+                        ))}
+                    </select>
+                </div>
                 <div className="search-container">
                     <input
                         type="text"

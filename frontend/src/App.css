@@ -253,3 +253,29 @@
         max-height: 300px;
     }
 }
+
+.filter-container {
+    margin-bottom: 10px;
+}
+
+.salesman-filter {
+    width: 100%;
+    padding: 10px;
+    font-size: 1em;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    background-color: white;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.salesman-filter:focus {
+    border-color: #282c34;
+}
+
+@media screen and (min-width: 768px) {
+    .filter-container {
+        display: flex;
+        gap: 10px;
+    }
+}

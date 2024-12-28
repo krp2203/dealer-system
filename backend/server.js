@@ -659,6 +659,32 @@ app.post('/api/import', async (req, res) => {
     }
 });
 
+// Add this new endpoint
+app.get('/api/salesmen', async (req, res) => {
+    let connection;
+    try {
+        connection = await mysql.createConnection(dbConfig);
+        const [rows] = await connection.query(`
+            SELECT DISTINCT 
+                s.SalesmanCode,
+                s.SalesmanName
+            FROM Salesman s
+            ORDER BY s.SalesmanName
+        `);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error fetching salesmen:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch salesmen',
+            details: error.message 
+        });
+    } finally {
+        if (connection) {
+            await connection.end();
+        }
+    }
+});
+
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
