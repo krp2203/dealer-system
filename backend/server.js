@@ -24,11 +24,9 @@ const dbConfig = {
     user: 'krp2203',
     password: 'f_j(/"xa|i=h+ccU',
     database: 'kpm dealer data',
-    connectTimeout: 60000,
+    connectTimeout: 10000,
     waitForConnections: true,
-    connectionLimit: 10,
-    maxIdle: 10,
-    idleTimeout: 60000,
+    connectionLimit: 5,
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0
@@ -38,8 +36,26 @@ const dbConfig = {
 const pool = mysql.createPool(dbConfig);
 const promisePool = pool.promise();
 
+// Add more detailed error logging
+pool.on('connection', () => {
+    console.log('New database connection established');
+});
+
+pool.on('error', (err) => {
+    console.error('Database pool error:', err);
+});
+
+pool.on('acquire', () => {
+    console.log('Connection acquired from pool');
+});
+
+pool.on('release', () => {
+    console.log('Connection released back to pool');
+});
+
 // Get list of all dealers
 app.get('/api/dealers', async (req, res) => {
+    console.log('Received request for dealers');
     try {
         const [rows] = await promisePool.query(`
             SELECT DISTINCT 
@@ -50,9 +66,10 @@ app.get('/api/dealers', async (req, res) => {
             FROM Dealerships d
             ORDER BY d.DealershipName
         `);
+        console.log(`Successfully fetched ${rows.length} dealers`);
         res.json(rows);
     } catch (error) {
-        console.error('Detailed error:', error);
+        console.error('Database error:', error);
         res.status(500).json({ 
             error: 'Failed to fetch dealers',
             details: error.message,
