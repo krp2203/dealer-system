@@ -166,9 +166,6 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
     return (
         <div className="details-section">
-            {selectedDealerName && (
-                <h2 className="dealer-title">{selectedDealerName}</h2>
-            )}
             <div className="dealer-picker">
                 <select 
                     value={selectedDealer || ''} 
@@ -184,21 +181,60 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                 </select>
             </div>
 
+            {selectedDealerName && (
+                <h2 className="dealer-title">{selectedDealerName}</h2>
+            )}
+
             {dealerDetails && (
                 <div className="dealer-details">
                     <section>
+                        <h3>Basic Information</h3>
+                        <p><strong>Dealer Number:</strong> {dealerDetails.KPMDealerNumber}</p>
+                        {dealerDetails.DBA && (
+                            <p><strong>DBA:</strong> {dealerDetails.DBA}</p>
+                        )}
+                    </section>
+
+                    <section>
                         <h3>Contact Information</h3>
-                        <p>{dealerDetails.contact.MainPhone}</p>
-                        <p>{dealerDetails.contact.MainEmail}</p>
+                        <p><strong>Phone:</strong> {dealerDetails.contact.MainPhone}</p>
+                        {dealerDetails.contact.FaxNumber && (
+                            <p><strong>Fax:</strong> {dealerDetails.contact.FaxNumber}</p>
+                        )}
+                        <p><strong>Email:</strong> {dealerDetails.contact.MainEmail}</p>
                     </section>
                     
                     <section>
                         <h3>Address</h3>
                         <p>{dealerDetails.address.StreetAddress}</p>
+                        {dealerDetails.address.BoxNumber && (
+                            <p>Box: {dealerDetails.address.BoxNumber}</p>
+                        )}
                         <p>{dealerDetails.address.City}, {dealerDetails.address.State} {dealerDetails.address.ZipCode}</p>
+                        <p><strong>County:</strong> {dealerDetails.address.County}</p>
                     </section>
-                    
-                    {/* Other sections */}
+
+                    <section>
+                        <h3>Salesman Information</h3>
+                        <p><strong>Name:</strong> {dealerDetails.salesman.SalesmanName}</p>
+                        <p><strong>Code:</strong> {dealerDetails.salesman.SalesmanCode}</p>
+                    </section>
+
+                    {dealerDetails.lines && dealerDetails.lines.length > 0 && (
+                        <section>
+                            <h3>Lines Carried</h3>
+                            <ul className="lines-list">
+                                {dealerDetails.lines.map((line, index) => (
+                                    <li key={index}>
+                                        <strong>{line.LineName}</strong>
+                                        {line.AccountNumber && (
+                                            <span> - Account: {line.AccountNumber}</span>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
+                    )}
                 </div>
             )}
         </div>
