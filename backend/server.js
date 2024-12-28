@@ -94,48 +94,50 @@ app.get('/api/dealers/coordinates', async (req, res) => {
         console.log('Fetching dealer coordinates...');
         connection = await mysql.createConnection(dbConfig);
         
-        // First, let's check what addresses we have
-        const [addressCheck] = await connection.query(`
-            SELECT COUNT(*) as total,
-                   COUNT(CASE WHEN StreetAddress IS NOT NULL AND StreetAddress != '' THEN 1 END) as hasStreet,
-                   COUNT(CASE WHEN City IS NOT NULL AND City != '' THEN 1 END) as hasCity,
-                   COUNT(CASE WHEN State IS NOT NULL AND State != '' THEN 1 END) as hasState,
-                   COUNT(CASE WHEN ZipCode IS NOT NULL AND ZipCode != '' THEN 1 END) as hasZip
-            FROM Addresses
-        `);
-        console.log('Address stats:', addressCheck[0]);
-
-        // Now get dealers with addresses, with less strict conditions
+        // Get dealers with addresses, handling state/zip formatting
         const [dealers] = await connection.query(`
             SELECT DISTINCT
                 d.KPMDealerNumber,
                 d.DealershipName,
                 a.StreetAddress,
-                a.City,
-                a.State,
-                a.ZipCode
+                CASE 
+                    WHEN a.City LIKE '% VA %' THEN SUBSTRING_INDEX(a.City, ' VA ', 1)
+                    WHEN a.City LIKE '% VA.%' THEN SUBSTRING_INDEX(a.City, ' VA.', 1)
+                    ELSE a.City 
+                END as City,
+                CASE 
+                    WHEN a.City LIKE '% VA %' THEN 'VA'
+                    WHEN a.City LIKE '% VA.%' THEN 'VA'
+                    ELSE a.State 
+                END as State,
+                CASE 
+                    WHEN a.City LIKE '% VA %' THEN SUBSTRING_INDEX(a.City, ' VA ', -1)
+                    WHEN a.City LIKE '% VA.%' THEN SUBSTRING_INDEX(a.City, ' VA.', -1)
+                    ELSE a.ZipCode 
+                END as ZipCode
             FROM Dealerships d
-            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE a.StreetAddress IS NOT NULL
-                OR a.City IS NOT NULL
-                OR a.State IS NOT NULL
-                OR a.ZipCode IS NOT NULL
+            INNER JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            WHERE a.StreetAddress IS NOT NULL 
+                AND a.StreetAddress != ''
+                AND a.City IS NOT NULL 
+                AND a.City != ''
         `);
         
-        console.log(`Found ${dealers.length} dealers with any address info`);
+        console.log(`Found ${dealers.length} dealers with address info`);
         if (dealers.length > 0) {
-            console.log('Sample dealer data:', {
-                first: dealers[0],
-                addressFields: {
-                    street: dealers[0].StreetAddress,
-                    city: dealers[0].City,
-                    state: dealers[0].State,
-                    zip: dealers[0].ZipCode
-                }
-            });
+            console.log('Sample dealer data:', dealers[0]);
         }
         
-        res.json(dealers);
+        // Filter out any dealers with incomplete addresses
+        const validDealers = dealers.filter(d => 
+            d.StreetAddress && 
+            d.City && 
+            (d.State || d.City.includes('VA')) && 
+            (d.ZipCode || /\d{5}/.test(d.City))
+        );
+        
+        console.log(`Found ${validDealers.length} dealers with complete addresses`);
+        res.json(validDealers);
     } catch (error) {
         console.error('Error fetching dealer coordinates:', error);
         res.status(500).json({ 
