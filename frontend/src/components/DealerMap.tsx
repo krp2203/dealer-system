@@ -107,6 +107,12 @@ const DealerMap: React.FC<{
     };
 
     useEffect(() => {
+        if (dealers.length > 0) {
+            setLoading(false);
+        }
+    }, [dealers]);
+
+    useEffect(() => {
         const fetchDealers = async () => {
             try {
                 // Try to get cached coordinates

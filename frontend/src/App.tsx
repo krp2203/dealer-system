@@ -4,6 +4,7 @@ import { LoadScript } from '@react-google-maps/api';
 import DealerPicker from './components/DealerPicker';
 import DealerMap from './components/DealerMap';
 import './App.css';
+import { Dealer } from './types/dealer';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
 
