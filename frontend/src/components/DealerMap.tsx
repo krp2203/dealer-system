@@ -2,32 +2,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import axios from 'axios';
-
-interface DealerLocation {
-    KPMDealerNumber: string;
-    DealershipName: string;
-    StreetAddress: string;
-    City: string;
-    State: string;
-    ZipCode: string;
-    lat?: number;
-    lng?: number;
-}
-
-interface GeocodeResult {
-    geometry: {
-        location: {
-            lat: number;
-            lng: number;
-        };
-    };
-}
-
-interface GeocodeResponse {
-    results: GeocodeResult[];
-    status: string;
-    error_message?: string;
-}
+import { Dealer } from '../types/dealer';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
 
@@ -90,14 +65,14 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
 
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
-    dealers: DealerLocation[];
+    dealers: Dealer[];
 }> = ({ onDealerSelect, dealers }) => {
-    const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
+    const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
     const [mapCenter] = useState({ lat: 38.5, lng: -77.5 });
     const [mapZoom] = useState(8);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [hoveredDealer, setHoveredDealer] = useState<DealerLocation | null>(null);
+    const [hoveredDealer, setHoveredDealer] = useState<Dealer | null>(null);
     const [isHoveringInfoWindow, setIsHoveringInfoWindow] = useState(false);
 
     const mapStyles = {

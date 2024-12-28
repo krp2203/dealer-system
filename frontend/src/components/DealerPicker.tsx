@@ -1,16 +1,7 @@
 import * as React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-
-interface Dealer {
-    KPMDealerNumber: string;
-    DealershipName: string;
-    DBA?: string;
-    SalesmanCode?: string;
-    SalesmanName?: string;  // From the JOIN with Salesman table
-    State?: string;         // From the JOIN with Addresses table
-    ProductLines?: string;  // From GROUP_CONCAT in the backend
-}
+import { Dealer } from '../types/dealer';
 
 interface DealerDetails {
     DealershipName: string;
@@ -48,10 +39,15 @@ interface Filters {
 
 const API_URL = 'http://35.212.41.99:3002';
 
-const DealerPicker: React.FC<{ 
+interface DealerPickerProps {
     selectedDealer?: string | null;
     onDealersFiltered: (dealers: Dealer[]) => void;
-}> = ({ selectedDealer: initialDealer, onDealersFiltered }) => {
+}
+
+const DealerPicker: React.FC<DealerPickerProps> = ({ 
+    selectedDealer: initialDealer, 
+    onDealersFiltered 
+}) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
     const [dealerDetails, setDealerDetails] = useState<DealerDetails | null>(null);
