@@ -57,30 +57,49 @@ const DealerMap: React.FC<{
                     return;
                 }
 
-                const dealersWithCoords = await Promise.all(
-                    response.data.map(async (dealer) => {
-                        const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
-                        console.log('Geocoding:', address);
-                        
-                        try {
-                            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
-                            const geocodeResponse = await axios.get<GeocodeResponse>(geocodeUrl);
+                // Process dealers in smaller batches to avoid rate limits
+                const batchSize = 10;
+                const allDealers = [...response.data];
+                const dealersWithCoords = [];
+
+                for (let i = 0; i < allDealers.length; i += batchSize) {
+                    const batch = allDealers.slice(i, i + batchSize);
+                    console.log(`Processing batch ${i/batchSize + 1}...`);
+
+                    const batchResults = await Promise.all(
+                        batch.map(async (dealer) => {
+                            const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
+                            console.log('Geocoding:', address);
                             
-                            if (geocodeResponse.data.results?.[0]?.geometry?.location) {
-                                const { lat, lng } = geocodeResponse.data.results[0].geometry.location;
-                                return { ...dealer, lat, lng };
+                            try {
+                                const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+                                const geocodeResponse = await axios.get<GeocodeResponse>(geocodeUrl);
+                                console.log('Geocode response:', geocodeResponse.data);
+
+                                if (geocodeResponse.data.results?.[0]?.geometry?.location) {
+                                    const { lat, lng } = geocodeResponse.data.results[0].geometry.location;
+                                    console.log(`Got coordinates for ${dealer.DealershipName}:`, { lat, lng });
+                                    return { ...dealer, lat, lng };
+                                } else {
+                                    console.warn('No coordinates found for:', address);
+                                }
+                            } catch (error) {
+                                console.error('Geocoding error for:', address, error);
                             }
-                        } catch (error) {
-                            console.error('Geocoding error:', error);
-                        }
-                        return dealer;
-                    })
-                );
+                            return dealer;
+                        })
+                    );
+
+                    dealersWithCoords.push(...batchResults);
+                    // Add a small delay between batches
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
 
                 const validDealers = dealersWithCoords.filter((d): d is DealerLocation & { lat: number; lng: number } => 
                     typeof d.lat === 'number' && typeof d.lng === 'number'
                 );
-                console.log('Dealers with coordinates:', validDealers);
+
+                console.log('Final dealers with coordinates:', validDealers);
 
                 if (validDealers.length === 0) {
                     setError('No dealers found with valid coordinates');
