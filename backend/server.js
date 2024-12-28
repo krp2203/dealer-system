@@ -42,45 +42,64 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        const [rows] = await connection.query(`
-            WITH DealerStates AS (
-                SELECT 
-                    KPMDealerNumber,
-                    MAX(State) as State
-                FROM Addresses
-                GROUP BY KPMDealerNumber
-            ),
-            DealerLines AS (
-                SELECT 
-                    KPMDealerNumber,
-                    GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
-                FROM LinesCarried
-                GROUP BY KPMDealerNumber
-            )
+        // Get base dealer data first
+        const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
-                s.SalesmanName,
-                COALESCE(ds.State, '') as State,
-                COALESCE(dl.ProductLines, '') as ProductLines
+                s.SalesmanName
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            LEFT JOIN DealerStates ds ON d.KPMDealerNumber = ds.KPMDealerNumber
-            LEFT JOIN DealerLines dl ON d.KPMDealerNumber = dl.KPMDealerNumber
-            ORDER BY d.DealershipName
         `);
+
+        // Get states
+        const [states] = await connection.query(`
+            SELECT DISTINCT KPMDealerNumber, State
+            FROM Addresses
+            WHERE State IS NOT NULL
+        `);
+
+        // Get product lines
+        const [lines] = await connection.query(`
+            SELECT KPMDealerNumber, LineName
+            FROM LinesCarried
+            WHERE LineName IS NOT NULL
+        `);
+
+        // Create maps for quick lookups
+        const stateMap = new Map();
+        states.forEach(s => {
+            if (s.State) stateMap.set(s.KPMDealerNumber, s.State);
+        });
+
+        const lineMap = new Map();
+        lines.forEach(l => {
+            if (!lineMap.has(l.KPMDealerNumber)) {
+                lineMap.set(l.KPMDealerNumber, new Set());
+            }
+            lineMap.get(l.KPMDealerNumber).add(l.LineName);
+        });
+
+        // Combine the data
+        const combinedData = dealers.map(dealer => ({
+            ...dealer,
+            State: stateMap.get(dealer.KPMDealerNumber) || '',
+            ProductLines: lineMap.has(dealer.KPMDealerNumber) 
+                ? Array.from(lineMap.get(dealer.KPMDealerNumber)).sort().join(', ')
+                : ''
+        }));
 
         // Log sample data
         console.log('Sample data:', {
-            total: rows.length,
-            first: rows[0],
-            salesmen: [...new Set(rows.map(r => r.SalesmanName).filter(Boolean))],
-            productLines: [...new Set(rows.flatMap(r => (r.ProductLines || '').split(',').map(l => l.trim())).filter(Boolean))]
+            total: combinedData.length,
+            first: combinedData[0],
+            salesmen: [...new Set(combinedData.map(d => d.SalesmanName).filter(Boolean))],
+            productLines: [...new Set(combinedData.flatMap(d => d.ProductLines ? d.ProductLines.split(',').map(l => l.trim()) : []).filter(Boolean))]
         });
 
-        res.json(rows);
+        res.json(combinedData);
     } catch (error) {
         console.error('Database error:', error);
         res.status(500).json({ 
