@@ -6,18 +6,6 @@ interface Dealer {
     KPMDealerNumber: string;
     DealershipName: string;
     DBA?: string;
-    salesman?: {
-        SalesmanName: string;
-        SalesmanCode: string;
-    };
-    lines?: Array<{
-        LineName: string;
-        AccountNumber: string;
-    }>;
-    address?: {
-        State: string;
-        // ... other address fields
-    };
 }
 
 interface DealerDetails {
@@ -49,9 +37,6 @@ interface DealerDetails {
 
 const API_URL = 'http://35.212.41.99:3002';
 
-// Add a type for the filter keys
-type FilterKey = 'salesman.SalesmanName' | 'lines' | 'address.State';
-
 const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
@@ -65,11 +50,6 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const detailsRef = useRef<HTMLDivElement>(null);
-    const [filters, setFilters] = useState({
-        salesman: '',
-        productLine: '',
-        state: ''
-    });
 
     useEffect(() => {
         const fetchDealers = async () => {
@@ -180,36 +160,10 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
     };
 
-    const getUniqueValues = (dealers: Dealer[], key: FilterKey): string[] => {
-        const values = new Set<string>();
-        dealers.forEach(dealer => {
-            if (key === 'salesman.SalesmanName' && dealer.salesman) {
-                values.add(dealer.salesman.SalesmanName);
-            } else if (key === 'lines' && dealer.lines) {
-                dealer.lines.forEach(line => values.add(line.LineName));
-            } else if (key === 'address.State' && dealer.address) {
-                values.add(dealer.address.State);
-            }
-        });
-        return Array.from(values).sort();
-    };
-
-    const filteredDealers = dealers.filter(dealer => {
-        const matchesSearch = 
-            dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase());
-
-        const matchesSalesman = !filters.salesman || 
-            dealer.salesman?.SalesmanName === filters.salesman;
-
-        const matchesProductLine = !filters.productLine || 
-            dealer.lines?.some(line => line.LineName === filters.productLine);
-
-        const matchesState = !filters.state || 
-            dealer.address?.State === filters.state;
-
-        return matchesSearch && matchesSalesman && matchesProductLine && matchesState;
-    });
+    const filteredDealers = dealers.filter(dealer => 
+        dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     useEffect(() => {
         if (initialDealer) {
@@ -237,38 +191,6 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     return (
         <div className="details-section">
             <div className="dealer-picker">
-                <div className="filter-container">
-                    <select 
-                        value={filters.salesman}
-                        onChange={(e) => setFilters({...filters, salesman: e.target.value})}
-                    >
-                        <option value="">All Salesmen</option>
-                        {getUniqueValues(dealers, 'salesman.SalesmanName').map(name => (
-                            <option key={name} value={name}>{name}</option>
-                        ))}
-                    </select>
-
-                    <select 
-                        value={filters.productLine}
-                        onChange={(e) => setFilters({...filters, productLine: e.target.value})}
-                    >
-                        <option value="">All Product Lines</option>
-                        {getUniqueValues(dealers, 'lines').map(line => (
-                            <option key={line} value={line}>{line}</option>
-                        ))}
-                    </select>
-
-                    <select 
-                        value={filters.state}
-                        onChange={(e) => setFilters({...filters, state: e.target.value})}
-                    >
-                        <option value="">All States</option>
-                        {getUniqueValues(dealers, 'address.State').map(state => (
-                            <option key={state} value={state}>{state}</option>
-                        ))}
-                    </select>
-                </div>
-
                 <div className="search-container">
                     <input
                         type="text"

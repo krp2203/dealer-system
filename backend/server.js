@@ -38,36 +38,51 @@ console.log('Attempting to connect to database with config:', {
 
 // Get list of all dealers
 app.get('/api/dealers', async (req, res) => {
+    console.log('Received request for dealers');
     let connection;
     try {
-        connection = await mysql.createConnection(dbConfig);
+        console.log('Creating database connection...', {
+            host: dbConfig.host,
+            database: dbConfig.database,
+            user: dbConfig.user
+        });
         
+        connection = await mysql.createConnection(dbConfig);
+        console.log('Database connected successfully');
+
         const [rows] = await connection.query(`
             SELECT DISTINCT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
-                d.SalesmanCode,
-                s.SalesmanName,
-                a.State,
-                GROUP_CONCAT(DISTINCT l.LineName) as ProductLines
+                d.SalesmanCode
             FROM Dealerships d
-            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            LEFT JOIN LinesCarried l ON d.KPMDealerNumber = l.KPMDealerNumber
-            GROUP BY d.KPMDealerNumber
             ORDER BY d.DealershipName
         `);
-
+        console.log(`Successfully fetched ${rows.length} dealers`);
         res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
+        console.error('Connection config:', {
+        host: dbConfig.host,
+        port: dbConfig.port,
+        user: dbConfig.user,
+        database: dbConfig.database
+    });
         res.status(500).json({ 
             error: 'Failed to fetch dealers',
-            details: error.message
+            details: error.message,
+            code: error.code
         });
     } finally {
-        if (connection) await connection.end();
+        if (connection) {
+            try {
+                await connection.end();
+                console.log('Database connection closed');
+            } catch (err) {
+                console.error('Error closing connection:', err);
+            }
+        }
     }
 });
 

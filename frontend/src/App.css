@@ -253,36 +253,3 @@
         max-height: 300px;
     }
 }
-
-.filter-container {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-}
-
-.filter-container select {
-    flex: 1;
-    min-width: 150px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background-color: white;
-    font-size: 0.9em;
-}
-
-.filter-container select:focus {
-    border-color: #282c34;
-    outline: none;
-}
-
-@media screen and (max-width: 768px) {
-    .filter-container {
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .filter-container select {
-        width: 100%;
-    }
-}
