@@ -19,22 +19,30 @@ app.use(cors({
 
 // Database configuration
 const dbConfig = {
-    host: '34.48.50.74',
-    port: 3306,
-    user: 'krp2203',
-    password: 'f_j(/"xa|i=h+ccU',
-    database: 'kpm dealer data',
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT || '3306'),
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
     connectTimeout: 10000
 };
+
+// Add debug logging
+console.log('Attempting to connect to database with config:', {
+    host: dbConfig.host,
+    port: dbConfig.port,
+    user: dbConfig.user,
+    database: dbConfig.database
+});
 
 // Get list of all dealers
 app.get('/api/dealers', async (req, res) => {
     console.log('Received request for dealers');
     let connection;
     try {
-        // Create a new connection for each request
+        console.log('Creating database connection...');
         connection = await mysql.createConnection(dbConfig);
-        console.log('Database connected');
+        console.log('Database connected successfully');
 
         const [rows] = await connection.query(`
             SELECT DISTINCT 
@@ -49,6 +57,12 @@ app.get('/api/dealers', async (req, res) => {
         res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
+        console.error('Connection config:', {
+            host: dbConfig.host,
+            port: dbConfig.port,
+            user: dbConfig.user,
+            database: dbConfig.database
+        });
         res.status(500).json({ 
             error: 'Failed to fetch dealers',
             details: error.message,
