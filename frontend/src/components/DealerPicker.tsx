@@ -160,15 +160,24 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
 
     // Add helper functions for getting unique values
     const getUniqueSalesmen = (dealers: Dealer[]): string[] => {
-        // Log raw data
-        console.log('Raw salesmen data:', dealers.map(d => ({
+        // Log raw data for first few dealers
+        console.log('Raw salesmen data:', dealers.slice(0, 3).map(d => ({
             name: d.DealershipName,
             salesman: d.SalesmanName,
-            raw: d
+            salesmanCode: d.SalesmanCode,
+            fullDealer: JSON.stringify(d)
         })));
 
         const salesmen = dealers
-            .filter(d => d.SalesmanName && d.SalesmanName.trim().length > 0)
+            .filter(d => {
+                console.log('Checking salesman:', {
+                    name: d.DealershipName,
+                    salesman: d.SalesmanName,
+                    type: typeof d.SalesmanName,
+                    length: d.SalesmanName?.length
+                });
+                return d.SalesmanName && d.SalesmanName.trim().length > 0;
+            })
             .map(d => d.SalesmanName!.trim());
 
         console.log('Found salesmen:', salesmen);
@@ -183,15 +192,24 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     };
 
     const getUniqueProductLines = (dealers: Dealer[]): string[] => {
-        // Log raw data
-        console.log('Raw product lines data:', dealers.map(d => ({
+        // Log raw data for first few dealers
+        console.log('Raw product lines data:', dealers.slice(0, 3).map(d => ({
             name: d.DealershipName,
             lines: d.ProductLines,
-            raw: d
+            type: typeof d.ProductLines,
+            fullDealer: JSON.stringify(d)
         })));
 
         const allLines = dealers
-            .filter(d => d.ProductLines)
+            .filter(d => {
+                console.log('Checking product lines:', {
+                    name: d.DealshipName,
+                    lines: d.ProductLines,
+                    type: typeof d.ProductLines,
+                    length: d.ProductLines?.length
+                });
+                return d.ProductLines && d.ProductLines.trim().length > 0;
+            })
             .flatMap(d => {
                 const lines = d.ProductLines!.split(',')
                     .map(line => line.trim())
