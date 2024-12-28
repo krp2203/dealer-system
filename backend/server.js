@@ -552,8 +552,12 @@ app.get('/api/dealers/coordinates', async (req, res) => {
             FROM Dealerships d
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             WHERE a.StreetAddress IS NOT NULL
+                AND a.City IS NOT NULL
+                AND a.State IS NOT NULL
+                AND a.ZipCode IS NOT NULL
         `);
         
+        console.log(`Found ${dealers.length} dealers with valid addresses`);
         res.json(dealers);
     } catch (error) {
         console.error('Error fetching dealer coordinates:', error);
