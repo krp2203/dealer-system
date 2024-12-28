@@ -42,50 +42,40 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        console.log('Fetching base dealer data...');
-        const [dealers] = await connection.query(`
+        const [rows] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
-                s.SalesmanName
+                s.SalesmanName,
+                a.State,
+                COALESCE(l.ProductLines, '') as ProductLines
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            LEFT JOIN (
+                SELECT DISTINCT KPMDealerNumber, State
+                FROM Addresses
+            ) a ON d.KPMDealerNumber = a.KPMDealerNumber
+            LEFT JOIN (
+                SELECT 
+                    KPMDealerNumber,
+                    GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
+                FROM LinesCarried
+                GROUP BY KPMDealerNumber
+            ) l ON d.KPMDealerNumber = l.KPMDealerNumber
             ORDER BY d.DealershipName
         `);
-        console.log(`Found ${dealers.length} dealers`);
 
-        console.log('Fetching states...');
-        const [states] = await connection.query(`
-            SELECT DISTINCT KPMDealerNumber, State
-            FROM Addresses
-        `);
-        console.log(`Found ${states.length} states`);
+        // Log sample data
+        console.log('Sample data:', {
+            total: rows.length,
+            first: rows[0],
+            salesmen: [...new Set(rows.map(r => r.SalesmanName).filter(Boolean))],
+            productLines: [...new Set(rows.flatMap(r => (r.ProductLines || '').split(',').map(l => l.trim())).filter(Boolean))]
+        });
 
-        console.log('Fetching product lines...');
-        const [lines] = await connection.query(`
-            SELECT 
-                KPMDealerNumber,
-                GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
-            FROM LinesCarried
-            GROUP BY KPMDealerNumber
-        `);
-        console.log(`Found ${lines.length} product line entries`);
-
-        // Create a map for quick lookups
-        const stateMap = new Map(states.map(s => [s.KPMDealerNumber, s.State]));
-        const lineMap = new Map(lines.map(l => [l.KPMDealerNumber, l.ProductLines]));
-
-        // Combine the data
-        const combinedData = dealers.map(dealer => ({
-            ...dealer,
-            State: stateMap.get(dealer.KPMDealerNumber) || '',
-            ProductLines: lineMap.get(dealer.KPMDealerNumber) || ''
-        }));
-
-        console.log('Sample combined data:', combinedData.slice(0, 2));
-        res.json(combinedData);
+        res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
         res.status(500).json({ 

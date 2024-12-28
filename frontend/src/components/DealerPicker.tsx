@@ -160,20 +160,19 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
 
     // Add helper functions for getting unique values
     const getUniqueSalesmen = (dealers: Dealer[]): string[] => {
+        // Log raw data
+        console.log('Raw salesmen data:', dealers.map(d => ({
+            name: d.DealershipName,
+            salesman: d.SalesmanName,
+            raw: d
+        })));
+
         const salesmen = dealers
-            .filter(d => {
-                console.log('Checking dealer for salesman:', {
-                    name: d.DealershipName,
-                    salesmanName: d.SalesmanName,
-                    salesmanCode: d.SalesmanCode
-                });
-                return d.SalesmanName && d.SalesmanName.trim().length > 0;
-            })
+            .filter(d => d.SalesmanName && d.SalesmanName.trim().length > 0)
             .map(d => d.SalesmanName!.trim());
-        
-        const uniqueSalesmen = Array.from(new Set(salesmen)).sort();
-        console.log('Found unique salesmen:', uniqueSalesmen);
-        return uniqueSalesmen;
+
+        console.log('Found salesmen:', salesmen);
+        return Array.from(new Set(salesmen)).sort();
     };
 
     const getUniqueStates = (dealers: Dealer[]): string[] => {
@@ -184,15 +183,15 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     };
 
     const getUniqueProductLines = (dealers: Dealer[]): string[] => {
+        // Log raw data
+        console.log('Raw product lines data:', dealers.map(d => ({
+            name: d.DealershipName,
+            lines: d.ProductLines,
+            raw: d
+        })));
+
         const allLines = dealers
-            .filter(d => {
-                console.log('Checking dealer for product lines:', {
-                    name: d.DealershipName,
-                    productLines: d.ProductLines,
-                    type: typeof d.ProductLines
-                });
-                return d.ProductLines;
-            })
+            .filter(d => d.ProductLines)
             .flatMap(d => {
                 const lines = d.ProductLines!.split(',')
                     .map(line => line.trim())
@@ -200,10 +199,9 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
                 console.log(`Lines for ${d.DealershipName}:`, lines);
                 return lines;
             });
-        
-        const uniqueLines = Array.from(new Set(allLines)).sort();
-        console.log('Found unique product lines:', uniqueLines);
-        return uniqueLines;
+
+        console.log('Found product lines:', allLines);
+        return Array.from(new Set(allLines)).sort();
     };
 
     const filteredDealers = dealers.filter(dealer => {
@@ -250,12 +248,11 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     }, [filters, searchTerm, dealers, onDealersFiltered]);
 
     useEffect(() => {
-        console.log('Raw dealer data:', dealers.slice(0, 3).map(d => ({
-            name: d.DealershipName,
-            salesman: d.SalesmanName,
-            productLines: d.ProductLines,
-            fullDealer: d
-        })));
+        console.log('Raw dealer data:', {
+            first: dealers[0],
+            salesmen: dealers.map(d => d.SalesmanName).filter(Boolean),
+            productLines: dealers.map(d => d.ProductLines).filter(Boolean)
+        });
     }, [dealers]);
 
     if (loading) return <div>Loading dealer details...</div>;
