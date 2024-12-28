@@ -208,7 +208,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                                         className="search-result-item"
                                         onClick={() => {
                                             loadDealerDetails(dealer.KPMDealerNumber);
-                                            setSearchTerm(dealer.DealershipName);
+                                            setSearchTerm('');
                                             setIsDropdownVisible(false);
                                         }}
                                     >
