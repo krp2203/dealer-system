@@ -47,6 +47,8 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const [editedDetails, setEditedDetails] = useState<DealerDetails | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [selectedDealerName, setSelectedDealerName] = useState<string>('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isDropdownVisible, setIsDropdownVisible] = useState(false);
 
     useEffect(() => {
         const fetchDealers = async () => {
@@ -155,11 +157,30 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
     };
 
+    const filteredDealers = dealers.filter(dealer => 
+        dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     useEffect(() => {
         if (initialDealer) {
             loadDealerDetails(initialDealer);
         }
     }, [initialDealer, dealers]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const searchContainer = document.querySelector('.search-container');
+            if (searchContainer && !searchContainer.contains(event.target as Node)) {
+                setIsDropdownVisible(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
@@ -167,18 +188,40 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     return (
         <div className="details-section">
             <div className="dealer-picker">
-                <select 
-                    value={selectedDealer || ''} 
-                    onChange={handleDealerChange}
-                    style={{ width: '100%' }}
-                >
-                    <option value="">Select a Dealer</option>
-                    {dealers.map(dealer => (
-                        <option key={dealer.KPMDealerNumber} value={dealer.KPMDealerNumber}>
-                            {dealer.DealershipName}
-                        </option>
-                    ))}
-                </select>
+                <div className="search-container">
+                    <input
+                        type="text"
+                        placeholder="Search dealers by name or number..."
+                        value={searchTerm}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setIsDropdownVisible(true);
+                        }}
+                        onFocus={() => setIsDropdownVisible(true)}
+                    />
+                    {isDropdownVisible && searchTerm && (
+                        <div className="search-results">
+                            {filteredDealers.length > 0 ? (
+                                filteredDealers.map(dealer => (
+                                    <div
+                                        key={dealer.KPMDealerNumber}
+                                        className="search-result-item"
+                                        onClick={() => {
+                                            loadDealerDetails(dealer.KPMDealerNumber);
+                                            setSearchTerm(dealer.DealershipName);
+                                            setIsDropdownVisible(false);
+                                        }}
+                                    >
+                                        <div className="dealer-name">{dealer.DealershipName}</div>
+                                        <div className="dealer-number">{dealer.KPMDealerNumber}</div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="no-results">No dealers found</div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {selectedDealerName && (
