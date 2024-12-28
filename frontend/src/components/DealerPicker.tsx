@@ -232,6 +232,33 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                     <h2 className="dealer-title">{selectedDealerName}</h2>
                     {dealerDetails && (
                         <div className="dealer-details">
+                            <div className="edit-buttons">
+                                {isEditing ? (
+                                    <>
+                                        <button 
+                                            className="save-button" 
+                                            onClick={handleSave}
+                                            disabled={isSaving}
+                                        >
+                                            {isSaving ? 'Saving...' : 'Save Changes'}
+                                        </button>
+                                        <button 
+                                            className="cancel-button" 
+                                            onClick={handleCancel}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button 
+                                        className="edit-button" 
+                                        onClick={handleEdit}
+                                    >
+                                        Edit Details
+                                    </button>
+                                )}
+                            </div>
+
                             <section>
                                 <h3>Basic Information</h3>
                                 <p><strong>Dealer Number:</strong> {dealerDetails.KPMDealerNumber}</p>
