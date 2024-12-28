@@ -171,6 +171,11 @@ const DealerMap: React.FC<{
     if (error) return <div>Error: {error}</div>;
     if (dealers.length === 0) return <div>No dealers found</div>;
 
+    console.log('Rendering map with dealers:', dealers.map(d => ({
+        name: d.DealershipName,
+        coords: { lat: d.lat, lng: d.lng }
+    })));
+
     return (
         <div className="map-container">
             <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
