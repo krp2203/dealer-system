@@ -69,7 +69,7 @@ app.get('/api/dealers', async (req, res) => {
 
         // Update the main query to be more explicit about JOINs
         const [rows] = await connection.query(`
-            SELECT DISTINCT 
+            SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
@@ -78,8 +78,8 @@ app.get('/api/dealers', async (req, res) => {
                 a.State,
                 (
                     SELECT GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ')
-                    FROM LinesCarried
-                    WHERE KPMDealerNumber = d.KPMDealerNumber
+                    FROM LinesCarried lc
+                    WHERE lc.KPMDealerNumber = d.KPMDealerNumber
                 ) as ProductLines,
                 a.StreetAddress,
                 a.City,
@@ -88,19 +88,10 @@ app.get('/api/dealers', async (req, res) => {
                 a.lng
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            GROUP BY 
-                d.KPMDealerNumber, 
-                d.DealershipName,
-                d.DBA,
-                d.SalesmanCode,
-                s.SalesmanName,
-                a.State,
-                a.StreetAddress,
-                a.City,
-                a.ZipCode,
-                a.lat,
-                a.lng
+            LEFT JOIN (
+                SELECT DISTINCT KPMDealerNumber, State, StreetAddress, City, ZipCode, lat, lng
+                FROM Addresses
+            ) a ON d.KPMDealerNumber = a.KPMDealerNumber
             ORDER BY d.DealershipName
         `);
 
@@ -108,7 +99,8 @@ app.get('/api/dealers', async (req, res) => {
         console.log('Sample dealer data:', rows.slice(0, 2).map(row => ({
             name: row.DealershipName,
             salesman: row.SalesmanName,
-            productLines: row.ProductLines
+            productLines: row.ProductLines,
+            state: row.State
         })));
 
         res.json(rows);
