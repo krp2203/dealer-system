@@ -52,51 +52,61 @@ app.get('/api/dealers', async (req, res) => {
                 s.SalesmanName
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            ORDER BY d.DealershipName
         `);
         console.log('Base dealer data:', dealers[0]);
 
-        // Get states
+        // Get all states
         const [states] = await connection.query(`
-            SELECT DISTINCT KPMDealerNumber, State 
+            SELECT KPMDealerNumber, State 
             FROM Addresses
+            WHERE State IS NOT NULL
         `);
         console.log('States data:', states.slice(0, 2));
 
-        // Get product lines
+        // Get all product lines
         const [lines] = await connection.query(`
             SELECT 
                 KPMDealerNumber,
-                GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
+                LineName
             FROM LinesCarried
-            GROUP BY KPMDealerNumber
+            WHERE LineName IS NOT NULL
         `);
         console.log('Product lines data:', lines.slice(0, 2));
 
         // Create maps for quick lookups
-        const stateMap = new Map(states.map(s => [s.KPMDealerNumber, s.State || '']));
-        const lineMap = new Map(lines.map(l => [l.KPMDealerNumber, l.ProductLines || '']));
+        const stateMap = new Map();
+        states.forEach(s => {
+            if (s.State) stateMap.set(s.KPMDealerNumber, s.State);
+        });
+
+        const lineMap = new Map();
+        lines.forEach(l => {
+            if (!lineMap.has(l.KPMDealerNumber)) {
+                lineMap.set(l.KPMDealerNumber, new Set());
+            }
+            if (l.LineName) {
+                lineMap.get(l.KPMDealerNumber).add(l.LineName);
+            }
+        });
 
         // Combine the data
         const combinedData = dealers.map(dealer => {
+            const lines = lineMap.get(dealer.KPMDealerNumber);
             const combined = {
                 ...dealer,
                 State: stateMap.get(dealer.KPMDealerNumber) || '',
-                ProductLines: lineMap.get(dealer.KPMDealerNumber) || ''
+                ProductLines: lines ? Array.from(lines).sort().join(', ') : ''
             };
-            if (!combined.SalesmanName || !combined.ProductLines) {
-                console.log('Missing data for dealer:', {
-                    name: dealer.DealershipName,
-                    id: dealer.KPMDealerNumber,
-                    salesman: combined.SalesmanName,
-                    lines: combined.ProductLines
-                });
-            }
             return combined;
         });
 
         // Log sample data
-        console.log('Final data sample:', combinedData.slice(0, 2));
+        console.log('Final data sample:', {
+            total: combinedData.length,
+            first: combinedData[0],
+            salesmen: [...new Set(combinedData.map(d => d.SalesmanName).filter(Boolean))],
+            productLines: [...new Set(combinedData.flatMap(d => d.ProductLines ? d.ProductLines.split(',').map(l => l.trim()) : []).filter(Boolean))]
+        });
 
         res.json(combinedData);
     } catch (error) {
