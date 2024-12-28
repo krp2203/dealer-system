@@ -42,7 +42,15 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // Log sample data from each table
+        // First, let's verify the data exists in each table
+        const [salesmanCount] = await connection.query('SELECT COUNT(*) as count FROM Salesman');
+        const [linesCount] = await connection.query('SELECT COUNT(*) as count FROM LinesCarried');
+        console.log('Table counts:', {
+            salesmanCount: salesmanCount[0].count,
+            linesCount: linesCount[0].count
+        });
+
+        // Then get a sample from each table
         const [salesmanSample] = await connection.query('SELECT * FROM Salesman LIMIT 1');
         const [linesSample] = await connection.query('SELECT * FROM LinesCarried LIMIT 1');
         console.log('Sample data:', {
@@ -50,15 +58,16 @@ app.get('/api/dealers', async (req, res) => {
             lines: linesSample[0]
         });
         
+        // Update the main query to be more explicit about JOINs
         const [rows] = await connection.query(`
             SELECT DISTINCT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
-                s.SalesmanName,
+                COALESCE(s.SalesmanName, '') as SalesmanName,
                 a.State,
-                GROUP_CONCAT(DISTINCT l.LineName ORDER BY l.LineName SEPARATOR ', ') as ProductLines,
+                COALESCE(GROUP_CONCAT(DISTINCT l.LineName ORDER BY l.LineName SEPARATOR ', '), '') as ProductLines,
                 a.StreetAddress,
                 a.City,
                 a.ZipCode,
@@ -83,8 +92,8 @@ app.get('/api/dealers', async (req, res) => {
             ORDER BY d.DealershipName
         `);
 
-        // Log first dealer to verify data
-        console.log('First dealer:', rows[0]);
+        // Log the first dealer to verify data
+        console.log('First dealer:', JSON.stringify(rows[0], null, 2));
         
         res.json(rows);
     } catch (error) {
