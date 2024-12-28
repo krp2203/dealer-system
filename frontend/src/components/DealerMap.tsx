@@ -90,7 +90,8 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
 
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
-}> = ({ onDealerSelect }) => {
+    selectedSalesman?: string;
+}> = ({ onDealerSelect, selectedSalesman }) => {
     const [dealers, setDealers] = useState<DealerLocation[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
     const [mapCenter] = useState({ lat: 38.5, lng: -77.5 });
@@ -161,6 +162,14 @@ const DealerMap: React.FC<{
         fetchDealers();
     }, []);
 
+    // Filter dealers based on selectedSalesman
+    const visibleDealers = dealers.filter(dealer => {
+        if (selectedSalesman) {
+            return dealer.SalesmanCode === selectedSalesman;
+        }
+        return true;
+    });
+
     if (loading) {
         return <div className="map-container">Loading dealers...</div>;
     }
@@ -183,8 +192,19 @@ const DealerMap: React.FC<{
                     rotateControl: true,
                     fullscreenControl: true
                 }}
+                onLoad={(map) => {
+                    if (visibleDealers.length > 0) {
+                        const bounds = new window.google.maps.LatLngBounds();
+                        visibleDealers.forEach(dealer => {
+                            if (dealer.lat && dealer.lng) {
+                                bounds.extend({ lat: dealer.lat, lng: dealer.lng });
+                            }
+                        });
+                        map.fitBounds(bounds);
+                    }
+                }}
             >
-                {dealers && dealers.map(dealer => {
+                {visibleDealers.map(dealer => {
                     if (!dealer?.lat || !dealer?.lng) return null;
                     return (
                         <Marker

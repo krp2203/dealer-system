@@ -43,7 +43,10 @@ interface Salesman {
 
 const API_URL = 'http://35.212.41.99:3002';
 
-const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
+const DealerPicker: React.FC<{ 
+    selectedDealer?: string | null;
+    onSalesmanSelect: (salesmanCode: string) => void;
+}> = ({ selectedDealer: initialDealer, onSalesmanSelect }) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
     const [dealerDetails, setDealerDetails] = useState<DealerDetails | null>(null);
@@ -213,6 +216,12 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         };
     }, []);
 
+    const handleSalesmanChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const salesmanCode = e.target.value;
+        setSelectedSalesman(salesmanCode);
+        onSalesmanSelect(salesmanCode);
+    };
+
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
 
@@ -222,7 +231,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                 <div className="filter-container">
                     <select
                         value={selectedSalesman}
-                        onChange={(e) => setSelectedSalesman(e.target.value)}
+                        onChange={handleSalesmanChange}
                         className="salesman-filter"
                     >
                         <option value="">All Salesmen</option>
