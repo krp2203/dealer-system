@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 const cors = require('cors');
 
 const app = express();
@@ -24,40 +24,19 @@ const dbConfig = {
     user: 'krp2203',
     password: 'f_j(/"xa|i=h+ccU',
     database: 'kpm dealer data',
-    connectTimeout: 10000,
-    waitForConnections: true,
-    connectionLimit: 5,
-    queueLimit: 0,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0
+    connectTimeout: 10000
 };
-
-// Create a connection pool for better performance
-const pool = mysql.createPool(dbConfig);
-const promisePool = pool.promise();
-
-// Add more detailed error logging
-pool.on('connection', () => {
-    console.log('New database connection established');
-});
-
-pool.on('error', (err) => {
-    console.error('Database pool error:', err);
-});
-
-pool.on('acquire', () => {
-    console.log('Connection acquired from pool');
-});
-
-pool.on('release', () => {
-    console.log('Connection released back to pool');
-});
 
 // Get list of all dealers
 app.get('/api/dealers', async (req, res) => {
     console.log('Received request for dealers');
+    let connection;
     try {
-        const [rows] = await promisePool.query(`
+        // Create a new connection for each request
+        connection = await mysql.createConnection(dbConfig);
+        console.log('Database connected');
+
+        const [rows] = await connection.query(`
             SELECT DISTINCT 
                 d.KPMDealerNumber,
                 d.DealershipName,
@@ -75,6 +54,15 @@ app.get('/api/dealers', async (req, res) => {
             details: error.message,
             code: error.code
         });
+    } finally {
+        if (connection) {
+            try {
+                await connection.end();
+                console.log('Database connection closed');
+            } catch (err) {
+                console.error('Error closing connection:', err);
+            }
+        }
     }
 });
 
