@@ -14,6 +14,8 @@ interface DealerLocation {
     lng?: number;
 }
 
+const GOOGLE_MAPS_API_KEY = 'AIzaSyCKWHs3ywhjQ7kfakEuv0dfxeuCMvzRrZs';
+
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
 }> = ({ onDealerSelect }) => {
@@ -27,7 +29,7 @@ const DealerMap: React.FC<{
                 const response = await axios.get('http://35.212.41.99:3002/api/dealers/coordinates');
                 const dealersWithCoords = await Promise.all(response.data.map(async (dealer: DealerLocation) => {
                     const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
-                    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=YOUR_GOOGLE_MAPS_API_KEY`;
+                    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
                     
                     try {
                         const geocodeResponse = await axios.get(geocodeUrl);
@@ -56,7 +58,7 @@ const DealerMap: React.FC<{
     };
 
     return (
-        <LoadScript googleMapsApiKey="YOUR_GOOGLE_MAPS_API_KEY">
+        <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
             <GoogleMap
                 mapContainerStyle={mapStyles}
                 zoom={4}
