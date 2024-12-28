@@ -42,7 +42,7 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // Get base dealer data
+        console.log('Fetching base dealer data...');
         const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
@@ -54,14 +54,16 @@ app.get('/api/dealers', async (req, res) => {
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             ORDER BY d.DealershipName
         `);
+        console.log(`Found ${dealers.length} dealers`);
 
-        // Get states
+        console.log('Fetching states...');
         const [states] = await connection.query(`
             SELECT DISTINCT KPMDealerNumber, State
             FROM Addresses
         `);
+        console.log(`Found ${states.length} states`);
 
-        // Get product lines
+        console.log('Fetching product lines...');
         const [lines] = await connection.query(`
             SELECT 
                 KPMDealerNumber,
@@ -69,6 +71,7 @@ app.get('/api/dealers', async (req, res) => {
             FROM LinesCarried
             GROUP BY KPMDealerNumber
         `);
+        console.log(`Found ${lines.length} product line entries`);
 
         // Create a map for quick lookups
         const stateMap = new Map(states.map(s => [s.KPMDealerNumber, s.State]));
@@ -81,14 +84,7 @@ app.get('/api/dealers', async (req, res) => {
             ProductLines: lineMap.get(dealer.KPMDealerNumber) || ''
         }));
 
-        // Add logging to verify the data
-        console.log('Sample dealer data:', combinedData.slice(0, 2).map(row => ({
-            name: row.DealershipName,
-            salesman: row.SalesmanName,
-            productLines: row.ProductLines,
-            state: row.State
-        })));
-
+        console.log('Sample combined data:', combinedData.slice(0, 2));
         res.json(combinedData);
     } catch (error) {
         console.error('Database error:', error);
