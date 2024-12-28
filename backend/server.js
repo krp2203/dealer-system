@@ -75,6 +75,9 @@ app.get('/api/dealers', async (req, res) => {
             ORDER BY d.DealershipName
         `);
 
+        // Log the first few rows to check the data
+        console.log('Sample of dealer data:', rows.slice(0, 3));
+        
         res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
