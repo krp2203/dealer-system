@@ -67,7 +67,11 @@ app.get('/api/dealers', async (req, res) => {
                 d.SalesmanCode,
                 s.SalesmanName,
                 a.State,
-                GROUP_CONCAT(DISTINCT l.LineName ORDER BY l.LineName SEPARATOR ', ') as ProductLines,
+                (
+                    SELECT GROUP_CONCAT(DISTINCT LineName SEPARATOR ', ')
+                    FROM LinesCarried
+                    WHERE KPMDealerNumber = d.KPMDealerNumber
+                ) as ProductLines,
                 a.StreetAddress,
                 a.City,
                 a.ZipCode,
@@ -76,7 +80,6 @@ app.get('/api/dealers', async (req, res) => {
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            LEFT JOIN LinesCarried l ON d.KPMDealerNumber = l.KPMDealerNumber
             GROUP BY 
                 d.KPMDealerNumber, 
                 d.DealershipName,
@@ -92,8 +95,12 @@ app.get('/api/dealers', async (req, res) => {
             ORDER BY d.DealershipName
         `);
 
-        // Log the first dealer to verify data
-        console.log('First dealer:', JSON.stringify(rows[0], null, 2));
+        // Log first row to verify data
+        console.log('First row data:', {
+            name: rows[0].DealershipName,
+            salesman: rows[0].SalesmanName,
+            productLines: rows[0].ProductLines
+        });
         
         res.json(rows);
     } catch (error) {
