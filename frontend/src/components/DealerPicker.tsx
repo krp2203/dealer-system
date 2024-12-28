@@ -104,29 +104,27 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     };
 
     const handleSave = async () => {
-        if (!editedDetails) return;
+        if (!editedDetails || !selectedDealer) return;
         setIsSaving(true);
         try {
-            console.log('Sending data to server:', editedDetails);
+            console.log('Sending updates:', editedDetails);
             
             const response = await axios.put<DealerDetails>(
                 `${API_URL}/api/dealers/${selectedDealer}`, 
                 editedDetails
             );
-            console.log('Server response:', response.data);
-            
-            // Update both states with the response data
-            setDealerDetails(response.data);
-            setEditedDetails(response.data);
-            setIsEditing(false);
-            
-            // Refresh the dealers list
-            const dealersResponse = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
-            console.log('Updated dealers list:', dealersResponse.data);
-            setDealers(dealersResponse.data);
+
+            if (response.data) {
+                setDealerDetails(response.data);
+                setEditedDetails(null);
+                setIsEditing(false);
+                
+                // Show success message
+                alert('Changes saved successfully!');
+            }
         } catch (err) {
             console.error('Save error:', err);
-            setError('Failed to save dealer details');
+            alert('Failed to save changes. Please try again.');
         } finally {
             setIsSaving(false);
         }

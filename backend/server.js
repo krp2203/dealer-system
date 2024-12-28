@@ -323,224 +323,55 @@ app.get('/', (req, res) => {
     res.json({ message: 'KPM Dealer Database API' });
 });
 
-// Add this new endpoint
+// Add this endpoint for updating dealer details
 app.put('/api/dealers/:dealerNumber', async (req, res) => {
     let connection;
     try {
-        const dealerNumber = req.params.dealerNumber;
-        const updatedDealer = req.body;
-        
-        console.log('=== START UPDATE ===');
-        console.log('Updating dealer:', dealerNumber);
-        console.log('Received data:', JSON.stringify(updatedDealer, null, 2));
-
-        // Create connection
         connection = await mysql.createConnection(dbConfig);
+        const dealerNumber = req.params.dealerNumber;
+        const updates = req.body;
 
-        // Log each update operation
-        console.log('Updating Dealerships table...');
-        const [dealerResult] = await connection.query(`
+        // Update basic info
+        await connection.query(`
             UPDATE Dealerships 
-            SET DealershipName = ?, DBA = ?
+            SET DBA = ?
             WHERE KPMDealerNumber = ?
-        `, [updatedDealer.DealershipName, updatedDealer.DBA, dealerNumber]);
-        console.log('Dealerships update result:', dealerResult);
+        `, [updates.DBA, dealerNumber]);
 
-        // Update Addresses - first check if address exists
-        const [existingAddress] = await connection.query(`
-            SELECT * FROM Addresses WHERE KPMDealerNumber = ?
-        `, [dealerNumber]);
+        // Update contact info
+        await connection.query(`
+            UPDATE ContactInformation 
+            SET MainPhone = ?, FaxNumber = ?, MainEmail = ?
+            WHERE KPMDealerNumber = ?
+        `, [updates.contact.MainPhone, updates.contact.FaxNumber, updates.contact.MainEmail, dealerNumber]);
 
-        if (existingAddress.length === 0) {
-            // Insert new address
-            await connection.query(`
-                INSERT INTO Addresses (
-                    KPMDealerNumber, 
-                    StreetAddress, 
-                    City, 
-                    State, 
-                    ZipCode, 
-                    County, 
-                    BoxNumber
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            `, [
-                dealerNumber,
-                updatedDealer.address.StreetAddress,
-                updatedDealer.address.City,
-                updatedDealer.address.State,
-                updatedDealer.address.ZipCode,
-                updatedDealer.address.County,
-                updatedDealer.address.BoxNumber
-            ]);
-        } else {
-            // Update existing address
-            await connection.query(`
-                UPDATE Addresses 
-                SET 
-                    StreetAddress = ?, 
-                    City = ?, 
-                    State = ?, 
-                    ZipCode = ?, 
-                    County = ?, 
-                    BoxNumber = ?
-                WHERE KPMDealerNumber = ?
-            `, [
-                updatedDealer.address.StreetAddress,
-                updatedDealer.address.City,
-                updatedDealer.address.State,
-                updatedDealer.address.ZipCode,
-                updatedDealer.address.County,
-                updatedDealer.address.BoxNumber,
-                dealerNumber
-            ]);
-        }
+        // Update address
+        await connection.query(`
+            UPDATE Addresses 
+            SET StreetAddress = ?, BoxNumber = ?, City = ?, State = ?, ZipCode = ?, County = ?
+            WHERE KPMDealerNumber = ?
+        `, [
+            updates.address.StreetAddress,
+            updates.address.BoxNumber,
+            updates.address.City,
+            updates.address.State,
+            updates.address.ZipCode,
+            updates.address.County,
+            dealerNumber
+        ]);
 
-        // Update ContactInformation - first check if contact exists
-        const [existingContact] = await connection.query(`
-            SELECT * FROM ContactInformation WHERE KPMDealerNumber = ?
-        `, [dealerNumber]);
-
-        if (existingContact.length === 0) {
-            // Insert new contact if it doesn't exist
-            await connection.query(`
-                INSERT INTO ContactInformation (
-                    KPMDealerNumber,
-                    MainPhone,
-                    FaxNumber,
-                    MainEmail
-                ) VALUES (?, ?, ?, ?)
-            `, [
-                dealerNumber,
-                updatedDealer.contact.MainPhone,
-                updatedDealer.contact.FaxNumber,
-                updatedDealer.contact.MainEmail
-            ]);
-        } else {
-            // Update existing contact
-            await connection.query(`
-                UPDATE ContactInformation 
-                SET 
-                    MainPhone = ?,
-                    FaxNumber = ?,
-                    MainEmail = ?
-                WHERE KPMDealerNumber = ?
-            `, [
-                updatedDealer.contact.MainPhone,
-                updatedDealer.contact.FaxNumber,
-                updatedDealer.contact.MainEmail,
-                dealerNumber
-            ]);
-        }
-        console.log('Contact update completed');
-
-        // Update LinesCarried
-        await connection.query('DELETE FROM LinesCarried WHERE KPMDealerNumber = ?', [dealerNumber]);
-        
-        if (updatedDealer.lines && updatedDealer.lines.length > 0) {
-            for (const line of updatedDealer.lines) {
-                await connection.query(`
-                    INSERT INTO LinesCarried (KPMDealerNumber, LineName, AccountNumber)
-                    VALUES (?, ?, ?)
-                `, [dealerNumber, line.LineName, line.AccountNumber]);
-            }
-        }
-
-        // Update Salesman if provided
-        if (updatedDealer.salesman && updatedDealer.salesman.SalesmanCode) {
-            await connection.query(`
-                UPDATE Dealerships 
-                SET SalesmanCode = ?
-                WHERE KPMDealerNumber = ?
-            `, [updatedDealer.salesman.SalesmanCode, dealerNumber]);
-        }
-
-        // After all updates, fetch the complete updated data using the same structure as GET
-        const [dealerInfo] = await connection.query(`
-            SELECT 
-                d.KPMDealerNumber,
-                d.DealershipName,
-                d.DBA,
-                d.SalesmanCode,
-                s.SalesmanName
-            FROM Dealerships d
-            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            WHERE d.KPMDealerNumber = ?
-        `, [dealerNumber]);
-
-        const [address] = await connection.query(`
-            SELECT 
-                StreetAddress,
-                BoxNumber,
-                City,
-                State,
-                ZipCode,
-                County
-            FROM Addresses 
+        // Fetch updated dealer details
+        const [updatedDealer] = await connection.query(`
+            SELECT * FROM Dealerships 
             WHERE KPMDealerNumber = ?
         `, [dealerNumber]);
 
-        const [contact] = await connection.query(`
-            SELECT 
-                MainPhone,
-                FaxNumber,
-                MainEmail
-            FROM ContactInformation 
-            WHERE KPMDealerNumber = ?
-        `, [dealerNumber]);
-
-        const [lines] = await connection.query(`
-            SELECT 
-                LineName,
-                AccountNumber
-            FROM LinesCarried 
-            WHERE KPMDealerNumber = ?
-        `, [dealerNumber]);
-
-        // Structure the response exactly like GET
-        const updatedDetails = {
-            KPMDealerNumber: dealerInfo[0].KPMDealerNumber,
-            DealershipName: dealerInfo[0].DealershipName,
-            DBA: dealerInfo[0].DBA || '',
-            address: address[0] || {
-                StreetAddress: '',
-                BoxNumber: '',
-                City: '',
-                State: '',
-                ZipCode: '',
-                County: ''
-            },
-            contact: contact[0] || {
-                MainPhone: '',
-                FaxNumber: '',
-                MainEmail: ''
-            },
-            lines: lines || [],
-            salesman: {
-                SalesmanName: dealerInfo[0].SalesmanName || '',
-                SalesmanCode: dealerInfo[0].SalesmanCode || ''
-            }
-        };
-
-        console.log('=== FINAL RESPONSE ===');
-        console.log(JSON.stringify(updatedDetails, null, 2));
-        res.json(updatedDetails);
-
+        res.json(updatedDealer[0]);
     } catch (error) {
-        console.error('=== ERROR ===');
-        console.error('Detailed error:', error);
-        res.status(500).json({ 
-            error: 'Failed to update dealer',
-            details: error.message 
-        });
+        console.error('Error updating dealer:', error);
+        res.status(500).json({ error: 'Failed to update dealer details' });
     } finally {
-        if (connection) {
-            try {
-                await connection.end();
-                console.log('Database connection closed');
-            } catch (err) {
-                console.error('Error closing connection:', err);
-            }
-        }
+        if (connection) await connection.end();
     }
 });
 
