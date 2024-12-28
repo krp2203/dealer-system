@@ -159,8 +159,8 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     // Add helper functions for getting unique values
     const getUniqueSalesmen = (dealers: Dealer[]): string[] => {
         const salesmen = dealers
-            .filter(d => d.SalesmanName)
-            .map(d => d.SalesmanName!);
+            .filter(d => d.SalesmanName && d.SalesmanName.trim().length > 0)
+            .map(d => d.SalesmanName!.trim());
         return Array.from(new Set(salesmen)).sort();
     };
 
@@ -174,8 +174,10 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     const getUniqueProductLines = (dealers: Dealer[]): string[] => {
         const allLines = dealers
             .filter(d => d.ProductLines)
-            .flatMap(d => d.ProductLines!.split(','))
-            .map(line => line.trim());
+            .flatMap(d => d.ProductLines!.split(',')
+                .map(line => line.trim())
+                .filter(line => line.length > 0)
+            );
         return Array.from(new Set(allLines)).sort();
     };
 
@@ -185,13 +187,15 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
             dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase());
 
         const matchesSalesman = !filters.salesman || 
-            dealer.SalesmanName === filters.salesman;
+            dealer.SalesmanName?.trim() === filters.salesman.trim();
 
         const matchesProductLine = !filters.productLine || 
-            dealer.ProductLines?.includes(filters.productLine);
+            (dealer.ProductLines?.split(',')
+                .map(line => line.trim())
+                .includes(filters.productLine.trim()));
 
         const matchesState = !filters.state || 
-            dealer.State === filters.state;
+            dealer.State?.trim() === filters.state.trim();
 
         return matchesSearch && matchesSalesman && matchesProductLine && matchesState;
     });
