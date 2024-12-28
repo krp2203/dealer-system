@@ -15,12 +15,16 @@ function App() {
       <header className="App-header">
         <h1>KPM Dealer System</h1>
       </header>
-      <main>
-        <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
-          <DealerMap onDealerSelect={setSelectedDealerNumber} />
-        </LoadScript>
-        <DealerPicker selectedDealer={selectedDealerNumber} />
-      </main>
+      <div className="main-content">
+        <div className="map-section">
+          <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
+            <DealerMap onDealerSelect={setSelectedDealerNumber} />
+          </LoadScript>
+        </div>
+        <div className="details-section">
+          <DealerPicker selectedDealer={selectedDealerNumber} />
+        </div>
+      </div>
     </div>
   );
 }

@@ -101,8 +101,9 @@ const DealerMap: React.FC<{
     const [isHoveringInfoWindow, setIsHoveringInfoWindow] = useState(false);
 
     const mapStyles = {
-        height: '400px',
-        width: '100%'
+        height: '100%',
+        width: '100%',
+        minHeight: '600px'
     };
 
     useEffect(() => {
