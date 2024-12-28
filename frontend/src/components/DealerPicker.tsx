@@ -131,13 +131,12 @@ function DealerPicker() {
             });
         } else {
             // Handle nested properties with type checking
-            type SectionKey = keyof DealerDetails;
-            const sectionKey = section as SectionKey;
+            const currentSection = editedDetails[section] as Record<string, string>;
             
             setEditedDetails({
                 ...editedDetails,
                 [section]: {
-                    ...editedDetails[sectionKey],
+                    ...currentSection,
                     [field]: value
                 }
             });
