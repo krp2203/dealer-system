@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
+const { google } = require('googleapis');
 
 const app = express();
 app.use(express.json());
@@ -414,6 +415,155 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
             } catch (err) {
                 console.error('Error closing connection:', err);
             }
+        }
+    }
+});
+
+// Add Google Sheets credentials and configuration
+const GOOGLE_CREDENTIALS = {
+    // You'll need to add your service account credentials here
+    client_email: "your-service-account@project.iam.gserviceaccount.com",
+    private_key: "your-private-key"
+};
+
+const SPREADSHEET_ID = 'your-spreadsheet-id';  // Get this from your Google Sheet URL
+const RANGE = 'Sheet1!A2:Z';  // Adjust range as needed
+
+// Add import endpoint
+app.post('/api/import', async (req, res) => {
+    let connection;
+    try {
+        // Authenticate with Google
+        const auth = new google.auth.JWT(
+            GOOGLE_CREDENTIALS.client_email,
+            null,
+            GOOGLE_CREDENTIALS.private_key,
+            ['https://www.googleapis.com/auth/spreadsheets.readonly']
+        );
+
+        const sheets = google.sheets({ version: 'v4', auth });
+
+        // Fetch data from Google Sheet
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: RANGE,
+        });
+
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+            return res.status(400).json({ error: 'No data found in spreadsheet' });
+        }
+
+        // Create database connection
+        connection = await mysql.createConnection(dbConfig);
+
+        // Process each row
+        for (const row of rows) {
+            const [
+                dealerNumber,
+                dealershipName,
+                dba,
+                streetAddress,
+                boxNumber,
+                city,
+                state,
+                zipCode,
+                county,
+                mainPhone,
+                faxNumber,
+                mainEmail,
+                salesmanCode
+            ] = row;
+
+            // Update or insert into Dealerships table
+            await connection.query(`
+                INSERT INTO Dealerships 
+                    (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
+                VALUES (?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    DealershipName = VALUES(DealershipName),
+                    DBA = VALUES(DBA),
+                    SalesmanCode = VALUES(SalesmanCode)
+            `, [dealerNumber, dealershipName, dba, salesmanCode]);
+
+            // Update or insert address
+            await connection.query(`
+                INSERT INTO Addresses 
+                    (KPMDealerNumber, StreetAddress, BoxNumber, City, State, ZipCode, County)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    StreetAddress = VALUES(StreetAddress),
+                    BoxNumber = VALUES(BoxNumber),
+                    City = VALUES(City),
+                    State = VALUES(State),
+                    ZipCode = VALUES(ZipCode),
+                    County = VALUES(County)
+            `, [dealerNumber, streetAddress, boxNumber, city, state, zipCode, county]);
+
+            // Update or insert contact information
+            await connection.query(`
+                INSERT INTO ContactInformation 
+                    (KPMDealerNumber, MainPhone, FaxNumber, MainEmail)
+                VALUES (?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    MainPhone = VALUES(MainPhone),
+                    FaxNumber = VALUES(FaxNumber),
+                    MainEmail = VALUES(MainEmail)
+            `, [dealerNumber, mainPhone, faxNumber, mainEmail]);
+        }
+
+        res.json({ 
+            message: 'Import completed successfully',
+            rowsProcessed: rows.length 
+        });
+
+    } catch (error) {
+        console.error('Import error:', error);
+        res.status(500).json({ 
+            error: 'Failed to import data',
+            details: error.message 
+        });
+    } finally {
+        if (connection) {
+            try {
+                await connection.end();
+            } catch (err) {
+                console.error('Error closing connection:', err);
+            }
+        }
+    }
+});
+
+// Add geocoding endpoint
+app.get('/api/dealers/coordinates', async (req, res) => {
+    let connection;
+    try {
+        connection = await mysql.createConnection(dbConfig);
+        
+        // Get all dealers with addresses
+        const [dealers] = await connection.query(`
+            SELECT 
+                d.KPMDealerNumber,
+                d.DealershipName,
+                a.StreetAddress,
+                a.City,
+                a.State,
+                a.ZipCode
+            FROM Dealerships d
+            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            WHERE a.StreetAddress IS NOT NULL
+        `);
+        
+        res.json(dealers);
+    } catch (error) {
+        console.error('Error fetching dealer coordinates:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch dealer coordinates',
+            details: error.message 
+        });
+    } finally {
+        if (connection) {
+            await connection.end();
         }
     }
 });
