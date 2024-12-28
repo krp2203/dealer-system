@@ -182,68 +182,24 @@ const DealerMap: React.FC<{
         coords: { lat: d.lat, lng: d.lng }
     })));
 
+    console.log('Dealers data:', dealers);
+
     return (
         <div className="map-container">
             <GoogleMap
                 mapContainerStyle={mapStyles}
                 zoom={mapZoom}
                 center={mapCenter}
-                onLoad={(map) => {
-                    const bounds = new window.google.maps.LatLngBounds();
-                    dealers.forEach(dealer => {
-                        if (dealer.lat && dealer.lng) {
-                            bounds.extend({ lat: dealer.lat, lng: dealer.lng });
-                        }
-                    });
-                    map.fitBounds(bounds);
-                }}
-                options={{
-                    zoomControl: true,
-                    mapTypeControl: true,
-                    scaleControl: true,
-                    streetViewControl: true,
-                    rotateControl: true,
-                    fullscreenControl: true
-                }}
             >
                 {dealers.map(dealer => {
-                    if (!dealer?.lat || !dealer?.lng) return null;
-
+                    if (!dealer.lat || !dealer.lng) return null;
                     return (
                         <Marker
                             key={dealer.KPMDealerNumber}
                             position={{ lat: dealer.lat, lng: dealer.lng }}
-                            onMouseOver={() => setHoveredDealer(dealer)}
-                            onMouseOut={() => {
-                                if (!isHoveringInfoWindow) {
-                                    setHoveredDealer(null);
-                                }
-                            }}
-                            onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
                         />
                     );
                 })}
-
-                {hoveredDealer && hoveredDealer.lat && hoveredDealer.lng && (
-                    <InfoWindow
-                        position={{ lat: hoveredDealer.lat, lng: hoveredDealer.lng }}
-                        onCloseClick={() => setHoveredDealer(null)}
-                        options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
-                    >
-                        <div 
-                            onMouseEnter={() => setIsHoveringInfoWindow(true)}
-                            onMouseLeave={() => {
-                                setIsHoveringInfoWindow(false);
-                                setHoveredDealer(null);
-                            }}
-                            style={{ padding: '8px', minWidth: '200px' }}
-                        >
-                            <h3>{hoveredDealer.DealershipName}</h3>
-                            <p>{hoveredDealer.StreetAddress}</p>
-                            <p>{hoveredDealer.City}, {hoveredDealer.State} {hoveredDealer.ZipCode}</p>
-                        </div>
-                    </InfoWindow>
-                )}
             </GoogleMap>
         </div>
     );
