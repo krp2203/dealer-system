@@ -178,17 +178,17 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
     // Add helper functions for getting unique values
     const getUniqueSalesmen = (dealers: Dealer[]): string[] => {
-        return [...new Set(dealers
+        const salesmen = dealers
             .filter(d => d.SalesmanName)
-            .map(d => d.SalesmanName!)
-        )].sort();
+            .map(d => d.SalesmanName!);
+        return Array.from(new Set(salesmen)).sort();
     };
 
     const getUniqueStates = (dealers: Dealer[]): string[] => {
-        return [...new Set(dealers
+        const states = dealers
             .filter(d => d.State)
-            .map(d => d.State!)
-        )].sort();
+            .map(d => d.State!);
+        return Array.from(new Set(states)).sort();
     };
 
     const getUniqueProductLines = (dealers: Dealer[]): string[] => {
@@ -196,7 +196,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
             .filter(d => d.ProductLines)
             .flatMap(d => d.ProductLines!.split(','))
             .map(line => line.trim());
-        return [...new Set(allLines)].sort();
+        return Array.from(new Set(allLines)).sort();
     };
 
     const filteredDealers = dealers.filter(dealer => {
