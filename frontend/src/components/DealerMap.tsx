@@ -32,6 +32,7 @@ interface GeocodeResponse {
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
 
 const CACHE_KEY = 'dealerCoordinates';
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 async function getCoordinates(address: string): Promise<{ lat: number; lng: number } | null> {
     try {
@@ -97,6 +98,7 @@ const DealerMap: React.FC<{
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [hoveredDealer, setHoveredDealer] = useState<DealerLocation | null>(null);
+    const [isHoveringInfoWindow, setIsHoveringInfoWindow] = useState(false);
 
     const mapStyles = {
         height: '400px',
@@ -109,10 +111,18 @@ const DealerMap: React.FC<{
                 // Try to get cached coordinates first
                 const cached = localStorage.getItem(CACHE_KEY);
                 if (cached) {
-                    const parsedCache = JSON.parse(cached);
-                    setDealers(parsedCache);
-                    setLoading(false);
-                    return;
+                    try {
+                        const { timestamp, data } = JSON.parse(cached);
+                        const isExpired = Date.now() - timestamp > CACHE_DURATION;
+                        
+                        if (!isExpired) {
+                            setDealers(data);
+                            setLoading(false);
+                            return;
+                        }
+                    } catch (error) {
+                        console.warn('Cache parsing failed:', error);
+                    }
                 }
 
                 console.log('Fetching dealers...');
@@ -150,7 +160,10 @@ const DealerMap: React.FC<{
 
                 if (validDealers.length > 0) {
                     // Cache the results
-                    localStorage.setItem(CACHE_KEY, JSON.stringify(validDealers));
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({
+                        timestamp: Date.now(),
+                        data: validDealers
+                    }));
                     setDealers(validDealers);
                 } else {
                     setError('No dealers found with valid coordinates');
@@ -219,6 +232,11 @@ const DealerMap: React.FC<{
                             key={dealer.KPMDealerNumber}
                             position={{ lat: dealer.lat, lng: dealer.lng }}
                             onMouseOver={() => setHoveredDealer(dealer)}
+                            onMouseOut={() => {
+                                if (!isHoveringInfoWindow) {
+                                    setHoveredDealer(null);
+                                }
+                            }}
                         />
                     );
                 })}
@@ -230,8 +248,11 @@ const DealerMap: React.FC<{
                         options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
                     >
                         <div 
-                            onMouseOver={() => setHoveredDealer(hoveredDealer)}
-                            onMouseOut={() => setHoveredDealer(null)}
+                            onMouseEnter={() => setIsHoveringInfoWindow(true)}
+                            onMouseLeave={() => {
+                                setIsHoveringInfoWindow(false);
+                                setHoveredDealer(null);
+                            }}
                             style={{ padding: '8px', minWidth: '200px' }}
                         >
                             <h3>{hoveredDealer.DealershipName}</h3>
