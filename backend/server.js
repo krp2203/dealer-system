@@ -43,30 +43,32 @@ app.get('/api/dealers', async (req, res) => {
         connection = await mysql.createConnection(dbConfig);
         
         const [rows] = await connection.query(`
+            WITH DealerStates AS (
+                SELECT 
+                    KPMDealerNumber,
+                    MAX(State) as State
+                FROM Addresses
+                GROUP BY KPMDealerNumber
+            ),
+            DealerLines AS (
+                SELECT 
+                    KPMDealerNumber,
+                    GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
+                FROM LinesCarried
+                GROUP BY KPMDealerNumber
+            )
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
                 s.SalesmanName,
-                COALESCE(a.State, '') as State,
-                COALESCE(l.ProductLines, '') as ProductLines
+                COALESCE(ds.State, '') as State,
+                COALESCE(dl.ProductLines, '') as ProductLines
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            LEFT JOIN (
-                SELECT 
-                    KPMDealerNumber,
-                    MAX(State) as State  -- Use MAX to get a single state per dealer
-                FROM Addresses
-                GROUP BY KPMDealerNumber
-            ) a ON d.KPMDealerNumber = a.KPMDealerNumber
-            LEFT JOIN (
-                SELECT 
-                    KPMDealerNumber,
-                    GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
-                FROM LinesCarried
-                GROUP BY KPMDealerNumber
-            ) l ON d.KPMDealerNumber = l.KPMDealerNumber
+            LEFT JOIN DealerStates ds ON d.KPMDealerNumber = ds.KPMDealerNumber
+            LEFT JOIN DealerLines dl ON d.KPMDealerNumber = dl.KPMDealerNumber
             ORDER BY d.DealershipName
         `);
 
