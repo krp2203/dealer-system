@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import axios from 'axios';
+import { MarkerProps } from '@react-google-maps/api';
 
 interface DealerLocation {
     KPMDealerNumber: string;
@@ -29,25 +30,25 @@ interface GeocodeResponse {
     error_message?: string;
 }
 
-interface MarkerIconOptions {
-    path: google.maps.SymbolPath | string;
+interface CustomMarkerIcon {
+    path: number;
     fillColor: string;
     fillOpacity: number;
     strokeWeight: number;
     scale: number;
 }
 
-const defaultMarker: MarkerIconOptions = {
-    path: google.maps.SymbolPath.CIRCLE,
+const defaultMarker: CustomMarkerIcon = {
+    path: 0,
     fillColor: "#FF0000",
     fillOpacity: 1,
     strokeWeight: 1,
     scale: 8,
 };
 
-const selectedMarker: MarkerIconOptions = {
-    path: google.maps.SymbolPath.CIRCLE,
-    fillColor: "#4CAF50", // Green color
+const selectedMarker: CustomMarkerIcon = {
+    path: 0,
+    fillColor: "#4CAF50",
     fillOpacity: 1,
     strokeWeight: 2,
     scale: 10,
@@ -214,7 +215,11 @@ const DealerMap: React.FC<{
                         <Marker
                             key={dealer.KPMDealerNumber}
                             position={{ lat: dealer.lat, lng: dealer.lng }}
-                            icon={selectedDealer?.KPMDealerNumber === dealer.KPMDealerNumber ? selectedMarker : defaultMarker}
+                            icon={{
+                                ...((selectedDealer?.KPMDealerNumber === dealer.KPMDealerNumber) 
+                                    ? selectedMarker 
+                                    : defaultMarker)
+                            }}
                             onMouseOver={() => setHoveredDealer(dealer)}
                             onMouseOut={() => {
                                 if (!isHoveringInfoWindow) {
