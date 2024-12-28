@@ -64,11 +64,11 @@ app.get('/api/dealers', async (req, res) => {
     } catch (error) {
         console.error('Database error:', error);
         console.error('Connection config:', {
-            host: dbConfig.host,
-            port: dbConfig.port,
-            user: dbConfig.user,
-            database: dbConfig.database
-        });
+        host: dbConfig.host,
+        port: dbConfig.port,
+        user: dbConfig.user,
+        database: dbConfig.database
+    });
         res.status(500).json({ 
             error: 'Failed to fetch dealers',
             details: error.message,
@@ -301,7 +301,7 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching dealer details:', error);
-        res.status(500).json({ 
+            res.status(500).json({ 
             error: 'Failed to fetch dealer details',
             details: error.message,
             code: error.code
@@ -635,9 +635,9 @@ app.post('/api/import', async (req, res) => {
                     FaxNumber = VALUES(FaxNumber),
                     MainEmail = VALUES(MainEmail)
             `, [dealerNumber, mainPhone, faxNumber, mainEmail]);
-        }
-
-        res.json({ 
+            }
+            
+            res.json({ 
             message: 'Import completed successfully',
             rowsProcessed: rows.length 
         });

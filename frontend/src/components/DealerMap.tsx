@@ -2,7 +2,6 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import axios from 'axios';
-import { MarkerProps } from '@react-google-maps/api';
 
 interface DealerLocation {
     KPMDealerNumber: string;
@@ -93,7 +92,7 @@ const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
 }> = ({ onDealerSelect }) => {
     const [dealers, setDealers] = useState<DealerLocation[]>([]);
-    const [selectedDealerId, setSelectedDealerId] = useState<string | null>(null);
+    const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
     const [mapCenter] = useState({ lat: 38.5, lng: -77.5 });
     const [mapZoom] = useState(8);
     const [loading, setLoading] = useState(true);
@@ -114,7 +113,6 @@ const DealerMap: React.FC<{
                 const cached = localStorage.getItem(CACHE_KEY);
                 if (cached) {
                     const { data } = JSON.parse(cached);
-                    console.log('Found cached dealers:', data);
                     if (data && data.length > 0) {
                         setDealers(data);
                         setLoading(false);
@@ -122,45 +120,46 @@ const DealerMap: React.FC<{
                     }
                 }
 
-                console.log('Fetching dealers from API...');
                 const response = await axios.get<DealerLocation[]>('http://35.212.41.99:3002/api/dealers/coordinates');
-                console.log('API Response:', response.data);
-
+                
                 if (!response.data || !Array.isArray(response.data)) {
                     throw new Error('Invalid data received');
                 }
 
-                // Log the coordinates
-                const validDealers = response.data.filter(d => {
-                    const isValid = d.lat && d.lng;
-                    if (!isValid) {
-                        console.log('Invalid dealer:', d);
-                    }
-                    return isValid;
-                });
+                // Process dealers in batches
+                const dealersWithCoords = [];
+                const batchSize = 10;
 
-                console.log('Valid dealers with coordinates:', validDealers);
-                setDealers(validDealers);
-                setLoading(false);
+                for (let i = 0; i < response.data.length; i += batchSize) {
+                    const batch = response.data.slice(i, i + batchSize);
+                    const batchResults = await Promise.all(
+                        batch.map(async (dealer) => {
+                            const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
+                            const coords = await getCoordinates(address);
+                            return coords ? { ...dealer, ...coords } : dealer;
+                        })
+                    );
+                    dealersWithCoords.push(...batchResults);
+                }
 
-                // Cache the results
-                localStorage.setItem(CACHE_KEY, JSON.stringify({ data: validDealers }));
+                const validDealers = dealersWithCoords.filter(d => d.lat && d.lng);
+                
+                if (validDealers.length > 0) {
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({ data: validDealers }));
+                    setDealers(validDealers);
+                } else {
+                    setError('No dealers found with valid coordinates');
+                }
             } catch (error) {
-                console.error('Error fetching dealers:', error);
                 setError('Failed to fetch dealers');
+                console.error(error);
+            } finally {
                 setLoading(false);
             }
         };
 
         fetchDealers();
     }, []);
-
-    useEffect(() => {
-        const selectedDealerData = dealers.find(d => d.KPMDealerNumber === selectedDealerId);
-        if (selectedDealerData) {
-            setSelectedDealerId(selectedDealerData.KPMDealerNumber);
-        }
-    }, [dealers]);
 
     if (loading) {
         return <div className="map-container">Loading dealers...</div>;
@@ -170,29 +169,58 @@ const DealerMap: React.FC<{
         return <div className="map-container">Error: {error}</div>;
     }
 
-    console.log('Rendering dealers:', dealers.map(d => ({
-        name: d.DealershipName,
-        coords: { lat: d.lat, lng: d.lng }
-    })));
-
-    console.log('Dealers data:', dealers);
-
     return (
         <div className="map-container">
             <GoogleMap
-                mapContainerStyle={{
-                    width: '100%',
-                    height: '600px'
+                mapContainerStyle={mapStyles}
+                zoom={mapZoom}
+                center={mapCenter}
+                options={{
+                    zoomControl: true,
+                    mapTypeControl: true,
+                    scaleControl: true,
+                    streetViewControl: true,
+                    rotateControl: true,
+                    fullscreenControl: true
                 }}
-                zoom={8}
-                center={{ lat: 38.5, lng: -77.5 }}
             >
-                {dealers.map(dealer => (
-                    <Marker
-                        key={dealer.KPMDealerNumber}
-                        position={{ lat: dealer.lat!, lng: dealer.lng! }}
-                    />
-                ))}
+                {dealers && dealers.map(dealer => {
+                    if (!dealer?.lat || !dealer?.lng) return null;
+                    return (
+                        <Marker
+                            key={dealer.KPMDealerNumber}
+                            position={{ lat: dealer.lat, lng: dealer.lng }}
+                            onMouseOver={() => setHoveredDealer(dealer)}
+                            onMouseOut={() => {
+                                if (!isHoveringInfoWindow) {
+                                    setHoveredDealer(null);
+                                }
+                            }}
+                            onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
+                        />
+                    );
+                })}
+
+                {hoveredDealer && hoveredDealer.lat && hoveredDealer.lng && (
+                    <InfoWindow
+                        position={{ lat: hoveredDealer.lat, lng: hoveredDealer.lng }}
+                        onCloseClick={() => setHoveredDealer(null)}
+                        options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
+                    >
+                        <div 
+                            onMouseEnter={() => setIsHoveringInfoWindow(true)}
+                            onMouseLeave={() => {
+                                setIsHoveringInfoWindow(false);
+                                setHoveredDealer(null);
+                            }}
+                            style={{ padding: '8px', minWidth: '200px' }}
+                        >
+                            <h3>{hoveredDealer.DealershipName}</h3>
+                            <p>{hoveredDealer.StreetAddress}</p>
+                            <p>{hoveredDealer.City}, {hoveredDealer.State} {hoveredDealer.ZipCode}</p>
+                        </div>
+                    </InfoWindow>
+                )}
             </GoogleMap>
         </div>
     );
