@@ -41,7 +41,7 @@ const API_URL = 'http://35.212.41.99:3002';
 
 interface DealerPickerProps {
     selectedDealer?: string | null;
-    dealers: Dealer[];
+    dealers?: Dealer[];
     onDealersFiltered: (dealers: Dealer[]) => void;
 }
 
@@ -83,8 +83,8 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
             setSelectedDealer(dealerNumber);
             setDealerDetails(response.data);
             
-            const dealer = dealers.find(d => d.KPMDealerNumber === dealerNumber);
-            if (dealer) {
+            const dealer = dealers?.find(d => d?.KPMDealerNumber === dealerNumber);
+            if (dealer?.DealershipName) {
                 setSelectedDealerName(dealer.DealershipName);
             }
 
@@ -232,10 +232,21 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     }, [filters, searchTerm, dealers, onDealersFiltered]);
 
     useEffect(() => {
+        if (!dealers?.length) {
+            console.log('No dealers data available');
+            return;
+        }
+
         console.log('Raw dealer data:', {
             first: dealers[0],
-            salesmen: dealers.map(d => d.SalesmanName).filter(Boolean),
-            productLines: dealers.map(d => d.ProductLines).filter(Boolean)
+            salesmen: dealers
+                .filter(d => d?.SalesmanName)
+                .map(d => d.SalesmanName)
+                .filter(Boolean),
+            productLines: dealers
+                .filter(d => d?.ProductLines)
+                .map(d => d.ProductLines)
+                .filter(Boolean)
         });
     }, [dealers]);
 
