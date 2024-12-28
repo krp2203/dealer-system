@@ -94,6 +94,7 @@ const DealerMap: React.FC<{
     const [mapZoom] = useState(8); // Zoom out a bit more
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [hoveredDealer, setHoveredDealer] = useState<DealerLocation | null>(null);
 
     const mapStyles = {
         height: '400px',
@@ -231,9 +232,30 @@ const DealerMap: React.FC<{
                                 setSelectedDealer(dealer);
                                 onDealerSelect(dealer.KPMDealerNumber);
                             }}
+                            onMouseOver={() => setHoveredDealer(dealer)}
+                            onMouseOut={() => setHoveredDealer(null)}
                         />
                     );
                 })}
+
+                {hoveredDealer && !selectedDealer && (
+                    <InfoWindow
+                        position={{ lat: hoveredDealer.lat!, lng: hoveredDealer.lng! }}
+                        onCloseClick={() => setHoveredDealer(null)}
+                    >
+                        <div>
+                            <h3>{hoveredDealer.DealershipName}</h3>
+                            <p>{hoveredDealer.StreetAddress}</p>
+                            <p>{hoveredDealer.City}, {hoveredDealer.State} {hoveredDealer.ZipCode}</p>
+                            <button onClick={() => {
+                                setSelectedDealer(hoveredDealer);
+                                onDealerSelect(hoveredDealer.KPMDealerNumber);
+                            }}>
+                                View Details
+                            </button>
+                        </div>
+                    </InfoWindow>
+                )}
 
                 {selectedDealer && (
                     <InfoWindow
