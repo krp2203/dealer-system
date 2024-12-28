@@ -41,15 +41,15 @@ const API_URL = 'http://35.212.41.99:3002';
 
 interface DealerPickerProps {
     selectedDealer?: string | null;
+    dealers: Dealer[];
     onDealersFiltered: (dealers: Dealer[]) => void;
 }
 
 const DealerPicker: React.FC<DealerPickerProps> = ({ 
-    selectedDealer: initialDealer, 
+    selectedDealer: initialDealer,
+    dealers,
     onDealersFiltered 
 }) => {
-    const [dealers, setDealers] = useState<Dealer[]>([]);
-    const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
     const [dealerDetails, setDealerDetails] = useState<DealerDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -65,40 +65,6 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
         productLine: '',
         state: ''
     });
-
-    useEffect(() => {
-        const fetchDealers = async () => {
-            try {
-                // Try to get cached coordinates first
-                const cached = localStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    const { data } = JSON.parse(cached);
-                    if (data && data.length > 0) {
-                        setDealers(data);
-                        setLoading(false);
-                        return;
-                    }
-                }
-
-                const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
-                const dealersWithCoords = await addCoordinatesToDealers(response.data);
-                
-                // Cache the results
-                localStorage.setItem(CACHE_KEY, JSON.stringify({ 
-                    data: dealersWithCoords,
-                    timestamp: Date.now()
-                }));
-
-                setDealers(dealersWithCoords);
-                setLoading(false);
-            } catch (err) {
-                setError('Failed to fetch dealers');
-                setLoading(false);
-            }
-        };
-
-        fetchDealers();
-    }, []);
 
     const loadDealerDetails = async (dealerNumber: string) => {
         if (!dealerNumber) {

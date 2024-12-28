@@ -1,20 +1,60 @@
 import * as React from 'react';
-import { useState, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { LoadScript } from '@react-google-maps/api';
 import DealerPicker from './components/DealerPicker';
 import DealerMap from './components/DealerMap';
 import './App.css';
 import { Dealer } from './types/dealer';
+import axios from 'axios';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
+const API_URL = 'http://35.212.41.99:3002';
+const CACHE_KEY = 'dealerCoordinates';
 
 function App() {
   const [selectedDealerNumber, setSelectedDealerNumber] = useState<string | null>(null);
+  const [allDealers, setAllDealers] = useState<Dealer[]>([]);
   const [filteredDealers, setFilteredDealers] = useState<Dealer[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleDealersFiltered = useCallback((dealers: Dealer[]) => {
-    setFilteredDealers(dealers);
+  useEffect(() => {
+    const fetchDealers = async () => {
+      try {
+        // Try to get cached coordinates
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { data } = JSON.parse(cached);
+          if (data && data.length > 0) {
+            setAllDealers(data);
+            setFilteredDealers(data);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Fetch dealers with coordinates
+        const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers/coordinates`);
+        if (response.data) {
+          setAllDealers(response.data);
+          setFilteredDealers(response.data);
+          
+          // Cache the results
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            data: response.data,
+            timestamp: Date.now()
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching dealers:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDealers();
   }, []);
+
+  if (loading) return <div>Loading dealers...</div>;
 
   return (
     <div className="App">
@@ -33,7 +73,8 @@ function App() {
         <div className="details-section">
           <DealerPicker 
             selectedDealer={selectedDealerNumber}
-            onDealersFiltered={handleDealersFiltered}
+            dealers={allDealers}
+            onDealersFiltered={setFilteredDealers}
           />
         </div>
       </div>
