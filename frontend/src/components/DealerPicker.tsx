@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 interface Dealer {
@@ -49,6 +49,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const [selectedDealerName, setSelectedDealerName] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+    const detailsRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const fetchDealers = async () => {
@@ -74,17 +75,19 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
 
         try {
-            console.log('Fetching dealer:', dealerNumber);
             const response = await axios.get<DealerDetails>(`${API_URL}/api/dealers/${dealerNumber}`);
-            console.log('Received dealer details:', response.data);
             setSelectedDealer(dealerNumber);
             setDealerDetails(response.data);
             
-            // Set the dealer name for the title
             const dealer = dealers.find(d => d.KPMDealerNumber === dealerNumber);
             if (dealer) {
                 setSelectedDealerName(dealer.DealershipName);
             }
+
+            setTimeout(() => {
+                detailsRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+
         } catch (err) {
             console.error('Fetch error:', err);
             setError('Failed to fetch dealer details');
@@ -225,69 +228,70 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
             </div>
 
             {selectedDealerName && (
-                <h2 className="dealer-title">{selectedDealerName}</h2>
-            )}
+                <div ref={detailsRef}>
+                    <h2 className="dealer-title">{selectedDealerName}</h2>
+                    {dealerDetails && (
+                        <div className="dealer-details">
+                            <section>
+                                <h3>Basic Information</h3>
+                                <p><strong>Dealer Number:</strong> {dealerDetails.KPMDealerNumber}</p>
+                                {dealerDetails.DBA && (
+                                    <p><strong>DBA:</strong> {dealerDetails.DBA}</p>
+                                )}
+                            </section>
 
-            {dealerDetails && (
-                <div className="dealer-details">
-                    <section>
-                        <h3>Basic Information</h3>
-                        <p><strong>Dealer Number:</strong> {dealerDetails.KPMDealerNumber}</p>
-                        {dealerDetails.DBA && (
-                            <p><strong>DBA:</strong> {dealerDetails.DBA}</p>
-                        )}
-                    </section>
+                            <section>
+                                <h3>Contact Information</h3>
+                                <p><strong>Phone:</strong> {dealerDetails.contact.MainPhone}</p>
+                                {dealerDetails.contact.FaxNumber && (
+                                    <p><strong>Fax:</strong> {dealerDetails.contact.FaxNumber}</p>
+                                )}
+                                <p><strong>Email:</strong> {dealerDetails.contact.MainEmail}</p>
+                            </section>
+                            
+                            <section>
+                                <h3>Address</h3>
+                                <p>{dealerDetails.address.StreetAddress}</p>
+                                {dealerDetails.address.BoxNumber && (
+                                    <p>Box: {dealerDetails.address.BoxNumber}</p>
+                                )}
+                                <p>{dealerDetails.address.City}, {dealerDetails.address.State} {dealerDetails.address.ZipCode}</p>
+                                <p><strong>County:</strong> {dealerDetails.address.County}</p>
+                                <button 
+                                    className="directions-button"
+                                    onClick={() => {
+                                        const address = encodeURIComponent(
+                                            `${dealerDetails.address.StreetAddress}, ${dealerDetails.address.City}, ${dealerDetails.address.State} ${dealerDetails.address.ZipCode}`
+                                        );
+                                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${address}`, '_blank');
+                                    }}
+                                >
+                                    <span>📍 Get Directions</span>
+                                </button>
+                            </section>
 
-                    <section>
-                        <h3>Contact Information</h3>
-                        <p><strong>Phone:</strong> {dealerDetails.contact.MainPhone}</p>
-                        {dealerDetails.contact.FaxNumber && (
-                            <p><strong>Fax:</strong> {dealerDetails.contact.FaxNumber}</p>
-                        )}
-                        <p><strong>Email:</strong> {dealerDetails.contact.MainEmail}</p>
-                    </section>
-                    
-                    <section>
-                        <h3>Address</h3>
-                        <p>{dealerDetails.address.StreetAddress}</p>
-                        {dealerDetails.address.BoxNumber && (
-                            <p>Box: {dealerDetails.address.BoxNumber}</p>
-                        )}
-                        <p>{dealerDetails.address.City}, {dealerDetails.address.State} {dealerDetails.address.ZipCode}</p>
-                        <p><strong>County:</strong> {dealerDetails.address.County}</p>
-                        <button 
-                            className="directions-button"
-                            onClick={() => {
-                                const address = encodeURIComponent(
-                                    `${dealerDetails.address.StreetAddress}, ${dealerDetails.address.City}, ${dealerDetails.address.State} ${dealerDetails.address.ZipCode}`
-                                );
-                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${address}`, '_blank');
-                            }}
-                        >
-                            <span>📍 Get Directions</span>
-                        </button>
-                    </section>
+                            <section>
+                                <h3>Salesman Information</h3>
+                                <p><strong>Name:</strong> {dealerDetails.salesman.SalesmanName}</p>
+                                <p><strong>Code:</strong> {dealerDetails.salesman.SalesmanCode}</p>
+                            </section>
 
-                    <section>
-                        <h3>Salesman Information</h3>
-                        <p><strong>Name:</strong> {dealerDetails.salesman.SalesmanName}</p>
-                        <p><strong>Code:</strong> {dealerDetails.salesman.SalesmanCode}</p>
-                    </section>
-
-                    {dealerDetails.lines && dealerDetails.lines.length > 0 && (
-                        <section>
-                            <h3>Lines Carried</h3>
-                            <ul className="lines-list">
-                                {dealerDetails.lines.map((line, index) => (
-                                    <li key={index}>
-                                        <strong>{line.LineName}</strong>
-                                        {line.AccountNumber && (
-                                            <span> - Account: {line.AccountNumber}</span>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                        </section>
+                            {dealerDetails.lines && dealerDetails.lines.length > 0 && (
+                                <section>
+                                    <h3>Lines Carried</h3>
+                                    <ul className="lines-list">
+                                        {dealerDetails.lines.map((line, index) => (
+                                            <li key={index}>
+                                                <strong>{line.LineName}</strong>
+                                                {line.AccountNumber && (
+                                                    <span> - Account: {line.AccountNumber}</span>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </section>
+                            )}
+                        </div>
                     )}
                 </div>
             )}
