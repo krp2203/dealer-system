@@ -114,6 +114,7 @@ const DealerMap: React.FC<{
                 const cached = localStorage.getItem(CACHE_KEY);
                 if (cached) {
                     const { data } = JSON.parse(cached);
+                    console.log('Found cached dealers:', data);
                     if (data && data.length > 0) {
                         setDealers(data);
                         setLoading(false);
@@ -121,40 +122,32 @@ const DealerMap: React.FC<{
                     }
                 }
 
+                console.log('Fetching dealers from API...');
                 const response = await axios.get<DealerLocation[]>('http://35.212.41.99:3002/api/dealers/coordinates');
-                
+                console.log('API Response:', response.data);
+
                 if (!response.data || !Array.isArray(response.data)) {
                     throw new Error('Invalid data received');
                 }
 
-                // Process dealers in batches
-                const dealersWithCoords = [];
-                const batchSize = 10;
+                // Log the coordinates
+                const validDealers = response.data.filter(d => {
+                    const isValid = d.lat && d.lng;
+                    if (!isValid) {
+                        console.log('Invalid dealer:', d);
+                    }
+                    return isValid;
+                });
 
-                for (let i = 0; i < response.data.length; i += batchSize) {
-                    const batch = response.data.slice(i, i + batchSize);
-                    const batchResults = await Promise.all(
-                        batch.map(async (dealer) => {
-                            const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
-                            const coords = await getCoordinates(address);
-                            return coords ? { ...dealer, ...coords } : dealer;
-                        })
-                    );
-                    dealersWithCoords.push(...batchResults);
-                }
+                console.log('Valid dealers with coordinates:', validDealers);
+                setDealers(validDealers);
+                setLoading(false);
 
-                const validDealers = dealersWithCoords.filter(d => d.lat && d.lng);
-                
-                if (validDealers.length > 0) {
-                    localStorage.setItem(CACHE_KEY, JSON.stringify({ data: validDealers }));
-                    setDealers(validDealers);
-                } else {
-                    setError('No dealers found with valid coordinates');
-                }
+                // Cache the results
+                localStorage.setItem(CACHE_KEY, JSON.stringify({ data: validDealers }));
             } catch (error) {
+                console.error('Error fetching dealers:', error);
                 setError('Failed to fetch dealers');
-                console.error(error);
-            } finally {
                 setLoading(false);
             }
         };
@@ -187,19 +180,19 @@ const DealerMap: React.FC<{
     return (
         <div className="map-container">
             <GoogleMap
-                mapContainerStyle={mapStyles}
-                zoom={mapZoom}
-                center={mapCenter}
+                mapContainerStyle={{
+                    width: '100%',
+                    height: '600px'
+                }}
+                zoom={8}
+                center={{ lat: 38.5, lng: -77.5 }}
             >
-                {dealers.map(dealer => {
-                    if (!dealer.lat || !dealer.lng) return null;
-                    return (
-                        <Marker
-                            key={dealer.KPMDealerNumber}
-                            position={{ lat: dealer.lat, lng: dealer.lng }}
-                        />
-                    );
-                })}
+                {dealers.map(dealer => (
+                    <Marker
+                        key={dealer.KPMDealerNumber}
+                        position={{ lat: dealer.lat!, lng: dealer.lng! }}
+                    />
+                ))}
             </GoogleMap>
         </div>
     );
