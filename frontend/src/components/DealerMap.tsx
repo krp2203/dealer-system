@@ -115,7 +115,8 @@ const DealerMap: React.FC<{
                 const cached = localStorage.getItem(CACHE_KEY);
                 if (cached) {
                     const { data } = JSON.parse(cached);
-                    if (data && data.length > 0) {
+                    if (data && Array.isArray(data) && data.length > 0) {
+                        console.log('Loading from cache:', data.length, 'dealers');
                         setDealers(data);
                         setLoading(false);
                         return;
@@ -147,6 +148,7 @@ const DealerMap: React.FC<{
                 const validDealers = dealersWithCoords.filter(d => d.lat && d.lng);
                 
                 if (validDealers.length > 0) {
+                    console.log('Setting', validDealers.length, 'dealers with coordinates');
                     localStorage.setItem(CACHE_KEY, JSON.stringify({ data: validDealers }));
                     setDealers(validDealers);
                 } else {
@@ -165,16 +167,18 @@ const DealerMap: React.FC<{
 
     // Filter dealers based on selectedSalesman
     const visibleDealers = dealers.filter(dealer => {
-        if (selectedSalesman) {
-            console.log('Filtering dealer:', {
-                dealerName: dealer.DealershipName,
-                dealerSalesman: dealer.SalesmanCode,
-                selectedSalesman: selectedSalesman,
-                matches: dealer.SalesmanCode === selectedSalesman
-            });
-            return dealer.SalesmanCode === selectedSalesman;
+        if (!selectedSalesman) {
+            return true;  // Show all dealers when no salesman is selected
         }
-        return true;
+        
+        console.log('Filtering dealer:', {
+            dealerName: dealer.DealershipName,
+            dealerSalesman: dealer.SalesmanCode,
+            selectedSalesman,
+            matches: dealer.SalesmanCode === selectedSalesman
+        });
+        
+        return dealer.SalesmanCode === selectedSalesman;
     });
 
     // Add logging after filtering
@@ -183,6 +187,15 @@ const DealerMap: React.FC<{
         console.log('Total dealers:', dealers.length);
         console.log('Visible dealers:', visibleDealers.length);
     }, [selectedSalesman, dealers, visibleDealers]);
+
+    // Add this useEffect for debugging
+    useEffect(() => {
+        console.log('Dealers state updated:', {
+            total: dealers.length,
+            visible: visibleDealers.length,
+            selectedSalesman
+        });
+    }, [dealers, visibleDealers, selectedSalesman]);
 
     if (loading) {
         return <div className="map-container">Loading dealers...</div>;
