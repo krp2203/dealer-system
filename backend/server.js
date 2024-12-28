@@ -42,46 +42,46 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // Create temporary table for states
+        // Create view for dealer data
         await connection.query(`
-            CREATE TEMPORARY TABLE IF NOT EXISTS temp_states AS
-            SELECT 
-                KPMDealerNumber,
-                MAX(State) as State
-            FROM Addresses
-            GROUP BY KPMDealerNumber
-        `);
-
-        // Create temporary table for product lines
-        await connection.query(`
-            CREATE TEMPORARY TABLE IF NOT EXISTS temp_lines AS
-            SELECT 
-                KPMDealerNumber,
-                GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
-            FROM LinesCarried
-            GROUP BY KPMDealerNumber
-        `);
-
-        // Get all dealer data with joined tables
-        const [rows] = await connection.query(`
+            CREATE OR REPLACE VIEW dealer_data AS
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
                 s.SalesmanName,
-                COALESCE(ts.State, '') as State,
-                COALESCE(tl.ProductLines, '') as ProductLines
+                (
+                    SELECT State 
+                    FROM Addresses a2 
+                    WHERE a2.KPMDealerNumber = d.KPMDealerNumber 
+                    LIMIT 1
+                ) as State,
+                (
+                    SELECT GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ')
+                    FROM LinesCarried lc
+                    WHERE lc.KPMDealerNumber = d.KPMDealerNumber
+                ) as ProductLines
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            LEFT JOIN temp_states ts ON d.KPMDealerNumber = ts.KPMDealerNumber
-            LEFT JOIN temp_lines tl ON d.KPMDealerNumber = tl.KPMDealerNumber
-            ORDER BY d.DealershipName
         `);
 
-        // Drop temporary tables
-        await connection.query('DROP TEMPORARY TABLE IF EXISTS temp_states');
-        await connection.query('DROP TEMPORARY TABLE IF EXISTS temp_lines');
+        // Query the view
+        const [rows] = await connection.query(`
+            SELECT 
+                KPMDealerNumber,
+                DealershipName,
+                DBA,
+                SalesmanCode,
+                SalesmanName,
+                COALESCE(State, '') as State,
+                COALESCE(ProductLines, '') as ProductLines
+            FROM dealer_data
+            ORDER BY DealershipName
+        `);
+
+        // Drop the view
+        await connection.query('DROP VIEW IF EXISTS dealer_data');
 
         // Log sample data
         console.log('Sample data:', {
@@ -101,10 +101,9 @@ app.get('/api/dealers', async (req, res) => {
     } finally {
         if (connection) {
             try {
-                await connection.query('DROP TEMPORARY TABLE IF EXISTS temp_states');
-                await connection.query('DROP TEMPORARY TABLE IF EXISTS temp_lines');
+                await connection.query('DROP VIEW IF EXISTS dealer_data');
             } catch (err) {
-                console.error('Error dropping temp tables:', err);
+                console.error('Error dropping view:', err);
             }
             await connection.end();
         }
