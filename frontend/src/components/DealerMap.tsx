@@ -30,6 +30,32 @@ interface GeocodeResponse {
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCKWHs3ywhjQ7kfakEuv0dfxeuCMvzRrZs';
 
+async function getCoordinates(address: string): Promise<{ lat: number; lng: number } | null> {
+    try {
+        // Using OpenStreetMap's Nominatim service instead of Google Geocoding
+        const encodedAddress = encodeURIComponent(address);
+        const response = await axios.get(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
+            {
+                headers: {
+                    'User-Agent': 'KPM Dealer Map' // Required by Nominatim's terms of use
+                }
+            }
+        );
+
+        if (response.data && response.data[0]) {
+            return {
+                lat: parseFloat(response.data[0].lat),
+                lng: parseFloat(response.data[0].lon)
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error('Geocoding error:', error);
+        return null;
+    }
+}
+
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
 }> = ({ onDealerSelect }) => {
@@ -58,7 +84,7 @@ const DealerMap: React.FC<{
                 }
 
                 // Process dealers in smaller batches to avoid rate limits
-                const batchSize = 10;
+                const batchSize = 5;
                 const allDealers = [...response.data];
                 const dealersWithCoords = [];
 
@@ -71,27 +97,17 @@ const DealerMap: React.FC<{
                             const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
                             console.log('Geocoding:', address);
                             
-                            try {
-                                const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
-                                const geocodeResponse = await axios.get<GeocodeResponse>(geocodeUrl);
-                                console.log('Geocode response:', geocodeResponse.data);
-
-                                if (geocodeResponse.data.results?.[0]?.geometry?.location) {
-                                    const { lat, lng } = geocodeResponse.data.results[0].geometry.location;
-                                    console.log(`Got coordinates for ${dealer.DealershipName}:`, { lat, lng });
-                                    return { ...dealer, lat, lng };
-                                } else {
-                                    console.warn('No coordinates found for:', address);
-                                }
-                            } catch (error) {
-                                console.error('Geocoding error for:', address, error);
+                            const coords = await getCoordinates(address);
+                            if (coords) {
+                                console.log(`Got coordinates for ${dealer.DealershipName}:`, coords);
+                                return { ...dealer, ...coords };
                             }
                             return dealer;
                         })
                     );
 
                     dealersWithCoords.push(...batchResults);
-                    // Add a small delay between batches
+                    // Add a delay between batches to respect rate limits
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
