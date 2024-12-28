@@ -6,6 +6,7 @@ interface Dealer {
     KPMDealerNumber: string;
     DealershipName: string;
     DBA?: string;
+    SalesmanCode: string;
 }
 
 interface DealerDetails {
