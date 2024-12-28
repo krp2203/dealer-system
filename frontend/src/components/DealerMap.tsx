@@ -36,20 +36,17 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
         console.log('Geocoding request:', geocodeUrl);
         const response = await axios.get<GeocodeResponse>(geocodeUrl);
         
-        console.log('Geocoding response:', {
-            status: response.data.status,
-            results: response.data.results?.length || 0,
-            error: response.data.error_message
-        });
+        // Log the full response
+        console.log('Full geocoding response:', response.data);
         
         if (response.data.status === 'OK' && response.data.results?.[0]?.geometry?.location) {
             const location = response.data.results[0].geometry.location;
-            console.log('Found coordinates:', location);
+            console.log('Found coordinates for:', address, location);
             return location;
-        }
-
-        // Try with just city and state if full address fails
-        if (response.data.status !== 'OK') {
+        } else {
+            console.warn('No coordinates found for:', address, 'Status:', response.data.status);
+            
+            // Try with just city and state
             const [, city, stateZip] = address.split(',').map(s => s.trim());
             if (city && stateZip) {
                 const simpleAddress = `${city}, ${stateZip}`;
@@ -66,10 +63,9 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
             }
         }
         
-        console.log('No coordinates found for:', address);
         return null;
     } catch (error) {
-        console.error('Geocoding error:', error);
+        console.error('Geocoding error for:', address, error);
         return null;
     }
 }
