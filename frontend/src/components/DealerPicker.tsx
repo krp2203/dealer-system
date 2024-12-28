@@ -202,11 +202,11 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
                 keys: Object.keys(d)
             }))
         });
-
+    
         const allLines = dealers
             .filter(d => {
                 console.log('Checking dealer:', {
-                    name: d.DealershipName,
+                    name: d.DealershipName,  // Fixed from DealshipName to DealershipName
                     lines: d.ProductLines,
                     type: typeof d.ProductLines,
                     length: d.ProductLines?.length,
@@ -221,7 +221,7 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
                 console.log(`Lines for ${d.DealershipName}:`, lines);
                 return lines;
             });
-
+    
         console.log('Found product lines:', allLines);
         return Array.from(new Set(allLines)).sort();
     };

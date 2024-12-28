@@ -214,108 +214,53 @@ app.get('/api/dealers/coordinates', async (req, res) => {
 });
 
 // Get complete dealer details by dealer number
-app.get('/api/dealers/:dealerNumber', async (req, res) => {
+app.get('/api/dealers', async (req, res) => {
     let connection;
     try {
-        console.log('=== GET DEALER DETAILS ===');
-        console.log('Dealer Number:', req.params.dealerNumber);
-
-        // Create connection
         connection = await mysql.createConnection(dbConfig);
-
-        // Get dealer basic info with salesman details
-        const [dealerInfo] = await connection.query(`
+        
+        const [rows] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
-                s.SalesmanName
+                s.SalesmanName,
+                a.State,
+                COALESCE(l.ProductLines, '') as ProductLines
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            WHERE d.KPMDealerNumber = ?
-        `, [req.params.dealerNumber]);
+            LEFT JOIN (
+                SELECT DISTINCT KPMDealerNumber, State
+                FROM Addresses
+            ) a ON d.KPMDealerNumber = a.KPMDealerNumber
+            LEFT JOIN (
+                SELECT 
+                    KPMDealerNumber,
+                    GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
+                FROM LinesCarried
+                GROUP BY KPMDealerNumber
+            ) l ON d.KPMDealerNumber = l.KPMDealerNumber
+            ORDER BY d.DealershipName
+        `);
 
-        if (dealerInfo.length === 0) {
-            return res.status(404).json({ error: 'Dealer not found' });
-        }
+        // Log sample data
+        console.log('Sample data:', {
+            total: rows.length,
+            first: rows[0],
+            salesmen: [...new Set(rows.map(r => r.SalesmanName).filter(Boolean))],
+            productLines: [...new Set(rows.flatMap(r => (r.ProductLines || '').split(',').map(l => l.trim())).filter(Boolean))]
+        });
 
-        // Get address information
-        const [address] = await connection.query(`
-            SELECT 
-                StreetAddress,
-                BoxNumber,
-                City,
-                State,
-                ZipCode,
-                County
-            FROM Addresses 
-            WHERE KPMDealerNumber = ?
-        `, [req.params.dealerNumber]);
-
-        // Get contact information
-        const [contact] = await connection.query(`
-            SELECT 
-                MainPhone,
-                FaxNumber,
-                MainEmail
-            FROM ContactInformation 
-            WHERE KPMDealerNumber = ?
-        `, [req.params.dealerNumber]);
-
-        // Get lines carried
-        const [lines] = await connection.query(`
-            SELECT 
-                LineName,
-                AccountNumber
-            FROM LinesCarried 
-            WHERE KPMDealerNumber = ?
-        `, [req.params.dealerNumber]);
-
-        // Structure the response
-        const dealerDetails = {
-            KPMDealerNumber: dealerInfo[0].KPMDealerNumber,
-            DealershipName: dealerInfo[0].DealershipName,
-            DBA: dealerInfo[0].DBA || '',
-            address: address[0] || {
-                StreetAddress: '',
-                BoxNumber: '',
-                City: '',
-                State: '',
-                ZipCode: '',
-                County: ''
-            },
-            contact: contact[0] || {
-                MainPhone: '',
-                FaxNumber: '',
-                MainEmail: ''
-            },
-            lines: lines || [],
-            salesman: {
-                SalesmanName: dealerInfo[0].SalesmanName || '',
-                SalesmanCode: dealerInfo[0].SalesmanCode || ''
-            }
-        };
-
-        console.log('Sending dealer details:', JSON.stringify(dealerDetails, null, 2));
-        res.json(dealerDetails);
-
+        res.json(rows);
     } catch (error) {
-        console.error('Error fetching dealer details:', error);
-            res.status(500).json({ 
-            error: 'Failed to fetch dealer details',
-            details: error.message,
-            code: error.code
+        console.error('Database error:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch dealers',
+            details: error.message
         });
     } finally {
-        if (connection) {
-            try {
-                await connection.end();
-                console.log('Database connection closed');
-            } catch (err) {
-                console.error('Error closing connection:', err);
-            }
-        }
+        if (connection) await connection.end();
     }
 });
 
