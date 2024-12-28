@@ -88,12 +88,16 @@ app.get('/api/dealers', async (req, res) => {
 
 // Get complete dealer details by dealer number
 app.get('/api/dealers/:dealerNumber', async (req, res) => {
+    let connection;
     try {
         console.log('=== GET DEALER DETAILS ===');
         console.log('Dealer Number:', req.params.dealerNumber);
 
+        // Create connection
+        connection = await mysql.createConnection(dbConfig);
+
         // Get dealer basic info with salesman details
-        const [dealerInfo] = await promisePool.query(`
+        const [dealerInfo] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
@@ -110,7 +114,7 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
         }
 
         // Get address information
-        const [address] = await promisePool.query(`
+        const [address] = await connection.query(`
             SELECT 
                 StreetAddress,
                 BoxNumber,
@@ -123,7 +127,7 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
         `, [req.params.dealerNumber]);
 
         // Get contact information
-        const [contact] = await promisePool.query(`
+        const [contact] = await connection.query(`
             SELECT 
                 MainPhone,
                 FaxNumber,
@@ -133,7 +137,7 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
         `, [req.params.dealerNumber]);
 
         // Get lines carried
-        const [lines] = await promisePool.query(`
+        const [lines] = await connection.query(`
             SELECT 
                 LineName,
                 AccountNumber
@@ -171,7 +175,20 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching dealer details:', error);
-        res.status(500).json({ error: 'Failed to fetch dealer details' });
+        res.status(500).json({ 
+            error: 'Failed to fetch dealer details',
+            details: error.message,
+            code: error.code
+        });
+    } finally {
+        if (connection) {
+            try {
+                await connection.end();
+                console.log('Database connection closed');
+            } catch (err) {
+                console.error('Error closing connection:', err);
+            }
+        }
     }
 });
 
