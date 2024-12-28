@@ -93,8 +93,8 @@ const DealerMap: React.FC<{
 }> = ({ onDealerSelect }) => {
     const [dealers, setDealers] = useState<DealerLocation[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
-    const [mapCenter] = useState({ lat: 38.5, lng: -77.5 }); // Centered between VA and MD
-    const [mapZoom] = useState(8); // Zoom out a bit more
+    const [mapCenter] = useState({ lat: 38.5, lng: -77.5 });
+    const [mapZoom] = useState(8);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [hoveredDealer, setHoveredDealer] = useState<DealerLocation | null>(null);
@@ -213,20 +213,19 @@ const DealerMap: React.FC<{
                     fullscreenControl: true
                 }}
                 onLoad={(map) => {
-                    console.log('Map loaded');
-                    const bounds = new window.google.maps.LatLngBounds();
-                    dealers.forEach(dealer => {
-                        if (dealer.lat && dealer.lng) {
-                            bounds.extend({ lat: dealer.lat, lng: dealer.lng });
-                        }
-                    });
-                    map.fitBounds(bounds);
+                    if (dealers.length > 0) {
+                        const bounds = new window.google.maps.LatLngBounds();
+                        dealers.forEach(dealer => {
+                            if (dealer.lat && dealer.lng) {
+                                bounds.extend({ lat: dealer.lat, lng: dealer.lng });
+                            }
+                        });
+                        map.fitBounds(bounds);
+                    }
                 }}
             >
-                {dealers.length > 0 && dealers.map(dealer => {
-                    if (!dealer.lat || !dealer.lng) {
-                        return null;
-                    }
+                {dealers.map(dealer => {
+                    if (!dealer.lat || !dealer.lng) return null;
                     return (
                         <Marker
                             key={dealer.KPMDealerNumber}
