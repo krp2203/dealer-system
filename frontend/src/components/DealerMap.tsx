@@ -90,7 +90,8 @@ const DealerMap: React.FC<{
 }> = ({ onDealerSelect }) => {
     const [dealers, setDealers] = useState<DealerLocation[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
-    const [mapCenter] = useState({ lat: 37.5407, lng: -77.4360 }); // Center on Virginia
+    const [mapCenter] = useState({ lat: 38.5, lng: -77.5 }); // Centered between VA and MD
+    const [mapZoom] = useState(8); // Zoom out a bit more
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -140,15 +141,28 @@ const DealerMap: React.FC<{
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
-                const validDealers = dealersWithCoords.filter((d): d is DealerLocation & { lat: number; lng: number } => 
-                    typeof d.lat === 'number' && typeof d.lng === 'number'
-                );
+                const validDealers = dealersWithCoords.filter((d): d is DealerLocation & { lat: number; lng: number } => {
+                    const isValid = typeof d.lat === 'number' && typeof d.lng === 'number';
+                    if (!isValid) {
+                        console.warn('Invalid dealer coordinates:', {
+                            name: d.DealershipName,
+                            address: `${d.StreetAddress}, ${d.City}, ${d.State} ${d.ZipCode}`,
+                            coords: { lat: d.lat, lng: d.lng }
+                        });
+                    }
+                    return isValid;
+                });
 
-                console.log('Final dealers with coordinates:', validDealers);
+                console.log('Valid dealers after filtering:', validDealers.map(d => ({
+                    name: d.DealershipName,
+                    address: `${d.StreetAddress}, ${d.City}, ${d.State} ${d.ZipCode}`,
+                    coords: { lat: d.lat, lng: d.lng }
+                })));
 
                 if (validDealers.length === 0) {
                     setError('No dealers found with valid coordinates');
                 } else {
+                    console.log(`Setting ${validDealers.length} dealers with coordinates`);
                     setDealers(validDealers);
                 }
                 setLoading(false);
@@ -172,7 +186,7 @@ const DealerMap: React.FC<{
     })));
 
     console.log('Map center:', mapCenter);
-    console.log('Map zoom:', 7);
+    console.log('Map zoom:', mapZoom);
     console.log('Valid dealers:', dealers.filter(d => d.lat && d.lng).length);
     console.log('All dealers:', dealers.map(d => ({
         name: d.DealershipName,
@@ -185,17 +199,42 @@ const DealerMap: React.FC<{
             <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
                 <GoogleMap
                     mapContainerStyle={mapStyles}
-                    zoom={7}
+                    zoom={mapZoom}
                     center={mapCenter}
-                    onLoad={(map) => console.log('Map loaded:', map)}
+                    options={{
+                        // Add map options for better visibility
+                        zoomControl: true,
+                        mapTypeControl: true,
+                        scaleControl: true,
+                        streetViewControl: true,
+                        rotateControl: true,
+                        fullscreenControl: true
+                    }}
+                    onLoad={(map) => {
+                        console.log('Map loaded');
+                        // Fit bounds to show all markers
+                        const bounds = new window.google.maps.LatLngBounds();
+                        dealers.forEach(dealer => {
+                            if (dealer.lat && dealer.lng) {
+                                bounds.extend({ lat: dealer.lat, lng: dealer.lng });
+                            }
+                        });
+                        map.fitBounds(bounds);
+                    }}
                 >
-                    {dealers.map(dealer => {
-                        console.log('Rendering marker for:', dealer.DealershipName, { lat: dealer.lat, lng: dealer.lng });
+                    {dealers.length > 0 && dealers.map(dealer => {
+                        if (!dealer.lat || !dealer.lng) {
+                            console.warn('Missing coordinates for dealer:', dealer.DealershipName);
+                            return null;
+                        }
                         return (
                             <Marker
                                 key={dealer.KPMDealerNumber}
-                                position={{ lat: dealer.lat!, lng: dealer.lng! }}
-                                onClick={() => setSelectedDealer(dealer)}
+                                position={{ lat: dealer.lat, lng: dealer.lng }}
+                                onClick={() => {
+                                    console.log('Marker clicked:', dealer);
+                                    setSelectedDealer(dealer);
+                                }}
                             />
                         );
                     })}
