@@ -69,8 +69,27 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     useEffect(() => {
         const fetchDealers = async () => {
             try {
+                // Try to get cached coordinates first
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    const { data } = JSON.parse(cached);
+                    if (data && data.length > 0) {
+                        setDealers(data);
+                        setLoading(false);
+                        return;
+                    }
+                }
+
                 const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
-                setDealers(response.data);
+                const dealersWithCoords = await addCoordinatesToDealers(response.data);
+                
+                // Cache the results
+                localStorage.setItem(CACHE_KEY, JSON.stringify({ 
+                    data: dealersWithCoords,
+                    timestamp: Date.now()
+                }));
+
+                setDealers(dealersWithCoords);
                 setLoading(false);
             } catch (err) {
                 setError('Failed to fetch dealers');
