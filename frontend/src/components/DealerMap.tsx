@@ -108,71 +108,17 @@ const DealerMap: React.FC<{
     useEffect(() => {
         const fetchDealers = async () => {
             try {
-                // Try to get cached coordinates first
-                const cached = localStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    try {
-                        const { timestamp, data } = JSON.parse(cached);
-                        const isExpired = Date.now() - timestamp > CACHE_DURATION;
-                        
-                        if (!isExpired) {
-                            setDealers(data);
-                            setLoading(false);
-                            return;
-                        }
-                    } catch (error) {
-                        console.warn('Cache parsing failed:', error);
-                    }
-                }
-
-                console.log('Fetching dealers...');
                 const response = await axios.get<DealerLocation[]>('http://35.212.41.99:3002/api/dealers/coordinates');
-
-                if (!response.data || response.data.length === 0) {
-                    setError('No dealers found');
-                    setLoading(false);
-                    return;
-                }
-
-                // Process dealers in parallel with rate limiting
-                const allDealers = [...response.data];
-                const dealersWithCoords = [];
-                const batchSize = 10; // Increased batch size
-
-                for (let i = 0; i < allDealers.length; i += batchSize) {
-                    const batch = allDealers.slice(i, i + batchSize);
-                    const batchPromises = batch.map(async (dealer) => {
-                        const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
-                        const coords = await getCoordinates(address);
-                        return coords ? { ...dealer, ...coords } : dealer;
-                    });
-
-                    const results = await Promise.all(batchPromises);
-                    dealersWithCoords.push(...results);
-                    
-                    // Shorter delay between batches
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                }
-
-                const validDealers = dealersWithCoords.filter((d): d is DealerLocation & { lat: number; lng: number } => 
-                    typeof d.lat === 'number' && typeof d.lng === 'number'
-                );
-
-                if (validDealers.length > 0) {
-                    // Cache the results
-                    localStorage.setItem(CACHE_KEY, JSON.stringify({
-                        timestamp: Date.now(),
-                        data: validDealers
-                    }));
-                    setDealers(validDealers);
-                } else {
-                    setError('No dealers found with valid coordinates');
-                }
                 
-                setLoading(false);
+                if (response.data && Array.isArray(response.data)) {
+                    setDealers(response.data);
+                } else {
+                    setError('Invalid data received');
+                }
             } catch (error) {
-                console.error('Error fetching dealers:', error);
                 setError('Failed to fetch dealers');
+                console.error(error);
+            } finally {
                 setLoading(false);
             }
         };
@@ -180,23 +126,13 @@ const DealerMap: React.FC<{
         fetchDealers();
     }, []);
 
-    if (loading) return <div>Loading dealers...</div>;
-    if (error) return <div>Error: {error}</div>;
-    if (dealers.length === 0) return <div>No dealers found</div>;
+    if (loading) {
+        return <div className="map-container">Loading dealers...</div>;
+    }
 
-    console.log('Rendering map with dealers:', dealers.map(d => ({
-        name: d.DealershipName,
-        coords: { lat: d.lat, lng: d.lng }
-    })));
-
-    console.log('Map center:', mapCenter);
-    console.log('Map zoom:', mapZoom);
-    console.log('Valid dealers:', dealers.filter(d => d.lat && d.lng).length);
-    console.log('All dealers:', dealers.map(d => ({
-        name: d.DealershipName,
-        address: `${d.StreetAddress}, ${d.City}, ${d.State} ${d.ZipCode}`,
-        coords: { lat: d.lat, lng: d.lng }
-    })));
+    if (error) {
+        return <div className="map-container">Error: {error}</div>;
+    }
 
     return (
         <div className="map-container">
@@ -212,20 +148,9 @@ const DealerMap: React.FC<{
                     rotateControl: true,
                     fullscreenControl: true
                 }}
-                onLoad={(map) => {
-                    if (dealers.length > 0) {
-                        const bounds = new window.google.maps.LatLngBounds();
-                        dealers.forEach(dealer => {
-                            if (dealer.lat && dealer.lng) {
-                                bounds.extend({ lat: dealer.lat, lng: dealer.lng });
-                            }
-                        });
-                        map.fitBounds(bounds);
-                    }
-                }}
             >
-                {dealers.map(dealer => {
-                    if (!dealer.lat || !dealer.lng) return null;
+                {dealers && dealers.map(dealer => {
+                    if (!dealer?.lat || !dealer?.lng) return null;
                     return (
                         <Marker
                             key={dealer.KPMDealerNumber}
@@ -240,9 +165,9 @@ const DealerMap: React.FC<{
                     );
                 })}
 
-                {hoveredDealer && (
+                {hoveredDealer && hoveredDealer.lat && hoveredDealer.lng && (
                     <InfoWindow
-                        position={{ lat: hoveredDealer.lat!, lng: hoveredDealer.lng! }}
+                        position={{ lat: hoveredDealer.lat, lng: hoveredDealer.lng }}
                         onCloseClick={() => setHoveredDealer(null)}
                         options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
                     >
@@ -258,10 +183,7 @@ const DealerMap: React.FC<{
                             <p>{hoveredDealer.StreetAddress}</p>
                             <p>{hoveredDealer.City}, {hoveredDealer.State} {hoveredDealer.ZipCode}</p>
                             <button 
-                                onClick={() => {
-                                    setSelectedDealer(hoveredDealer);
-                                    onDealerSelect(hoveredDealer.KPMDealerNumber);
-                                }}
+                                onClick={() => onDealerSelect(hoveredDealer.KPMDealerNumber)}
                                 style={{ 
                                     marginTop: '8px',
                                     padding: '4px 8px',
