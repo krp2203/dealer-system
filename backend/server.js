@@ -94,7 +94,18 @@ app.get('/api/dealers/coordinates', async (req, res) => {
         console.log('Fetching dealer coordinates...');
         connection = await mysql.createConnection(dbConfig);
         
-        // Get all dealers with addresses
+        // First, let's check what addresses we have
+        const [addressCheck] = await connection.query(`
+            SELECT COUNT(*) as total,
+                   COUNT(CASE WHEN StreetAddress IS NOT NULL AND StreetAddress != '' THEN 1 END) as hasStreet,
+                   COUNT(CASE WHEN City IS NOT NULL AND City != '' THEN 1 END) as hasCity,
+                   COUNT(CASE WHEN State IS NOT NULL AND State != '' THEN 1 END) as hasState,
+                   COUNT(CASE WHEN ZipCode IS NOT NULL AND ZipCode != '' THEN 1 END) as hasZip
+            FROM Addresses
+        `);
+        console.log('Address stats:', addressCheck[0]);
+
+        // Now get dealers with addresses, with less strict conditions
         const [dealers] = await connection.query(`
             SELECT DISTINCT
                 d.KPMDealerNumber,
@@ -104,19 +115,25 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 a.State,
                 a.ZipCode
             FROM Dealerships d
-            INNER JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             WHERE a.StreetAddress IS NOT NULL
-                AND a.StreetAddress != ''
-                AND a.City IS NOT NULL 
-                AND a.City != ''
-                AND a.State IS NOT NULL
-                AND a.State != ''
-                AND a.ZipCode IS NOT NULL
-                AND a.ZipCode != ''
+                OR a.City IS NOT NULL
+                OR a.State IS NOT NULL
+                OR a.ZipCode IS NOT NULL
         `);
         
-        console.log(`Found ${dealers.length} dealers with valid addresses`);
-        console.log('First dealer:', dealers[0]);
+        console.log(`Found ${dealers.length} dealers with any address info`);
+        if (dealers.length > 0) {
+            console.log('Sample dealer data:', {
+                first: dealers[0],
+                addressFields: {
+                    street: dealers[0].StreetAddress,
+                    city: dealers[0].City,
+                    state: dealers[0].State,
+                    zip: dealers[0].ZipCode
+                }
+            });
+        }
         
         res.json(dealers);
     } catch (error) {
