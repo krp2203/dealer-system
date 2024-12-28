@@ -16,10 +16,11 @@
   display: flex;
   gap: 20px;
   min-height: calc(100vh - 200px);
+  padding: 0 20px;
 }
 
 .map-section {
-  flex: 2;
+  flex: 3;
   min-width: 0;
 }
 
@@ -27,11 +28,9 @@
   flex: 1;
   min-width: 300px;
   max-width: 400px;
-  overflow-y: auto;
-  padding: 20px;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .map-container {
@@ -40,4 +39,48 @@
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dealer-title {
+  background-color: #282c34;
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 0;
+  font-size: 1.2em;
+}
+
+.dealer-picker select {
+  width: 100%;
+  padding: 10px;
+  font-size: 1em;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  white-space: normal;
+  height: auto;
+  min-height: 40px;
+}
+
+.dealer-details {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dealer-details h2 {
+  margin-top: 0;
+  color: #282c34;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+}
+
+.dealer-details section {
+  margin: 15px 0;
+}
+
+.dealer-details h3 {
+  color: #444;
+  margin: 10px 0;
 }
