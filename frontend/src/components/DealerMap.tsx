@@ -37,15 +37,21 @@ const DealerMap: React.FC<{
     useEffect(() => {
         const fetchDealers = async () => {
             try {
+                console.log('Fetching dealers for map...');
                 const response = await axios.get<DealerLocation[]>('http://35.212.41.99:3002/api/dealers/coordinates');
+                console.log('Received dealers:', response.data);
+                
                 const dealersWithCoords = await Promise.all(response.data.map(async (dealer: DealerLocation) => {
                     const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
+                    console.log('Geocoding address:', address);
                     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
                     
                     try {
                         const geocodeResponse = await axios.get<GeocodeResponse>(geocodeUrl);
+                        console.log('Geocode response:', geocodeResponse.data);
                         if (geocodeResponse.data.results[0]) {
                             const { lat, lng } = geocodeResponse.data.results[0].geometry.location;
+                            console.log('Got coordinates:', { lat, lng });
                             return { ...dealer, lat, lng };
                         }
                     } catch (error) {
@@ -54,7 +60,9 @@ const DealerMap: React.FC<{
                     return dealer;
                 }));
                 
-                setDealers(dealersWithCoords.filter((d: DealerLocation) => d.lat && d.lng));
+                const validDealers = dealersWithCoords.filter((d: DealerLocation) => d.lat && d.lng);
+                console.log('Dealers with coordinates:', validDealers);
+                setDealers(validDealers);
             } catch (error) {
                 console.error('Error fetching dealers:', error);
             }

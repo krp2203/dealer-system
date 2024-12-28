@@ -538,11 +538,12 @@ app.post('/api/import', async (req, res) => {
 app.get('/api/dealers/coordinates', async (req, res) => {
     let connection;
     try {
+        console.log('Fetching dealer coordinates...');
         connection = await mysql.createConnection(dbConfig);
         
         // Get all dealers with addresses
         const [dealers] = await connection.query(`
-            SELECT 
+            SELECT DISTINCT
                 d.KPMDealerNumber,
                 d.DealershipName,
                 a.StreetAddress,
