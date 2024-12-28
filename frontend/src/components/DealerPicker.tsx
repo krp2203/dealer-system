@@ -6,6 +6,18 @@ interface Dealer {
     KPMDealerNumber: string;
     DealershipName: string;
     DBA?: string;
+    salesman?: {
+        SalesmanName: string;
+        SalesmanCode: string;
+    };
+    lines?: Array<{
+        LineName: string;
+        AccountNumber: string;
+    }>;
+    address?: {
+        State: string;
+        // ... other address fields
+    };
 }
 
 interface DealerDetails {
@@ -36,6 +48,9 @@ interface DealerDetails {
 }
 
 const API_URL = 'http://35.212.41.99:3002';
+
+// Add a type for the filter keys
+type FilterKey = 'salesman.SalesmanName' | 'lines' | 'address.State';
 
 const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
@@ -165,10 +180,16 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
     };
 
-    const getUniqueValues = (dealers: Dealer[], key: string) => {
+    const getUniqueValues = (dealers: Dealer[], key: FilterKey): string[] => {
         const values = new Set<string>();
         dealers.forEach(dealer => {
-            if (dealer[key]) values.add(dealer[key]);
+            if (key === 'salesman.SalesmanName' && dealer.salesman) {
+                values.add(dealer.salesman.SalesmanName);
+            } else if (key === 'lines' && dealer.lines) {
+                dealer.lines.forEach(line => values.add(line.LineName));
+            } else if (key === 'address.State' && dealer.address) {
+                values.add(dealer.address.State);
+            }
         });
         return Array.from(values).sort();
     };
