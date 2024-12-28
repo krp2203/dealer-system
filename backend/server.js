@@ -213,57 +213,6 @@ app.get('/api/dealers/coordinates', async (req, res) => {
     }
 });
 
-// Get complete dealer details by dealer number
-app.get('/api/dealers', async (req, res) => {
-    let connection;
-    try {
-        connection = await mysql.createConnection(dbConfig);
-        
-        const [rows] = await connection.query(`
-            SELECT 
-                d.KPMDealerNumber,
-                d.DealershipName,
-                d.DBA,
-                d.SalesmanCode,
-                s.SalesmanName,
-                a.State,
-                COALESCE(l.ProductLines, '') as ProductLines
-            FROM Dealerships d
-            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            LEFT JOIN (
-                SELECT DISTINCT KPMDealerNumber, State
-                FROM Addresses
-            ) a ON d.KPMDealerNumber = a.KPMDealerNumber
-            LEFT JOIN (
-                SELECT 
-                    KPMDealerNumber,
-                    GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
-                FROM LinesCarried
-                GROUP BY KPMDealerNumber
-            ) l ON d.KPMDealerNumber = l.KPMDealerNumber
-            ORDER BY d.DealershipName
-        `);
-
-        // Log sample data
-        console.log('Sample data:', {
-            total: rows.length,
-            first: rows[0],
-            salesmen: [...new Set(rows.map(r => r.SalesmanName).filter(Boolean))],
-            productLines: [...new Set(rows.flatMap(r => (r.ProductLines || '').split(',').map(l => l.trim())).filter(Boolean))]
-        });
-
-        res.json(rows);
-    } catch (error) {
-        console.error('Database error:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch dealers',
-            details: error.message
-        });
-    } finally {
-        if (connection) await connection.end();
-    }
-});
-
 // Add a root route
 app.get('/', (req, res) => {
     res.json({ message: 'KPM Dealer Database API' });

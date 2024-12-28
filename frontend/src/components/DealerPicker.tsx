@@ -206,7 +206,7 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
         const allLines = dealers
             .filter(d => {
                 console.log('Checking dealer:', {
-                    name: d.DealershipName,  // Fixed from DealshipName to DealershipName
+                    name: d.DealershipName,
                     lines: d.ProductLines,
                     type: typeof d.ProductLines,
                     length: d.ProductLines?.length,
