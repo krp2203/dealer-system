@@ -551,14 +551,26 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 a.State,
                 a.ZipCode
             FROM Dealerships d
-            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            INNER JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             WHERE a.StreetAddress IS NOT NULL
-                AND a.City IS NOT NULL
+                AND a.StreetAddress != ''
+                AND a.City IS NOT NULL 
+                AND a.City != ''
                 AND a.State IS NOT NULL
+                AND a.State != ''
                 AND a.ZipCode IS NOT NULL
+                AND a.ZipCode != ''
         `);
         
+        console.log('SQL Query completed');
         console.log(`Found ${dealers.length} dealers with valid addresses`);
+        console.log('First few dealers:', dealers.slice(0, 3));
+        
+        if (dealers.length === 0) {
+            console.log('No dealers found with valid addresses');
+            return res.json([]);
+        }
+        
         res.json(dealers);
     } catch (error) {
         console.error('Error fetching dealer coordinates:', error);
