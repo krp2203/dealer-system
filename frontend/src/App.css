@@ -300,3 +300,17 @@
 .cancel-button:hover {
     background-color: #d32f2f;
 }
+
+.dealer-details input {
+    width: 100%;
+    padding: 8px;
+    margin: 4px 0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1em;
+}
+
+.dealer-details input:focus {
+    border-color: #282c34;
+    outline: none;
+}

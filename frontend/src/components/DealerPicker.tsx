@@ -261,40 +261,121 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
                             <section>
                                 <h3>Basic Information</h3>
-                                <p><strong>Dealer Number:</strong> {dealerDetails.KPMDealerNumber}</p>
-                                {dealerDetails.DBA && (
-                                    <p><strong>DBA:</strong> {dealerDetails.DBA}</p>
+                                {isEditing ? (
+                                    <>
+                                        <input
+                                            type="text"
+                                            value={editedDetails?.DBA || ''}
+                                            onChange={(e) => handleInputChange('', 'DBA', e.target.value)}
+                                            placeholder="DBA"
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <p><strong>Dealer Number:</strong> {dealerDetails.KPMDealerNumber}</p>
+                                        {dealerDetails.DBA && (
+                                            <p><strong>DBA:</strong> {dealerDetails.DBA}</p>
+                                        )}
+                                    </>
                                 )}
                             </section>
 
                             <section>
                                 <h3>Contact Information</h3>
-                                <p><strong>Phone:</strong> {dealerDetails.contact.MainPhone}</p>
-                                {dealerDetails.contact.FaxNumber && (
-                                    <p><strong>Fax:</strong> {dealerDetails.contact.FaxNumber}</p>
+                                {isEditing ? (
+                                    <>
+                                        <input
+                                            type="text"
+                                            value={editedDetails?.contact.MainPhone || ''}
+                                            onChange={(e) => handleInputChange('contact', 'MainPhone', e.target.value)}
+                                            placeholder="Phone"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={editedDetails?.contact.FaxNumber || ''}
+                                            onChange={(e) => handleInputChange('contact', 'FaxNumber', e.target.value)}
+                                            placeholder="Fax"
+                                        />
+                                        <input
+                                            type="email"
+                                            value={editedDetails?.contact.MainEmail || ''}
+                                            onChange={(e) => handleInputChange('contact', 'MainEmail', e.target.value)}
+                                            placeholder="Email"
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <p><strong>Phone:</strong> {dealerDetails.contact.MainPhone}</p>
+                                        {dealerDetails.contact.FaxNumber && (
+                                            <p><strong>Fax:</strong> {dealerDetails.contact.FaxNumber}</p>
+                                        )}
+                                        <p><strong>Email:</strong> {dealerDetails.contact.MainEmail}</p>
+                                    </>
                                 )}
-                                <p><strong>Email:</strong> {dealerDetails.contact.MainEmail}</p>
                             </section>
                             
                             <section>
                                 <h3>Address</h3>
-                                <p>{dealerDetails.address.StreetAddress}</p>
-                                {dealerDetails.address.BoxNumber && (
-                                    <p>Box: {dealerDetails.address.BoxNumber}</p>
+                                {isEditing ? (
+                                    <>
+                                        <input
+                                            type="text"
+                                            value={editedDetails?.address.StreetAddress || ''}
+                                            onChange={(e) => handleInputChange('address', 'StreetAddress', e.target.value)}
+                                            placeholder="Street Address"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={editedDetails?.address.BoxNumber || ''}
+                                            onChange={(e) => handleInputChange('address', 'BoxNumber', e.target.value)}
+                                            placeholder="Box Number"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={editedDetails?.address.City || ''}
+                                            onChange={(e) => handleInputChange('address', 'City', e.target.value)}
+                                            placeholder="City"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={editedDetails?.address.State || ''}
+                                            onChange={(e) => handleInputChange('address', 'State', e.target.value)}
+                                            placeholder="State"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={editedDetails?.address.ZipCode || ''}
+                                            onChange={(e) => handleInputChange('address', 'ZipCode', e.target.value)}
+                                            placeholder="Zip Code"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={editedDetails?.address.County || ''}
+                                            onChange={(e) => handleInputChange('address', 'County', e.target.value)}
+                                            placeholder="County"
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <p>{dealerDetails.address.StreetAddress}</p>
+                                        {dealerDetails.address.BoxNumber && (
+                                            <p>Box: {dealerDetails.address.BoxNumber}</p>
+                                        )}
+                                        <p>{dealerDetails.address.City}, {dealerDetails.address.State} {dealerDetails.address.ZipCode}</p>
+                                        <p><strong>County:</strong> {dealerDetails.address.County}</p>
+                                        <button 
+                                            className="directions-button"
+                                            onClick={() => {
+                                                const address = encodeURIComponent(
+                                                    `${dealerDetails.address.StreetAddress}, ${dealerDetails.address.City}, ${dealerDetails.address.State} ${dealerDetails.address.ZipCode}`
+                                                );
+                                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${address}`, '_blank');
+                                            }}
+                                        >
+                                            <span>📍 Get Directions</span>
+                                        </button>
+                                    </>
                                 )}
-                                <p>{dealerDetails.address.City}, {dealerDetails.address.State} {dealerDetails.address.ZipCode}</p>
-                                <p><strong>County:</strong> {dealerDetails.address.County}</p>
-                                <button 
-                                    className="directions-button"
-                                    onClick={() => {
-                                        const address = encodeURIComponent(
-                                            `${dealerDetails.address.StreetAddress}, ${dealerDetails.address.City}, ${dealerDetails.address.State} ${dealerDetails.address.ZipCode}`
-                                        );
-                                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${address}`, '_blank');
-                                    }}
-                                >
-                                    <span>📍 Get Directions</span>
-                                </button>
                             </section>
 
                             <section>
