@@ -50,6 +50,8 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     dealers,
     onDealersFiltered 
 }) => {
+    console.log('First dealer full data:', dealers[0]);
+
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
     const [dealerDetails, setDealerDetails] = useState<DealerDetails | null>(null);
     const [loading, setLoading] = useState(false);

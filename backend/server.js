@@ -42,6 +42,12 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
+        // Log the first row of each table to verify data
+        const [salesmanCheck] = await connection.query('SELECT * FROM Salesman LIMIT 1');
+        const [linesCheck] = await connection.query('SELECT * FROM LinesCarried LIMIT 1');
+        console.log('Sample Salesman:', salesmanCheck);
+        console.log('Sample Lines:', linesCheck);
+        
         const [rows] = await connection.query(`
             SELECT DISTINCT 
                 d.KPMDealerNumber,
@@ -50,7 +56,7 @@ app.get('/api/dealers', async (req, res) => {
                 d.SalesmanCode,
                 s.SalesmanName,
                 a.State,
-                GROUP_CONCAT(DISTINCT l.LineName SEPARATOR ', ') as ProductLines,
+                GROUP_CONCAT(DISTINCT l.LineName ORDER BY l.LineName SEPARATOR ', ') as ProductLines,
                 a.StreetAddress,
                 a.City,
                 a.ZipCode,
@@ -76,7 +82,7 @@ app.get('/api/dealers', async (req, res) => {
         `);
 
         // Log the first few rows to check the data
-        console.log('Sample of dealer data:', rows.slice(0, 3));
+        console.log('Sample dealers:', rows.slice(0, 3));
         
         res.json(rows);
     } catch (error) {
