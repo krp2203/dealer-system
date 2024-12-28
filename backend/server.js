@@ -25,12 +25,13 @@ const dbConfig = {
     password: 'f_j(/"xa|i=h+ccU',
     database: 'kpm dealer data',
     connectTimeout: 60000,
-    acquireTimeout: 60000,
-    timeout: 60000,
-    ssl: false,
-    multipleStatements: true,
-    dateStrings: true,
-    charset: 'UTF8MB4'
+    waitForConnections: true,
+    connectionLimit: 10,
+    maxIdle: 10,
+    idleTimeout: 60000,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
 };
 
 // Create a connection pool for better performance
