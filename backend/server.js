@@ -42,46 +42,35 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // Create view for dealer data
-        await connection.query(`
-            CREATE OR REPLACE VIEW dealer_data AS
+        const [rows] = await connection.query(`
+            WITH DealerStates AS (
+                SELECT 
+                    KPMDealerNumber,
+                    MAX(State) as State
+                FROM Addresses
+                GROUP BY KPMDealerNumber
+            ),
+            DealerLines AS (
+                SELECT 
+                    KPMDealerNumber,
+                    GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
+                FROM LinesCarried
+                GROUP BY KPMDealerNumber
+            )
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
                 s.SalesmanName,
-                (
-                    SELECT State 
-                    FROM Addresses a2 
-                    WHERE a2.KPMDealerNumber = d.KPMDealerNumber 
-                    LIMIT 1
-                ) as State,
-                (
-                    SELECT GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ')
-                    FROM LinesCarried lc
-                    WHERE lc.KPMDealerNumber = d.KPMDealerNumber
-                ) as ProductLines
+                COALESCE(ds.State, '') as State,
+                COALESCE(dl.ProductLines, '') as ProductLines
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            LEFT JOIN DealerStates ds ON d.KPMDealerNumber = ds.KPMDealerNumber
+            LEFT JOIN DealerLines dl ON d.KPMDealerNumber = dl.KPMDealerNumber
+            ORDER BY d.DealershipName
         `);
-
-        // Query the view
-        const [rows] = await connection.query(`
-            SELECT 
-                KPMDealerNumber,
-                DealershipName,
-                DBA,
-                SalesmanCode,
-                SalesmanName,
-                COALESCE(State, '') as State,
-                COALESCE(ProductLines, '') as ProductLines
-            FROM dealer_data
-            ORDER BY DealershipName
-        `);
-
-        // Drop the view
-        await connection.query('DROP VIEW IF EXISTS dealer_data');
 
         // Log sample data
         console.log('Sample data:', {
@@ -99,14 +88,7 @@ app.get('/api/dealers', async (req, res) => {
             details: error.message
         });
     } finally {
-        if (connection) {
-            try {
-                await connection.query('DROP VIEW IF EXISTS dealer_data');
-            } catch (err) {
-                console.error('Error dropping view:', err);
-            }
-            await connection.end();
-        }
+        if (connection) await connection.end();
     }
 });
 
