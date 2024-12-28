@@ -76,17 +76,20 @@ app.get('/api/dealers', async (req, res) => {
                 d.SalesmanCode,
                 s.SalesmanName,
                 a.State,
-                (
-                    SELECT GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ')
-                    FROM LinesCarried lc
-                    WHERE lc.KPMDealerNumber = d.KPMDealerNumber
-                ) as ProductLines
+                l.ProductLines
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN (
                 SELECT DISTINCT KPMDealerNumber, State
                 FROM Addresses
             ) a ON d.KPMDealerNumber = a.KPMDealerNumber
+            LEFT JOIN (
+                SELECT 
+                    KPMDealerNumber,
+                    GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
+                FROM LinesCarried
+                GROUP BY KPMDealerNumber
+            ) l ON d.KPMDealerNumber = l.KPMDealerNumber
             ORDER BY d.DealershipName
         `);
 
