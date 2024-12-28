@@ -2,7 +2,6 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
 import axios from 'axios';
-import { AxiosError } from 'axios';
 
 interface DealerLocation {
     KPMDealerNumber: string;
@@ -78,12 +77,11 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
         console.warn(`No coordinates found for ${address}`);
         return null;
     } catch (error) {
-        if (error instanceof Error) {
-            const axiosError = error as AxiosError;
+        if (axios.isAxiosError(error)) {
             console.error(`Geocoding error for ${address}:`, {
-                status: axiosError.response?.status,
-                data: axiosError.response?.data,
-                message: axiosError.message
+                status: error.response?.status,
+                data: error.response?.data,
+                message: error.message
             });
         } else {
             console.error(`Geocoding error for ${address}:`, error);
