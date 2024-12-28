@@ -58,6 +58,15 @@ app.get('/api/dealers', async (req, res) => {
             lines: linesSample[0]
         });
         
+        // Add this before the main query
+        const [linesCheck] = await connection.query(`
+            SELECT KPMDealerNumber, GROUP_CONCAT(LineName) as lines
+            FROM LinesCarried
+            GROUP BY KPMDealerNumber
+            LIMIT 5
+        `);
+        console.log('Lines check:', linesCheck);
+
         // Update the main query to be more explicit about JOINs
         const [rows] = await connection.query(`
             SELECT DISTINCT 
@@ -95,13 +104,14 @@ app.get('/api/dealers', async (req, res) => {
             ORDER BY d.DealershipName
         `);
 
-        // Log first row to verify data
-        console.log('First row data:', {
-            name: rows[0].DealershipName,
-            salesman: rows[0].SalesmanName,
-            productLines: rows[0].ProductLines
-        });
-        
+        // Log the first few rows in detail
+        console.log('First 5 rows:', rows.slice(0, 5).map(row => ({
+            name: row.DealershipName,
+            salesman: row.SalesmanName,
+            productLines: row.ProductLines,
+            rawProductLines: row['ProductLines'], // Check if case-sensitive
+        })));
+
         res.json(rows);
     } catch (error) {
         console.error('Database error:', error);

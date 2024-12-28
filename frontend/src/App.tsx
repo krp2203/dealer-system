@@ -35,7 +35,14 @@ function App() {
         // Fetch dealers with coordinates
         const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
         if (response.data) {
-          console.log('First dealer data:', response.data[0]);
+          // Log the first few dealers
+          console.log('Received dealers from API:', response.data.slice(0, 5).map(d => ({
+            name: d.DealershipName,
+            salesman: d.SalesmanName,
+            productLines: d.ProductLines,
+            fullDealer: d
+          })));
+          
           setAllDealers(response.data);
           setFilteredDealers(response.data);
           
