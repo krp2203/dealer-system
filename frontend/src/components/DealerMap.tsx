@@ -14,6 +14,20 @@ interface DealerLocation {
     lng?: number;
 }
 
+interface GeocodeResult {
+    geometry: {
+        location: {
+            lat: number;
+            lng: number;
+        };
+    };
+}
+
+interface GeocodeResponse {
+    results: GeocodeResult[];
+    status: string;
+}
+
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCKWHs3ywhjQ7kfakEuv0dfxeuCMvzRrZs';
 
 const DealerMap: React.FC<{
@@ -43,7 +57,6 @@ const DealerMap: React.FC<{
                     return;
                 }
 
-                // Geocode each dealer's address
                 const dealersWithCoords = await Promise.all(
                     response.data.map(async (dealer) => {
                         const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
@@ -51,9 +64,9 @@ const DealerMap: React.FC<{
                         
                         try {
                             const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
-                            const geocodeResponse = await axios.get(geocodeUrl);
+                            const geocodeResponse = await axios.get<GeocodeResponse>(geocodeUrl);
                             
-                            if (geocodeResponse.data.results && geocodeResponse.data.results[0]) {
+                            if (geocodeResponse.data.results?.[0]?.geometry?.location) {
                                 const { lat, lng } = geocodeResponse.data.results[0].geometry.location;
                                 return { ...dealer, lat, lng };
                             }
@@ -64,7 +77,9 @@ const DealerMap: React.FC<{
                     })
                 );
 
-                const validDealers = dealersWithCoords.filter(d => d.lat && d.lng);
+                const validDealers = dealersWithCoords.filter((d): d is DealerLocation & { lat: number; lng: number } => 
+                    typeof d.lat === 'number' && typeof d.lng === 'number'
+                );
                 console.log('Dealers with coordinates:', validDealers);
 
                 if (validDealers.length === 0) {
