@@ -88,6 +88,51 @@ app.get('/api/dealers', async (req, res) => {
 });
 
 // Get complete dealer details by dealer number
+app.get('/api/dealers/coordinates', async (req, res) => {
+    let connection;
+    try {
+        console.log('Fetching dealer coordinates...');
+        connection = await mysql.createConnection(dbConfig);
+        
+        // Get all dealers with addresses
+        const [dealers] = await connection.query(`
+            SELECT DISTINCT
+                d.KPMDealerNumber,
+                d.DealershipName,
+                a.StreetAddress,
+                a.City,
+                a.State,
+                a.ZipCode
+            FROM Dealerships d
+            INNER JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            WHERE a.StreetAddress IS NOT NULL
+                AND a.StreetAddress != ''
+                AND a.City IS NOT NULL 
+                AND a.City != ''
+                AND a.State IS NOT NULL
+                AND a.State != ''
+                AND a.ZipCode IS NOT NULL
+                AND a.ZipCode != ''
+        `);
+        
+        console.log(`Found ${dealers.length} dealers with valid addresses`);
+        console.log('First dealer:', dealers[0]);
+        
+        res.json(dealers);
+    } catch (error) {
+        console.error('Error fetching dealer coordinates:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch dealer coordinates',
+            details: error.message 
+        });
+    } finally {
+        if (connection) {
+            await connection.end();
+        }
+    }
+});
+
+// Get complete dealer details by dealer number
 app.get('/api/dealers/:dealerNumber', async (req, res) => {
     let connection;
     try {
@@ -527,63 +572,6 @@ app.post('/api/import', async (req, res) => {
         if (connection) {
             try {
                 await connection.end();
-            } catch (err) {
-                console.error('Error closing connection:', err);
-            }
-        }
-    }
-});
-
-// Add geocoding endpoint
-app.get('/api/dealers/coordinates', async (req, res) => {
-    let connection;
-    try {
-        console.log('Fetching dealer coordinates...');
-        connection = await mysql.createConnection(dbConfig);
-        
-        // Get all dealers with addresses
-        const [dealers] = await connection.query(`
-            SELECT DISTINCT
-                d.KPMDealerNumber,
-                d.DealershipName,
-                a.StreetAddress,
-                a.City,
-                a.State,
-                a.ZipCode
-            FROM Dealerships d
-            INNER JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE a.StreetAddress IS NOT NULL
-                AND a.StreetAddress != ''
-                AND a.City IS NOT NULL 
-                AND a.City != ''
-                AND a.State IS NOT NULL
-                AND a.State != ''
-                AND a.ZipCode IS NOT NULL
-                AND a.ZipCode != ''
-            ORDER BY d.DealershipName
-        `);
-        
-        console.log('SQL Query completed');
-        console.log(`Found ${dealers.length} dealers with valid addresses`);
-        console.log('Sample dealer:', dealers[0]);
-        
-        if (!dealers || dealers.length === 0) {
-            console.log('No dealers found with valid addresses');
-            return res.json([]);
-        }
-        
-        res.json(dealers);
-    } catch (error) {
-        console.error('Error fetching dealer coordinates:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch dealer coordinates',
-            details: error.message 
-        });
-    } finally {
-        if (connection) {
-            try {
-                await connection.end();
-                console.log('Database connection closed');
             } catch (err) {
                 console.error('Error closing connection:', err);
             }
