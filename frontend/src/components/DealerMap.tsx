@@ -28,27 +28,58 @@ interface GeocodeResponse {
     status: string;
 }
 
+// Add this interface for Nominatim response
+interface NominatimResponse {
+    lat: string;
+    lon: string;
+    display_name: string;
+}
+
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCKWHs3ywhjQ7kfakEuv0dfxeuCMvzRrZs';
 
 async function getCoordinates(address: string): Promise<{ lat: number; lng: number } | null> {
     try {
-        // Using OpenStreetMap's Nominatim service instead of Google Geocoding
-        const encodedAddress = encodeURIComponent(address);
-        const response = await axios.get(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
-            {
-                headers: {
-                    'User-Agent': 'KPM Dealer Map' // Required by Nominatim's terms of use
+        // Using OpenStreetMap's Nominatim service with simpler configuration
+        const response = await axios.get<NominatimResponse[]>(
+            'https://nominatim.openstreetmap.org/search', {
+                params: {
+                    q: address,
+                    format: 'json',
+                    limit: 1
                 }
             }
         );
 
-        if (response.data && response.data[0]) {
+        if (response.data && response.data.length > 0) {
+            const location = response.data[0];
             return {
-                lat: parseFloat(response.data[0].lat),
-                lng: parseFloat(response.data[0].lon)
+                lat: parseFloat(location.lat),
+                lng: parseFloat(location.lon)
             };
         }
+
+        // If first attempt fails, try with city and state only
+        const [, city, stateZip] = address.split(',').map(s => s.trim());
+        if (city && stateZip) {
+            const fallbackResponse = await axios.get<NominatimResponse[]>(
+                'https://nominatim.openstreetmap.org/search', {
+                    params: {
+                        q: `${city}, ${stateZip}`,
+                        format: 'json',
+                        limit: 1
+                    }
+                }
+            );
+
+            if (fallbackResponse.data && fallbackResponse.data.length > 0) {
+                const location = fallbackResponse.data[0];
+                return {
+                    lat: parseFloat(location.lat),
+                    lng: parseFloat(location.lon)
+                };
+            }
+        }
+
         return null;
     } catch (error) {
         console.error('Geocoding error:', error);
