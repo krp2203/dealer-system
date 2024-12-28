@@ -42,6 +42,16 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
+        // Create temporary table for states
+        await connection.query(`
+            CREATE TEMPORARY TABLE IF NOT EXISTS temp_states AS
+            SELECT 
+                KPMDealerNumber,
+                MAX(State) as State
+            FROM Addresses
+            GROUP BY KPMDealerNumber
+        `);
+
         // Create temporary table for product lines
         await connection.query(`
             CREATE TEMPORARY TABLE IF NOT EXISTS temp_lines AS
@@ -60,23 +70,17 @@ app.get('/api/dealers', async (req, res) => {
                 d.DBA,
                 d.SalesmanCode,
                 s.SalesmanName,
-                MAX(a.State) as State,
+                COALESCE(ts.State, '') as State,
                 COALESCE(tl.ProductLines, '') as ProductLines
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            LEFT JOIN temp_states ts ON d.KPMDealerNumber = ts.KPMDealerNumber
             LEFT JOIN temp_lines tl ON d.KPMDealerNumber = tl.KPMDealerNumber
-            GROUP BY 
-                d.KPMDealerNumber,
-                d.DealershipName,
-                d.DBA,
-                d.SalesmanCode,
-                s.SalesmanName,
-                tl.ProductLines
             ORDER BY d.DealershipName
         `);
 
-        // Drop temporary table
+        // Drop temporary tables
+        await connection.query('DROP TEMPORARY TABLE IF EXISTS temp_states');
         await connection.query('DROP TEMPORARY TABLE IF EXISTS temp_lines');
 
         // Log sample data
@@ -97,9 +101,10 @@ app.get('/api/dealers', async (req, res) => {
     } finally {
         if (connection) {
             try {
+                await connection.query('DROP TEMPORARY TABLE IF EXISTS temp_states');
                 await connection.query('DROP TEMPORARY TABLE IF EXISTS temp_lines');
             } catch (err) {
-                console.error('Error dropping temp table:', err);
+                console.error('Error dropping temp tables:', err);
             }
             await connection.end();
         }
