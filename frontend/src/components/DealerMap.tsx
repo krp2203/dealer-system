@@ -181,22 +181,29 @@ const DealerMap: React.FC<{
             fillOpacity: 1,
             strokeWeight: 1,
             strokeColor: "#FFFFFF",
-            scale: 2,
+            scale: 1.5,
             anchor: new window.google.maps.Point(12, 22)
         };
 
         const selectedMarker = {
             path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-            fillColor: "#0F9D58",
+            fillColor: "#4CAF50",
             fillOpacity: 1,
             strokeWeight: 2,
             strokeColor: "#FFFFFF",
-            scale: 2.5,
+            scale: 2,
             anchor: new window.google.maps.Point(12, 22)
         };
 
         return { defaultMarker, selectedMarker };
     };
+
+    useEffect(() => {
+        const selectedDealerData = dealers.find(d => d.KPMDealerNumber === selectedDealer?.KPMDealerNumber);
+        if (selectedDealerData) {
+            setSelectedDealer(selectedDealerData);
+        }
+    }, [dealers]);
 
     if (loading) {
         return <div className="map-container">Loading dealers...</div>;
@@ -239,7 +246,7 @@ const DealerMap: React.FC<{
                         <Marker
                             key={dealer.KPMDealerNumber}
                             position={{ lat: dealer.lat, lng: dealer.lng }}
-                            icon={dealer.KPMDealerNumber === selectedDealer?.KPMDealerNumber 
+                            icon={selectedDealer?.KPMDealerNumber === dealer.KPMDealerNumber 
                                 ? markers.selectedMarker 
                                 : markers.defaultMarker}
                             onMouseOver={() => setHoveredDealer(dealer)}
@@ -248,7 +255,10 @@ const DealerMap: React.FC<{
                                     setHoveredDealer(null);
                                 }
                             }}
-                            onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
+                            onClick={() => {
+                                setSelectedDealer(dealer);
+                                onDealerSelect(dealer.KPMDealerNumber);
+                            }}
                         />
                     );
                 })}
