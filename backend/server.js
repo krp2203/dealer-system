@@ -49,13 +49,16 @@ app.get('/api/dealers', async (req, res) => {
                 d.DBA,
                 d.SalesmanCode,
                 s.SalesmanName,
-                a.State,
+                COALESCE(a.State, '') as State,
                 COALESCE(l.ProductLines, '') as ProductLines
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN (
-                SELECT DISTINCT KPMDealerNumber, State
+                SELECT 
+                    KPMDealerNumber,
+                    MAX(State) as State  -- Use MAX to get a single state per dealer
                 FROM Addresses
+                GROUP BY KPMDealerNumber
             ) a ON d.KPMDealerNumber = a.KPMDealerNumber
             LEFT JOIN (
                 SELECT 
