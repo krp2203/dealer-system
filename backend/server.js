@@ -119,24 +119,42 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 a.StreetAddress,
                 CASE 
                     WHEN a.City LIKE '% NC %' THEN SUBSTRING_INDEX(a.City, ' NC ', 1)
+                    WHEN a.City LIKE '% NC.%' THEN SUBSTRING_INDEX(a.City, ' NC.', 1)
                     WHEN a.City LIKE '% VA %' THEN SUBSTRING_INDEX(a.City, ' VA ', 1)
+                    WHEN a.City LIKE '% VA.%' THEN SUBSTRING_INDEX(a.City, ' VA.', 1)
                     WHEN a.City LIKE '% MD %' THEN SUBSTRING_INDEX(a.City, ' MD ', 1)
+                    WHEN a.City LIKE '% MD.%' THEN SUBSTRING_INDEX(a.City, ' MD.', 1)
                     WHEN a.City LIKE '% DE %' THEN SUBSTRING_INDEX(a.City, ' DE ', 1)
+                    WHEN a.City LIKE '% DE.%' THEN SUBSTRING_INDEX(a.City, ' DE.', 1)
                     WHEN a.City LIKE '% WV %' THEN SUBSTRING_INDEX(a.City, ' WV ', 1)
+                    WHEN a.City LIKE '% WV.%' THEN SUBSTRING_INDEX(a.City, ' WV.', 1)
+                    WHEN a.City LIKE '% PA %' THEN SUBSTRING_INDEX(a.City, ' PA ', 1)
+                    WHEN a.City LIKE '% PA.%' THEN SUBSTRING_INDEX(a.City, ' PA.', 1)
                     ELSE TRIM(a.City)
                 END as City,
                 CASE 
-                    WHEN a.State = '' AND a.City LIKE '% NC %' THEN 'NC'
-                    WHEN a.State = '' AND a.City LIKE '% VA %' THEN 'VA'
-                    WHEN a.State = '' AND a.City LIKE '% MD %' THEN 'MD'
-                    WHEN a.State = '' AND a.City LIKE '% DE %' THEN 'DE'
-                    WHEN a.State = '' AND a.City LIKE '% WV %' THEN 'WV'
+                    WHEN a.State = '' AND a.City LIKE '% NC%' THEN 'NC'
+                    WHEN a.State = '' AND a.City LIKE '% VA%' THEN 'VA'
+                    WHEN a.State = '' AND a.City LIKE '% MD%' THEN 'MD'
+                    WHEN a.State = '' AND a.City LIKE '% DE%' THEN 'DE'
+                    WHEN a.State = '' AND a.City LIKE '% WV%' THEN 'WV'
+                    WHEN a.State = '' AND a.City LIKE '% PA%' THEN 'PA'
                     WHEN a.State LIKE '%.%' THEN REPLACE(a.State, '.', '')
+                    WHEN LENGTH(a.State) > 2 THEN 
+                        CASE 
+                            WHEN a.State LIKE '%Virginia%' THEN 'VA'
+                            WHEN a.State LIKE '%Maryland%' THEN 'MD'
+                            WHEN a.State LIKE '%Delaware%' THEN 'DE'
+                            WHEN a.State LIKE '%North Carolina%' THEN 'NC'
+                            WHEN a.State LIKE '%West Virginia%' THEN 'WV'
+                            WHEN a.State LIKE '%Pennsylvania%' THEN 'PA'
+                            ELSE a.State
+                        END
                     ELSE a.State
                 END as State,
                 CASE 
-                    WHEN a.ZipCode = '' AND a.City REGEXP '[0-9]{5}$' 
-                        THEN SUBSTRING(a.City, -5)
+                    WHEN a.ZipCode = '' AND a.City REGEXP '[0-9]{5}$' THEN SUBSTRING(a.City, -5)
+                    WHEN a.ZipCode REGEXP '^[0-9]{5}-[0-9]{4}$' THEN SUBSTRING(a.ZipCode, 1, 5)
                     ELSE a.ZipCode
                 END as ZipCode,
                 a.City as RawCity,
@@ -157,6 +175,16 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 Raw: ${d.StreetAddress}, ${d.RawCity}, ${d.RawState} ${d.RawZip}
                 Parsed: ${d.StreetAddress}, ${d.City}, ${d.State} ${d.ZipCode}`
             );
+        });
+
+        // Add more detailed logging
+        console.log('Address Analysis:');
+        dealers.forEach(d => {
+            if (!d.State || !d.ZipCode) {
+                console.log(`\nIncomplete Address for ${d.DealershipName}:`);
+                console.log(`Raw: ${d.StreetAddress}, ${d.RawCity}, ${d.RawState} ${d.RawZip}`);
+                console.log(`Parsed: ${d.StreetAddress}, ${d.City}, ${d.State} ${d.ZipCode}`);
+            }
         });
 
         // Filter out dealers with incomplete addresses
