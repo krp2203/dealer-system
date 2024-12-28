@@ -120,7 +120,7 @@ function DealerPicker() {
         setEditedDetails(dealerDetails);
     };
 
-    const handleInputChange = (section: string, field: string, value: string) => {
+    const handleInputChange = (section: '' | 'address' | 'contact' | 'salesman', field: string, value: string) => {
         if (!editedDetails) return;
 
         if (section === '') {
@@ -130,11 +130,14 @@ function DealerPicker() {
                 [field]: value
             });
         } else {
-            // Handle nested properties (address, contact, salesman)
+            // Handle nested properties with type checking
+            type SectionKey = keyof DealerDetails;
+            const sectionKey = section as SectionKey;
+            
             setEditedDetails({
                 ...editedDetails,
                 [section]: {
-                    ...editedDetails[section],
+                    ...editedDetails[sectionKey],
                     [field]: value
                 }
             });
