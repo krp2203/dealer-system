@@ -1,5 +1,5 @@
 import * as React from 'react';
-import DealerPicker from './components/DealerPicker.tsx';
+import DealerPicker from './components/DealerPicker';
 import './App.css';
 
 function App() {
