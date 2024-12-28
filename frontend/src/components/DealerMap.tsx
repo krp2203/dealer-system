@@ -171,27 +171,12 @@ const DealerMap: React.FC<{
         fetchDealers();
     }, []);
 
-    const getMarkerIcons = () => {
-        return {
-            default: {
-                path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-                fillColor: "#DB4437",
-                fillOpacity: 1,
-                strokeWeight: 1,
-                strokeColor: "#FFFFFF",
-                scale: 1.5,
-                anchor: { x: 12, y: 22 }
-            },
-            selected: {
-                path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-                fillColor: "#4CAF50",
-                fillOpacity: 1,
-                strokeWeight: 2,
-                strokeColor: "#FFFFFF",
-                scale: 2,
-                anchor: { x: 12, y: 22 }
-            }
-        };
+    const defaultMarker = {
+        url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+    };
+
+    const selectedMarker = {
+        url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png'
     };
 
     useEffect(() => {
@@ -235,24 +220,12 @@ const DealerMap: React.FC<{
             >
                 {dealers.map(dealer => {
                     if (!dealer?.lat || !dealer?.lng) return null;
-                    const markers = getMarkerIcons();
 
                     return (
                         <Marker
                             key={dealer.KPMDealerNumber}
                             position={{ lat: dealer.lat, lng: dealer.lng }}
-                            icon={{
-                                path: markers[dealer.KPMDealerNumber === selectedDealerId ? 'selected' : 'default'].path,
-                                fillColor: markers[dealer.KPMDealerNumber === selectedDealerId ? 'selected' : 'default'].fillColor,
-                                fillOpacity: markers[dealer.KPMDealerNumber === selectedDealerId ? 'selected' : 'default'].fillOpacity,
-                                strokeWeight: markers[dealer.KPMDealerNumber === selectedDealerId ? 'selected' : 'default'].strokeWeight,
-                                strokeColor: markers[dealer.KPMDealerNumber === selectedDealerId ? 'selected' : 'default'].strokeColor,
-                                scale: markers[dealer.KPMDealerNumber === selectedDealerId ? 'selected' : 'default'].scale,
-                                anchor: new window.google.maps.Point(
-                                    markers[dealer.KPMDealerNumber === selectedDealerId ? 'selected' : 'default'].anchor.x,
-                                    markers[dealer.KPMDealerNumber === selectedDealerId ? 'selected' : 'default'].anchor.y
-                                )
-                            }}
+                            icon={dealer.KPMDealerNumber === selectedDealerId ? selectedMarker : defaultMarker}
                             onMouseOver={() => setHoveredDealer(dealer)}
                             onMouseOut={() => {
                                 if (!isHoveringInfoWindow) {
