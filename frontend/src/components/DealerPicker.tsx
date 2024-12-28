@@ -63,9 +63,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         fetchDealers();
     }, []);
 
-    const handleDealerChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const dealerNumber = event.target.value;
-        
+    const loadDealerDetails = async (dealerNumber: string) => {
         if (!dealerNumber) {
             setSelectedDealer(null);
             setDealerDetails(null);
@@ -89,6 +87,10 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
             console.error('Fetch error:', err);
             setError('Failed to fetch dealer details');
         }
+    };
+
+    const handleDealerChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        loadDealerDetails(event.target.value);
     };
 
     const handleEdit = () => {
@@ -155,9 +157,9 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
     useEffect(() => {
         if (initialDealer) {
-            handleDealerChange(initialDealer);
+            loadDealerDetails(initialDealer);
         }
-    }, [initialDealer]);
+    }, [initialDealer, dealers]);
 
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
