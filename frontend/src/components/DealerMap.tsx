@@ -228,44 +228,37 @@ const DealerMap: React.FC<{
                         <Marker
                             key={dealer.KPMDealerNumber}
                             position={{ lat: dealer.lat, lng: dealer.lng }}
-                            onClick={() => {
-                                setSelectedDealer(dealer);
-                                onDealerSelect(dealer.KPMDealerNumber);
-                            }}
                             onMouseOver={() => setHoveredDealer(dealer)}
-                            onMouseOut={() => setHoveredDealer(null)}
                         />
                     );
                 })}
 
-                {hoveredDealer && !selectedDealer && (
+                {hoveredDealer && (
                     <InfoWindow
                         position={{ lat: hoveredDealer.lat!, lng: hoveredDealer.lng! }}
                         onCloseClick={() => setHoveredDealer(null)}
+                        options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
                     >
-                        <div>
+                        <div 
+                            onMouseOver={() => setHoveredDealer(hoveredDealer)}
+                            style={{ padding: '8px', minWidth: '200px' }}
+                        >
                             <h3>{hoveredDealer.DealershipName}</h3>
                             <p>{hoveredDealer.StreetAddress}</p>
                             <p>{hoveredDealer.City}, {hoveredDealer.State} {hoveredDealer.ZipCode}</p>
-                            <button onClick={() => {
-                                setSelectedDealer(hoveredDealer);
-                                onDealerSelect(hoveredDealer.KPMDealerNumber);
-                            }}>
+                            <button 
+                                onClick={() => {
+                                    setSelectedDealer(hoveredDealer);
+                                    onDealerSelect(hoveredDealer.KPMDealerNumber);
+                                }}
+                                style={{ 
+                                    marginTop: '8px',
+                                    padding: '4px 8px',
+                                    cursor: 'pointer'
+                                }}
+                            >
                                 View Details
                             </button>
-                        </div>
-                    </InfoWindow>
-                )}
-
-                {selectedDealer && (
-                    <InfoWindow
-                        position={{ lat: selectedDealer.lat!, lng: selectedDealer.lng! }}
-                        onCloseClick={() => setSelectedDealer(null)}
-                    >
-                        <div>
-                            <h3>{selectedDealer.DealershipName}</h3>
-                            <p>{selectedDealer.StreetAddress}</p>
-                            <p>{selectedDealer.City}, {selectedDealer.State} {selectedDealer.ZipCode}</p>
                         </div>
                     </InfoWindow>
                 )}
