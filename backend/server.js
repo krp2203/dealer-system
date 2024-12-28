@@ -50,18 +50,25 @@ app.get('/api/dealers', async (req, res) => {
                 d.SalesmanCode,
                 s.SalesmanName,
                 a.State,
-                GROUP_CONCAT(DISTINCT l.LineName) as ProductLines
+                GROUP_CONCAT(DISTINCT l.LineName SEPARATOR ', ') as ProductLines
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             LEFT JOIN LinesCarried l ON d.KPMDealerNumber = l.KPMDealerNumber
-            GROUP BY d.KPMDealerNumber
+            GROUP BY 
+                d.KPMDealerNumber, 
+                d.DealershipName, 
+                d.DBA, 
+                d.SalesmanCode,
+                s.SalesmanName,
+                a.State
             ORDER BY d.DealershipName
         `);
 
+        console.log('Fetched dealers:', rows.length); // Add logging
         res.json(rows);
     } catch (error) {
-        console.error('Database error:', error);
+        console.error('Database error:', error); // Log the full error
         res.status(500).json({ 
             error: 'Failed to fetch dealers',
             details: error.message
