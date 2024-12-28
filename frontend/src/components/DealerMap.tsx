@@ -4,6 +4,22 @@ import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import axios from 'axios';
 import { Dealer } from '../types/dealer';
 
+// Add back the geocoding interfaces
+interface GeocodeResult {
+    geometry: {
+        location: {
+            lat: number;
+            lng: number;
+        };
+    };
+}
+
+interface GeocodeResponse {
+    results: GeocodeResult[];
+    status: string;
+    error_message?: string;
+}
+
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
 
 const CACHE_KEY = 'dealerCoordinates';
