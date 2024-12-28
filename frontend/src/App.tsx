@@ -35,18 +35,17 @@ function App() {
         // Fetch dealers with coordinates
         const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
         if (response.data) {
-          // Log detailed data
-          console.log('API Response:', {
+          // Log raw API response
+          console.log('Raw API Response:', {
             total: response.data.length,
-            first: JSON.stringify(response.data[0], null, 2),
-            salesmen: response.data.slice(0, 3).map(d => ({
+            firstDealer: response.data[0],
+            sampleData: response.data.slice(0, 3).map(d => ({
               name: d.DealershipName,
               salesman: d.SalesmanName,
-              salesmanCode: d.SalesmanCode
-            })),
-            productLines: response.data.slice(0, 3).map(d => ({
-              name: d.DealershipName,
-              lines: d.ProductLines
+              salesmanCode: d.SalesmanCode,
+              productLines: d.ProductLines,
+              state: d.State,
+              allKeys: Object.keys(d)
             }))
           });
           

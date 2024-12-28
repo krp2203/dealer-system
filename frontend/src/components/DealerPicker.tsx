@@ -193,20 +193,24 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
 
     const getUniqueProductLines = (dealers: Dealer[]): string[] => {
         // Log raw data for first few dealers
-        console.log('Raw product lines data:', dealers.slice(0, 3).map(d => ({
-            name: d.DealershipName,
-            lines: d.ProductLines,
-            type: typeof d.ProductLines,
-            fullDealer: JSON.stringify(d)
-        })));
+        console.log('Raw product lines data:', {
+            total: dealers.length,
+            sample: dealers.slice(0, 3).map(d => ({
+                name: d.DealershipName,
+                lines: d.ProductLines,
+                type: typeof d.ProductLines,
+                keys: Object.keys(d)
+            }))
+        });
 
         const allLines = dealers
             .filter(d => {
-                console.log('Checking product lines:', {
-                    name: d.DealshipName,
+                console.log('Checking dealer:', {
+                    name: d.DealershipName,
                     lines: d.ProductLines,
                     type: typeof d.ProductLines,
-                    length: d.ProductLines?.length
+                    length: d.ProductLines?.length,
+                    allData: d
                 });
                 return d.ProductLines && d.ProductLines.trim().length > 0;
             })
