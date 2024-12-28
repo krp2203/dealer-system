@@ -42,62 +42,45 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // Get base dealer data first
+        // Get base dealer data with states
         const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
-                s.SalesmanName
+                s.SalesmanName,
+                a.State
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            LEFT JOIN (
+                SELECT DISTINCT KPMDealerNumber, State 
+                FROM Addresses 
+                WHERE State IS NOT NULL
+            ) a ON d.KPMDealerNumber = a.KPMDealerNumber
         `);
 
-        // Get states
-        const [states] = await connection.query(`
-            SELECT DISTINCT KPMDealerNumber, State
-            FROM Addresses
-            WHERE State IS NOT NULL
-        `);
-
-        // Get product lines
+        // Get product lines separately
         const [lines] = await connection.query(`
-            SELECT KPMDealerNumber, LineName
+            SELECT 
+                KPMDealerNumber,
+                GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
             FROM LinesCarried
-            WHERE LineName IS NOT NULL
+            GROUP BY KPMDealerNumber
         `);
 
-        // Create maps for quick lookups
-        const stateMap = new Map();
-        states.forEach(s => {
-            if (s.State) stateMap.set(s.KPMDealerNumber, s.State);
-        });
-
-        const lineMap = new Map();
-        lines.forEach(l => {
-            if (!lineMap.has(l.KPMDealerNumber)) {
-                lineMap.set(l.KPMDealerNumber, new Set());
-            }
-            lineMap.get(l.KPMDealerNumber).add(l.LineName);
-        });
+        // Create a map for product lines
+        const lineMap = new Map(lines.map(l => [l.KPMDealerNumber, l.ProductLines || '']));
 
         // Combine the data
         const combinedData = dealers.map(dealer => ({
             ...dealer,
-            State: stateMap.get(dealer.KPMDealerNumber) || '',
-            ProductLines: lineMap.has(dealer.KPMDealerNumber) 
-                ? Array.from(lineMap.get(dealer.KPMDealerNumber)).sort().join(', ')
-                : ''
+            State: dealer.State || '',
+            ProductLines: lineMap.get(dealer.KPMDealerNumber) || ''
         }));
 
-        // Log sample data
-        console.log('Sample data:', {
-            total: combinedData.length,
-            first: combinedData[0],
-            salesmen: [...new Set(combinedData.map(d => d.SalesmanName).filter(Boolean))],
-            productLines: [...new Set(combinedData.flatMap(d => d.ProductLines ? d.ProductLines.split(',').map(l => l.trim()) : []).filter(Boolean))]
-        });
+        // Sort by dealership name
+        combinedData.sort((a, b) => a.DealershipName.localeCompare(b.DealershipName));
 
         res.json(combinedData);
     } catch (error) {
