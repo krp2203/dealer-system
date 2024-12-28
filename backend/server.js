@@ -24,11 +24,8 @@ const dbConfig = {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    connectTimeout: 20000,
-    ssl: {
-        rejectUnauthorized: false
-    },
-    charset: 'utf8mb4'
+    connectTimeout: 30000,
+    ssl: false
 };
 
 // Add debug logging
