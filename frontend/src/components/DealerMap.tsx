@@ -33,11 +33,40 @@ const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
 async function getCoordinates(address: string): Promise<{ lat: number; lng: number } | null> {
     try {
         const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+        console.log('Geocoding request:', geocodeUrl);
         const response = await axios.get<GeocodeResponse>(geocodeUrl);
         
-        if (response.data.results?.[0]?.geometry?.location) {
-            return response.data.results[0].geometry.location;
+        console.log('Geocoding response:', {
+            status: response.data.status,
+            results: response.data.results?.length || 0,
+            error: response.data.error_message
+        });
+        
+        if (response.data.status === 'OK' && response.data.results?.[0]?.geometry?.location) {
+            const location = response.data.results[0].geometry.location;
+            console.log('Found coordinates:', location);
+            return location;
         }
+
+        // Try with just city and state if full address fails
+        if (response.data.status !== 'OK') {
+            const [, city, stateZip] = address.split(',').map(s => s.trim());
+            if (city && stateZip) {
+                const simpleAddress = `${city}, ${stateZip}`;
+                console.log('Trying simpler address:', simpleAddress);
+                const fallbackResponse = await axios.get<GeocodeResponse>(
+                    `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(simpleAddress)}&key=${GOOGLE_MAPS_API_KEY}`
+                );
+                
+                if (fallbackResponse.data.status === 'OK' && fallbackResponse.data.results?.[0]?.geometry?.location) {
+                    const location = fallbackResponse.data.results[0].geometry.location;
+                    console.log('Found coordinates with simpler address:', location);
+                    return location;
+                }
+            }
+        }
+        
+        console.log('No coordinates found for:', address);
         return null;
     } catch (error) {
         console.error('Geocoding error:', error);
