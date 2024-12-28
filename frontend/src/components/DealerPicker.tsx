@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 interface Dealer {
@@ -34,6 +35,8 @@ interface DealerDetails {
     };
 }
 
+const API_URL = 'http://35.212.41.99:3002';
+
 function DealerPicker() {
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
@@ -47,7 +50,7 @@ function DealerPicker() {
     useEffect(() => {
         const fetchDealers = async () => {
             try {
-                const response = await axios.get('http://localhost:3002/api/dealers');
+                const response = await axios.get(`${API_URL}/api/dealers`);
                 setDealers(response.data);
                 setLoading(false);
             } catch (err) {
@@ -68,7 +71,7 @@ function DealerPicker() {
 
         try {
             console.log('Fetching dealer:', dealerNumber);
-            const response = await axios.get(`http://localhost:3002/api/dealers/${dealerNumber}`);
+            const response = await axios.get(`${API_URL}/api/dealers/${dealerNumber}`);
             console.log('Received dealer details:', response.data);
             setSelectedDealer(dealerNumber);
             setDealerDetails(response.data);
@@ -90,7 +93,7 @@ function DealerPicker() {
             console.log('Sending data to server:', editedDetails);
             
             const response = await axios.put(
-                `http://localhost:3002/api/dealers/${selectedDealer}`, 
+                `${API_URL}/api/dealers/${selectedDealer}`, 
                 editedDetails
             );
             console.log('Server response:', response.data);
@@ -101,7 +104,7 @@ function DealerPicker() {
             setIsEditing(false);
             
             // Refresh the dealers list
-            const dealersResponse = await axios.get('http://localhost:3002/api/dealers');
+            const dealersResponse = await axios.get(`${API_URL}/api/dealers`);
             console.log('Updated dealers list:', dealersResponse.data);
             setDealers(dealersResponse.data);
         } catch (err) {

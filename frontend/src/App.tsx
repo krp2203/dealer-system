@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import DealerPicker from './components/DealerPicker.tsx';
 import './App.css';
 
