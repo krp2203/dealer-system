@@ -31,27 +31,30 @@ interface GeocodeResponse {
 }
 
 interface CustomMarkerIcon {
-    path: number;
+    path: google.maps.SymbolPath;
     fillColor: string;
     fillOpacity: number;
     strokeWeight: number;
+    strokeColor: string;
     scale: number;
 }
 
-const defaultMarker: CustomMarkerIcon = {
-    path: 0,
+const defaultMarker = {
+    path: google.maps.SymbolPath.CIRCLE,
     fillColor: "#FF0000",
-    fillOpacity: 1,
-    strokeWeight: 1,
-    scale: 8,
+    fillOpacity: 0.9,
+    strokeWeight: 2,
+    strokeColor: "#FFFFFF",
+    scale: 10
 };
 
-const selectedMarker: CustomMarkerIcon = {
-    path: 0,
+const selectedMarker = {
+    path: google.maps.SymbolPath.CIRCLE,
     fillColor: "#4CAF50",
     fillOpacity: 1,
-    strokeWeight: 2,
-    scale: 10,
+    strokeWeight: 3,
+    strokeColor: "#FFFFFF",
+    scale: 12
 };
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
@@ -215,11 +218,7 @@ const DealerMap: React.FC<{
                         <Marker
                             key={dealer.KPMDealerNumber}
                             position={{ lat: dealer.lat, lng: dealer.lng }}
-                            icon={{
-                                ...((selectedDealer?.KPMDealerNumber === dealer.KPMDealerNumber) 
-                                    ? selectedMarker 
-                                    : defaultMarker)
-                            }}
+                            icon={dealer.KPMDealerNumber === selectedDealer?.KPMDealerNumber ? selectedMarker : defaultMarker}
                             onMouseOver={() => setHoveredDealer(dealer)}
                             onMouseOut={() => {
                                 if (!isHoveringInfoWindow) {
