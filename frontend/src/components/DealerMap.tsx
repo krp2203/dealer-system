@@ -38,19 +38,33 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
         const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
         const response = await axios.get<GeocodeResponse>(geocodeUrl);
         
+        console.log('Geocoding response for', address, ':', {
+            status: response.data.status,
+            error: response.data.error_message,
+            results: response.data.results?.length || 0
+        });
+
         if (response.data.status === 'OK' && response.data.results?.[0]?.geometry?.location) {
             const location = response.data.results[0].geometry.location;
             console.log(`Found coordinates for ${address}:`, location);
             return location;
         }
 
-        // If first attempt fails, try with city and state only
+        // Try with just city and state
         const [, city, stateZip] = address.split(',').map(s => s.trim());
         if (city && stateZip) {
             const simpleAddress = `${city}, ${stateZip}`;
+            console.log('Trying simpler address:', simpleAddress);
+            
             const fallbackResponse = await axios.get<GeocodeResponse>(
                 `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(simpleAddress)}&key=${GOOGLE_MAPS_API_KEY}`
             );
+
+            console.log('Fallback response for', simpleAddress, ':', {
+                status: fallbackResponse.data.status,
+                error: fallbackResponse.data.error_message,
+                results: fallbackResponse.data.results?.length || 0
+            });
             
             if (fallbackResponse.data.status === 'OK' && fallbackResponse.data.results?.[0]?.geometry?.location) {
                 const location = fallbackResponse.data.results[0].geometry.location;
@@ -62,7 +76,15 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
         console.warn(`No coordinates found for ${address}`);
         return null;
     } catch (error) {
-        console.error(`Geocoding error for ${address}:`, error);
+        if (axios.isAxiosError(error)) {
+            console.error(`Geocoding error for ${address}:`, {
+                status: error.response?.status,
+                data: error.response?.data,
+                message: error.message
+            });
+        } else {
+            console.error(`Geocoding error for ${address}:`, error);
+        }
         return null;
     }
 }
