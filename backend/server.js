@@ -77,7 +77,7 @@ app.get('/api/dealers', async (req, res) => {
                 s.SalesmanName,
                 a.State,
                 (
-                    SELECT GROUP_CONCAT(DISTINCT LineName SEPARATOR ', ')
+                    SELECT GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ')
                     FROM LinesCarried
                     WHERE KPMDealerNumber = d.KPMDealerNumber
                 ) as ProductLines,
@@ -104,12 +104,11 @@ app.get('/api/dealers', async (req, res) => {
             ORDER BY d.DealershipName
         `);
 
-        // Log the first few rows in detail
-        console.log('First 5 rows:', rows.slice(0, 5).map(row => ({
+        // Add logging to verify the data
+        console.log('Sample dealer data:', rows.slice(0, 2).map(row => ({
             name: row.DealershipName,
             salesman: row.SalesmanName,
-            productLines: row.ProductLines,
-            rawProductLines: row['ProductLines'], // Check if case-sensitive
+            productLines: row.ProductLines
         })));
 
         res.json(rows);
