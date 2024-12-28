@@ -94,26 +94,31 @@ app.get('/api/dealers/coordinates', async (req, res) => {
         console.log('Fetching dealer coordinates...');
         connection = await mysql.createConnection(dbConfig);
         
-        // Get dealers with addresses, handling state/zip formatting
+        // Get dealers with addresses, handling various formats
         const [dealers] = await connection.query(`
             SELECT DISTINCT
                 d.KPMDealerNumber,
                 d.DealershipName,
                 a.StreetAddress,
                 CASE 
+                    WHEN a.City LIKE '% NC %' THEN SUBSTRING_INDEX(a.City, ' NC ', 1)
                     WHEN a.City LIKE '% VA %' THEN SUBSTRING_INDEX(a.City, ' VA ', 1)
-                    WHEN a.City LIKE '% VA.%' THEN SUBSTRING_INDEX(a.City, ' VA.', 1)
-                    ELSE a.City 
+                    WHEN a.City LIKE '% MD %' THEN SUBSTRING_INDEX(a.City, ' MD ', 1)
+                    WHEN a.City LIKE '% DE %' THEN SUBSTRING_INDEX(a.City, ' DE ', 1)
+                    ELSE TRIM(a.City)
                 END as City,
                 CASE 
-                    WHEN a.City LIKE '% VA %' THEN 'VA'
-                    WHEN a.City LIKE '% VA.%' THEN 'VA'
-                    ELSE a.State 
+                    WHEN a.State = '' AND a.City LIKE '% NC %' THEN 'NC'
+                    WHEN a.State = '' AND a.City LIKE '% VA %' THEN 'VA'
+                    WHEN a.State = '' AND a.City LIKE '% MD %' THEN 'MD'
+                    WHEN a.State = '' AND a.City LIKE '% DE %' THEN 'DE'
+                    WHEN a.State LIKE '%.%' THEN REPLACE(a.State, '.', '')
+                    ELSE a.State
                 END as State,
                 CASE 
-                    WHEN a.City LIKE '% VA %' THEN SUBSTRING_INDEX(a.City, ' VA ', -1)
-                    WHEN a.City LIKE '% VA.%' THEN SUBSTRING_INDEX(a.City, ' VA.', -1)
-                    ELSE a.ZipCode 
+                    WHEN a.ZipCode = '' AND a.City REGEXP '[0-9]{5}$' 
+                        THEN SUBSTRING(a.City, -5)
+                    ELSE a.ZipCode
                 END as ZipCode
             FROM Dealerships d
             INNER JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
@@ -123,20 +128,19 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 AND a.City != ''
         `);
         
-        console.log(`Found ${dealers.length} dealers with address info`);
-        if (dealers.length > 0) {
-            console.log('Sample dealer data:', dealers[0]);
-        }
-        
-        // Filter out any dealers with incomplete addresses
+        // Filter out dealers with incomplete addresses
         const validDealers = dealers.filter(d => 
             d.StreetAddress && 
             d.City && 
-            (d.State || d.City.includes('VA')) && 
-            (d.ZipCode || /\d{5}/.test(d.City))
+            (d.State || d.City.match(/\b(NC|VA|MD|DE)\b/)) &&
+            (d.ZipCode || d.City.match(/\d{5}/))
         );
+
+        console.log(`Found ${validDealers.length} dealers with valid addresses`);
+        if (validDealers.length > 0) {
+            console.log('Sample dealer:', validDealers[0]);
+        }
         
-        console.log(`Found ${validDealers.length} dealers with complete addresses`);
         res.json(validDealers);
     } catch (error) {
         console.error('Error fetching dealer coordinates:', error);
