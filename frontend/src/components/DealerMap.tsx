@@ -40,21 +40,13 @@ interface CustomMarkerIcon {
 }
 
 const defaultMarker = {
-    path: 'M 0,0 m -10,0 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0',  // SVG circle path
-    fillColor: "#FF0000",
-    fillOpacity: 0.9,
-    strokeWeight: 2,
-    strokeColor: "#FFFFFF",
-    scale: 1
+    url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+    scaledSize: { width: 32, height: 32 }
 };
 
 const selectedMarker = {
-    path: 'M 0,0 m -12,0 a 12,12 0 1,0 24,0 a 12,12 0 1,0 -24,0',  // Larger SVG circle
-    fillColor: "#4CAF50",
-    fillOpacity: 1,
-    strokeWeight: 3,
-    strokeColor: "#FFFFFF",
-    scale: 1
+    url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+    scaledSize: { width: 40, height: 40 }
 };
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
@@ -218,7 +210,19 @@ const DealerMap: React.FC<{
                         <Marker
                             key={dealer.KPMDealerNumber}
                             position={{ lat: dealer.lat, lng: dealer.lng }}
-                            icon={dealer.KPMDealerNumber === selectedDealer?.KPMDealerNumber ? selectedMarker : defaultMarker}
+                            icon={{
+                                url: dealer.KPMDealerNumber === selectedDealer?.KPMDealerNumber 
+                                    ? selectedMarker.url 
+                                    : defaultMarker.url,
+                                scaledSize: new window.google.maps.Size(
+                                    dealer.KPMDealerNumber === selectedDealer?.KPMDealerNumber 
+                                        ? selectedMarker.scaledSize.width 
+                                        : defaultMarker.scaledSize.width,
+                                    dealer.KPMDealerNumber === selectedDealer?.KPMDealerNumber 
+                                        ? selectedMarker.scaledSize.height 
+                                        : defaultMarker.scaledSize.height
+                                )
+                            }}
                             onMouseOver={() => setHoveredDealer(dealer)}
                             onMouseOut={() => {
                                 if (!isHoveringInfoWindow) {
