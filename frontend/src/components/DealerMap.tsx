@@ -12,6 +12,7 @@ interface DealerLocation {
     ZipCode: string;
     lat?: number;
     lng?: number;
+    SalesmanCode: string;
 }
 
 interface GeocodeResult {
