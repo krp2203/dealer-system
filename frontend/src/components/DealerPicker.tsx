@@ -255,6 +255,17 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                         )}
                         <p>{dealerDetails.address.City}, {dealerDetails.address.State} {dealerDetails.address.ZipCode}</p>
                         <p><strong>County:</strong> {dealerDetails.address.County}</p>
+                        <button 
+                            className="directions-button"
+                            onClick={() => {
+                                const address = encodeURIComponent(
+                                    `${dealerDetails.address.StreetAddress}, ${dealerDetails.address.City}, ${dealerDetails.address.State} ${dealerDetails.address.ZipCode}`
+                                );
+                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${address}`, '_blank');
+                            }}
+                        >
+                            <span>📍 Get Directions</span>
+                        </button>
                     </section>
 
                     <section>
