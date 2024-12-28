@@ -24,20 +24,9 @@ const dbConfig = {
     user: 'krp2203',
     password: 'f_j(/"xa|i=h+ccU',
     database: 'kpm dealer data',
-    // MySQL 8 specific settings
-    authPlugins: {
-        mysql_native_password: () => ({
-            protocol41: true,
-            parseTime: true,
-            supportBigNumbers: true,
-            connectAttributes: {
-                _client_name: 'mysql_client',
-                _client_version: '8.0.19',
-                program_name: 'mysql_nodejs'
-            }
-        })
-    },
-    connectTimeout: 20000,
+    connectTimeout: 60000,
+    acquireTimeout: 60000,
+    timeout: 60000,
     ssl: false,
     multipleStatements: true,
     dateStrings: true,
@@ -62,8 +51,12 @@ app.get('/api/dealers', async (req, res) => {
         `);
         res.json(rows);
     } catch (error) {
-        console.error('Error fetching dealers:', error);
-        res.status(500).json({ error: 'Failed to fetch dealers' });
+        console.error('Detailed error:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch dealers',
+            details: error.message,
+            code: error.code
+        });
     }
 });
 
