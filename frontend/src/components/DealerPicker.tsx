@@ -160,23 +160,18 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
 
     // Add helper functions for getting unique values
     const getUniqueSalesmen = (dealers: Dealer[]): string[] => {
-        // Log the first few dealers in detail
-        console.log('First 3 dealers data:', dealers.slice(0, 3).map(d => ({
+        console.log('Getting salesmen from dealers:', dealers.map(d => ({
             name: d.DealershipName,
-            salesman: d.SalesmanName,
-            salesmanCode: d.SalesmanCode,
-            fullDealer: d // Log the entire dealer object
+            salesman: d.SalesmanName
         })));
         
         const salesmen = dealers
-            .filter(d => {
-                console.log('Checking salesman for', d.DealershipName, ':', d.SalesmanName);
-                return d.SalesmanName && d.SalesmanName.trim().length > 0;
-            })
+            .filter(d => d.SalesmanName && d.SalesmanName.trim().length > 0)
             .map(d => d.SalesmanName!.trim());
         
-        console.log('Filtered salesmen:', salesmen);
-        return Array.from(new Set(salesmen)).sort();
+        const uniqueSalesmen = Array.from(new Set(salesmen)).sort();
+        console.log('Unique salesmen found:', uniqueSalesmen);
+        return uniqueSalesmen;
     };
 
     const getUniqueStates = (dealers: Dealer[]): string[] => {
@@ -187,28 +182,21 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     };
 
     const getUniqueProductLines = (dealers: Dealer[]): string[] => {
-        // Log the first few dealers in detail
-        console.log('First 3 dealers product lines:', dealers.slice(0, 3).map(d => ({
+        console.log('Getting product lines from dealers:', dealers.map(d => ({
             name: d.DealershipName,
-            productLines: d.ProductLines,
-            fullDealer: d // Log the entire dealer object
+            lines: d.ProductLines
         })));
         
         const allLines = dealers
-            .filter(d => {
-                console.log('Checking product lines for', d.DealershipName, ':', d.ProductLines);
-                return d.ProductLines;
-            })
-            .flatMap(d => {
-                const lines = d.ProductLines!.split(',')
-                    .map(line => line.trim())
-                    .filter(line => line.length > 0);
-                console.log(`Product lines for ${d.DealershipName}:`, lines);
-                return lines;
-            });
+            .filter(d => d.ProductLines)
+            .flatMap(d => d.ProductLines!.split(',')
+                .map(line => line.trim())
+                .filter(line => line.length > 0)
+            );
         
-        console.log('All unique product lines:', Array.from(new Set(allLines)).sort());
-        return Array.from(new Set(allLines)).sort();
+        const uniqueLines = Array.from(new Set(allLines)).sort();
+        console.log('Unique product lines found:', uniqueLines);
+        return uniqueLines;
     };
 
     const filteredDealers = dealers.filter(dealer => {
