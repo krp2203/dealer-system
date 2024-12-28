@@ -158,14 +158,19 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
 
     // Add helper functions for getting unique values
     const getUniqueSalesmen = (dealers: Dealer[]): string[] => {
-        console.log('Raw dealer data for salesmen:', dealers.map(d => ({
+        // Log the first few dealers in detail
+        console.log('First 3 dealers data:', dealers.slice(0, 3).map(d => ({
             name: d.DealershipName,
             salesman: d.SalesmanName,
-            salesmanCode: d.SalesmanCode
+            salesmanCode: d.SalesmanCode,
+            fullDealer: d // Log the entire dealer object
         })));
         
         const salesmen = dealers
-            .filter(d => d.SalesmanName && d.SalesmanName.trim().length > 0)
+            .filter(d => {
+                console.log('Checking salesman for', d.DealershipName, ':', d.SalesmanName);
+                return d.SalesmanName && d.SalesmanName.trim().length > 0;
+            })
             .map(d => d.SalesmanName!.trim());
         
         console.log('Filtered salesmen:', salesmen);
@@ -180,13 +185,18 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     };
 
     const getUniqueProductLines = (dealers: Dealer[]): string[] => {
-        console.log('Raw dealer data for product lines:', dealers.map(d => ({
+        // Log the first few dealers in detail
+        console.log('First 3 dealers product lines:', dealers.slice(0, 3).map(d => ({
             name: d.DealershipName,
-            productLines: d.ProductLines
+            productLines: d.ProductLines,
+            fullDealer: d // Log the entire dealer object
         })));
         
         const allLines = dealers
-            .filter(d => d.ProductLines)
+            .filter(d => {
+                console.log('Checking product lines for', d.DealershipName, ':', d.ProductLines);
+                return d.ProductLines;
+            })
             .flatMap(d => {
                 const lines = d.ProductLines!.split(',')
                     .map(line => line.trim())
