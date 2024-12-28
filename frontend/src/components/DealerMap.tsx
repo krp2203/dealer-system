@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import axios from 'axios';
 
 interface DealerLocation {
@@ -196,66 +196,62 @@ const DealerMap: React.FC<{
 
     return (
         <div className="map-container">
-            <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
-                <GoogleMap
-                    mapContainerStyle={mapStyles}
-                    zoom={mapZoom}
-                    center={mapCenter}
-                    options={{
-                        // Add map options for better visibility
-                        zoomControl: true,
-                        mapTypeControl: true,
-                        scaleControl: true,
-                        streetViewControl: true,
-                        rotateControl: true,
-                        fullscreenControl: true
-                    }}
-                    onLoad={(map) => {
-                        console.log('Map loaded');
-                        // Fit bounds to show all markers
-                        const bounds = new window.google.maps.LatLngBounds();
-                        dealers.forEach(dealer => {
-                            if (dealer.lat && dealer.lng) {
-                                bounds.extend({ lat: dealer.lat, lng: dealer.lng });
-                            }
-                        });
-                        map.fitBounds(bounds);
-                    }}
-                >
-                    {dealers.length > 0 && dealers.map(dealer => {
-                        if (!dealer.lat || !dealer.lng) {
-                            console.warn('Missing coordinates for dealer:', dealer.DealershipName);
-                            return null;
+            <GoogleMap
+                mapContainerStyle={mapStyles}
+                zoom={mapZoom}
+                center={mapCenter}
+                options={{
+                    zoomControl: true,
+                    mapTypeControl: true,
+                    scaleControl: true,
+                    streetViewControl: true,
+                    rotateControl: true,
+                    fullscreenControl: true
+                }}
+                onLoad={(map) => {
+                    console.log('Map loaded');
+                    const bounds = new window.google.maps.LatLngBounds();
+                    dealers.forEach(dealer => {
+                        if (dealer.lat && dealer.lng) {
+                            bounds.extend({ lat: dealer.lat, lng: dealer.lng });
                         }
-                        return (
-                            <Marker
-                                key={dealer.KPMDealerNumber}
-                                position={{ lat: dealer.lat, lng: dealer.lng }}
-                                onClick={() => {
-                                    console.log('Marker clicked:', dealer);
-                                    setSelectedDealer(dealer);
-                                }}
-                            />
-                        );
-                    })}
+                    });
+                    map.fitBounds(bounds);
+                }}
+            >
+                {dealers.length > 0 && dealers.map(dealer => {
+                    if (!dealer.lat || !dealer.lng) {
+                        console.warn('Missing coordinates for dealer:', dealer.DealershipName);
+                        return null;
+                    }
+                    return (
+                        <Marker
+                            key={dealer.KPMDealerNumber}
+                            position={{ lat: dealer.lat, lng: dealer.lng }}
+                            onClick={() => {
+                                console.log('Marker clicked:', dealer);
+                                setSelectedDealer(dealer);
+                            }}
+                        />
+                    );
+                })}
 
-                    {selectedDealer && (
-                        <InfoWindow
-                            position={{ lat: selectedDealer.lat!, lng: selectedDealer.lng! }}
-                            onCloseClick={() => setSelectedDealer(null)}
-                        >
-                            <div>
-                                <h3>{selectedDealer.DealershipName}</h3>
-                                <p>{selectedDealer.StreetAddress}</p>
-                                <p>{selectedDealer.City}, {selectedDealer.State} {selectedDealer.ZipCode}</p>
-                                <button onClick={() => onDealerSelect(selectedDealer.KPMDealerNumber)}>
-                                    View Details
-                                </button>
-                            </div>
-                        </InfoWindow>
-                    )}
-                </GoogleMap>
-            </LoadScript>
+                {selectedDealer && (
+                    <InfoWindow
+                        position={{ lat: selectedDealer.lat!, lng: selectedDealer.lng! }}
+                        onCloseClick={() => setSelectedDealer(null)}
+                    >
+                        <div>
+                            <h3>{selectedDealer.DealershipName}</h3>
+                            <p>{selectedDealer.StreetAddress}</p>
+                            <p>{selectedDealer.City}, {selectedDealer.State} {selectedDealer.ZipCode}</p>
+                            <button onClick={() => onDealerSelect(selectedDealer.KPMDealerNumber)}>
+                                View Details
+                            </button>
+                        </div>
+                    </InfoWindow>
+                )}
+            </GoogleMap>
         </div>
     );
 };
