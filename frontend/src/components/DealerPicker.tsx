@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import type { AxiosResponse } from '@types/axios';
 
 interface Dealer {
     KPMDealerNumber: string;
@@ -51,7 +50,7 @@ function DealerPicker() {
     useEffect(() => {
         const fetchDealers = async () => {
             try {
-                const response = await axios.get(`${API_URL}/api/dealers`);
+                const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
                 setDealers(response.data);
                 setLoading(false);
             } catch (err) {
@@ -72,7 +71,7 @@ function DealerPicker() {
 
         try {
             console.log('Fetching dealer:', dealerNumber);
-            const response = await axios.get(`${API_URL}/api/dealers/${dealerNumber}`);
+            const response = await axios.get<DealerDetails>(`${API_URL}/api/dealers/${dealerNumber}`);
             console.log('Received dealer details:', response.data);
             setSelectedDealer(dealerNumber);
             setDealerDetails(response.data);
@@ -93,7 +92,7 @@ function DealerPicker() {
         try {
             console.log('Sending data to server:', editedDetails);
             
-            const response = await axios.put(
+            const response = await axios.put<DealerDetails>(
                 `${API_URL}/api/dealers/${selectedDealer}`, 
                 editedDetails
             );
@@ -105,7 +104,7 @@ function DealerPicker() {
             setIsEditing(false);
             
             // Refresh the dealers list
-            const dealersResponse = await axios.get(`${API_URL}/api/dealers`);
+            const dealersResponse = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
             console.log('Updated dealers list:', dealersResponse.data);
             setDealers(dealersResponse.data);
         } catch (err) {
