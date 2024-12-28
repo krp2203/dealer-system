@@ -50,7 +50,7 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     dealers,
     onDealersFiltered 
 }) => {
-    console.log('First dealer full data:', dealers[0]);
+    console.log('First dealer full data:', dealers?.[0] || 'No dealers found');
 
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
     const [dealerDetails, setDealerDetails] = useState<DealerDetails | null>(null);
@@ -160,30 +160,38 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
 
     // Add helper functions for getting unique values
     const getUniqueSalesmen = (dealers: Dealer[]): string[] => {
+        if (!dealers?.length) return [];
+        
         const salesmen = dealers
-            .filter(d => d.SalesmanName)
+            .filter(d => d?.SalesmanName)
             .map(d => d.SalesmanName!);
         return Array.from(new Set(salesmen)).sort();
     };
 
     const getUniqueStates = (dealers: Dealer[]): string[] => {
+        if (!dealers?.length) return [];
+        
         const states = dealers
-            .filter(d => d.State)
+            .filter(d => d?.State)
             .map(d => d.State!);
         return Array.from(new Set(states)).sort();
     };
 
     const getUniqueProductLines = (dealers: Dealer[]): string[] => {
+        if (!dealers?.length) return [];
+        
         const lines = dealers
-            .filter(d => d.ProductLines)
+            .filter(d => d?.ProductLines)
             .flatMap(d => d.ProductLines!.split(',').map(line => line.trim()));
         return Array.from(new Set(lines)).sort();
     };
 
-    const filteredDealers = dealers.filter(dealer => {
+    const filteredDealers = dealers?.filter(dealer => {
+        if (!dealer) return false;
+
         const matchesSearch = 
-            dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase());
+            dealer.DealershipName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            dealer.KPMDealerNumber?.toLowerCase().includes(searchTerm.toLowerCase());
 
         const matchesSalesman = !filters.salesman || 
             dealer.SalesmanName?.trim() === filters.salesman.trim();
@@ -197,7 +205,7 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
             dealer.State?.trim() === filters.state.trim();
 
         return matchesSearch && matchesSalesman && matchesProductLine && matchesState;
-    });
+    }) || [];
 
     useEffect(() => {
         if (initialDealer) {
@@ -233,6 +241,7 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
 
     if (loading) return <div>Loading dealer details...</div>;
     if (error) return <div>Error: {error}</div>;
+    if (!dealers?.length) return <div>No dealers found</div>;
 
     return (
         <div className="details-section">
