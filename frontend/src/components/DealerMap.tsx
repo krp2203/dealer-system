@@ -77,15 +77,10 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
         console.warn(`No coordinates found for ${address}`);
         return null;
     } catch (error) {
-        if (axios.isAxiosError(error)) {
-            console.error(`Geocoding error for ${address}:`, {
-                status: error.response?.status,
-                data: error.response?.data,
-                message: error.message
-            });
-        } else {
-            console.error(`Geocoding error for ${address}:`, error);
-        }
+        // Simpler error logging without type checking
+        console.error(`Geocoding error for ${address}:`, {
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
         return null;
     }
 }
