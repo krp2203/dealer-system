@@ -1,5 +1,5 @@
 /// <reference types="@testing-library/jest-dom" />
-import React from 'react';
+import * as React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/extend-expect';
 import App from './App.tsx';
