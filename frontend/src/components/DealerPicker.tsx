@@ -52,7 +52,7 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
 }) => {
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
     const [dealerDetails, setDealerDetails] = useState<DealerDetails | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editedDetails, setEditedDetails] = useState<DealerDetails | null>(null);
@@ -75,6 +75,7 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
             return;
         }
 
+        setLoading(true);
         try {
             const response = await axios.get<DealerDetails>(`${API_URL}/api/dealers/${dealerNumber}`);
             setSelectedDealer(dealerNumber);
@@ -92,6 +93,8 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
         } catch (err) {
             console.error('Fetch error:', err);
             setError('Failed to fetch dealer details');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -217,7 +220,7 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
         onDealersFiltered(filteredDealers);
     }, [filters, searchTerm, dealers, onDealersFiltered]);
 
-    if (loading) return <div>Loading...</div>;
+    if (loading) return <div>Loading dealer details...</div>;
     if (error) return <div>Error: {error}</div>;
 
     return (
