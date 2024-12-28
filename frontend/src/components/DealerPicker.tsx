@@ -6,6 +6,10 @@ interface Dealer {
     KPMDealerNumber: string;
     DealershipName: string;
     DBA?: string;
+    SalesmanCode?: string;
+    SalesmanName?: string;  // From the JOIN with Salesman table
+    State?: string;         // From the JOIN with Addresses table
+    ProductLines?: string;  // From GROUP_CONCAT in the backend
 }
 
 interface DealerDetails {
@@ -35,6 +39,13 @@ interface DealerDetails {
     };
 }
 
+// Add interface for our filters
+interface Filters {
+    salesman: string;
+    productLine: string;
+    state: string;
+}
+
 const API_URL = 'http://35.212.41.99:3002';
 
 const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
@@ -50,6 +61,11 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const detailsRef = useRef<HTMLDivElement>(null);
+    const [filters, setFilters] = useState<Filters>({
+        salesman: '',
+        productLine: '',
+        state: ''
+    });
 
     useEffect(() => {
         const fetchDealers = async () => {
@@ -160,10 +176,45 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
     };
 
-    const filteredDealers = dealers.filter(dealer => 
-        dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Add helper functions for getting unique values
+    const getUniqueSalesmen = (dealers: Dealer[]): string[] => {
+        return [...new Set(dealers
+            .filter(d => d.SalesmanName)
+            .map(d => d.SalesmanName!)
+        )].sort();
+    };
+
+    const getUniqueStates = (dealers: Dealer[]): string[] => {
+        return [...new Set(dealers
+            .filter(d => d.State)
+            .map(d => d.State!)
+        )].sort();
+    };
+
+    const getUniqueProductLines = (dealers: Dealer[]): string[] => {
+        const allLines = dealers
+            .filter(d => d.ProductLines)
+            .flatMap(d => d.ProductLines!.split(','))
+            .map(line => line.trim());
+        return [...new Set(allLines)].sort();
+    };
+
+    const filteredDealers = dealers.filter(dealer => {
+        const matchesSearch = 
+            dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesSalesman = !filters.salesman || 
+            dealer.SalesmanName === filters.salesman;
+
+        const matchesProductLine = !filters.productLine || 
+            dealer.ProductLines?.includes(filters.productLine);
+
+        const matchesState = !filters.state || 
+            dealer.State === filters.state;
+
+        return matchesSearch && matchesSalesman && matchesProductLine && matchesState;
+    });
 
     useEffect(() => {
         if (initialDealer) {
@@ -191,6 +242,38 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     return (
         <div className="details-section">
             <div className="dealer-picker">
+                <div className="filter-container">
+                    <select 
+                        value={filters.salesman}
+                        onChange={(e) => setFilters({...filters, salesman: e.target.value})}
+                    >
+                        <option value="">All Salesmen</option>
+                        {getUniqueSalesmen(dealers).map(name => (
+                            <option key={name} value={name}>{name}</option>
+                        ))}
+                    </select>
+
+                    <select 
+                        value={filters.productLine}
+                        onChange={(e) => setFilters({...filters, productLine: e.target.value})}
+                    >
+                        <option value="">All Product Lines</option>
+                        {getUniqueProductLines(dealers).map(line => (
+                            <option key={line} value={line}>{line}</option>
+                        ))}
+                    </select>
+
+                    <select 
+                        value={filters.state}
+                        onChange={(e) => setFilters({...filters, state: e.target.value})}
+                    >
+                        <option value="">All States</option>
+                        {getUniqueStates(dealers).map(state => (
+                            <option key={state} value={state}>{state}</option>
+                        ))}
+                    </select>
+                </div>
+
                 <div className="search-container">
                     <input
                         type="text"
