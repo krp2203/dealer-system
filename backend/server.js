@@ -24,7 +24,11 @@ const dbConfig = {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    connectTimeout: 10000
+    connectTimeout: 20000,
+    ssl: {
+        rejectUnauthorized: false
+    },
+    charset: 'utf8mb4'
 };
 
 // Add debug logging
@@ -40,7 +44,12 @@ app.get('/api/dealers', async (req, res) => {
     console.log('Received request for dealers');
     let connection;
     try {
-        console.log('Creating database connection...');
+        console.log('Creating database connection...', {
+            host: dbConfig.host,
+            database: dbConfig.database,
+            user: dbConfig.user
+        });
+        
         connection = await mysql.createConnection(dbConfig);
         console.log('Database connected successfully');
 
