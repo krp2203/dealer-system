@@ -1,7 +1,12 @@
 import * as React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Dealer } from '../types/dealer';
+
+interface Dealer {
+    KPMDealerNumber: string;
+    DealershipName: string;
+    DBA?: string;
+}
 
 interface DealerDetails {
     DealershipName: string;
@@ -30,31 +35,13 @@ interface DealerDetails {
     };
 }
 
-// Add interface for our filters
-interface Filters {
-    salesman: string;
-    productLine: string;
-    state: string;
-}
-
 const API_URL = 'http://35.212.41.99:3002';
 
-interface DealerPickerProps {
-    selectedDealer?: string | null;
-    dealers?: Dealer[];
-    onDealersFiltered: (dealers: Dealer[]) => void;
-}
-
-const DealerPicker: React.FC<DealerPickerProps> = ({ 
-    selectedDealer: initialDealer,
-    dealers,
-    onDealersFiltered 
-}) => {
-    console.log('First dealer full data:', dealers?.[0] || 'No dealers found');
-
+const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
+    const [dealers, setDealers] = useState<Dealer[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
     const [dealerDetails, setDealerDetails] = useState<DealerDetails | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editedDetails, setEditedDetails] = useState<DealerDetails | null>(null);
@@ -63,11 +50,21 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const detailsRef = useRef<HTMLDivElement>(null);
-    const [filters, setFilters] = useState<Filters>({
-        salesman: '',
-        productLine: '',
-        state: ''
-    });
+
+    useEffect(() => {
+        const fetchDealers = async () => {
+            try {
+                const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
+                setDealers(response.data);
+                setLoading(false);
+            } catch (err) {
+                setError('Failed to fetch dealers');
+                setLoading(false);
+            }
+        };
+
+        fetchDealers();
+    }, []);
 
     const loadDealerDetails = async (dealerNumber: string) => {
         if (!dealerNumber) {
@@ -77,14 +74,13 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
             return;
         }
 
-        setLoading(true);
         try {
             const response = await axios.get<DealerDetails>(`${API_URL}/api/dealers/${dealerNumber}`);
             setSelectedDealer(dealerNumber);
             setDealerDetails(response.data);
             
-            const dealer = dealers?.find(d => d?.KPMDealerNumber === dealerNumber);
-            if (dealer?.DealershipName) {
+            const dealer = dealers.find(d => d.KPMDealerNumber === dealerNumber);
+            if (dealer) {
                 setSelectedDealerName(dealer.DealershipName);
             }
 
@@ -95,8 +91,6 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
         } catch (err) {
             console.error('Fetch error:', err);
             setError('Failed to fetch dealer details');
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -113,15 +107,23 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
         if (!editedDetails) return;
         setIsSaving(true);
         try {
+            console.log('Sending data to server:', editedDetails);
+            
             const response = await axios.put<DealerDetails>(
                 `${API_URL}/api/dealers/${selectedDealer}`, 
                 editedDetails
             );
+            console.log('Server response:', response.data);
             
+            // Update both states with the response data
             setDealerDetails(response.data);
             setEditedDetails(response.data);
             setIsEditing(false);
             
+            // Refresh the dealers list
+            const dealersResponse = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
+            console.log('Updated dealers list:', dealersResponse.data);
+            setDealers(dealersResponse.data);
         } catch (err) {
             console.error('Save error:', err);
             setError('Failed to save dealer details');
@@ -158,54 +160,10 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
         }
     };
 
-    // Add helper functions for getting unique values
-    const getUniqueSalesmen = (dealers: Dealer[]): string[] => {
-        if (!dealers?.length) return [];
-        
-        const salesmen = dealers
-            .filter(d => d?.SalesmanName)
-            .map(d => d.SalesmanName!);
-        return Array.from(new Set(salesmen)).sort();
-    };
-
-    const getUniqueStates = (dealers: Dealer[]): string[] => {
-        if (!dealers?.length) return [];
-        
-        const states = dealers
-            .filter(d => d?.State)
-            .map(d => d.State!);
-        return Array.from(new Set(states)).sort();
-    };
-
-    const getUniqueProductLines = (dealers: Dealer[]): string[] => {
-        if (!dealers?.length) return [];
-        
-        const lines = dealers
-            .filter(d => d?.ProductLines)
-            .flatMap(d => d.ProductLines!.split(',').map(line => line.trim()));
-        return Array.from(new Set(lines)).sort();
-    };
-
-    const filteredDealers = dealers?.filter(dealer => {
-        if (!dealer) return false;
-
-        const matchesSearch = 
-            dealer.DealershipName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            dealer.KPMDealerNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-
-        const matchesSalesman = !filters.salesman || 
-            dealer.SalesmanName?.trim() === filters.salesman.trim();
-
-        const matchesProductLine = !filters.productLine || 
-            (dealer.ProductLines?.split(',')
-                .map(line => line.trim())
-                .includes(filters.productLine.trim()));
-
-        const matchesState = !filters.state || 
-            dealer.State?.trim() === filters.state.trim();
-
-        return matchesSearch && matchesSalesman && matchesProductLine && matchesState;
-    }) || [];
+    const filteredDealers = dealers.filter(dealer => 
+        dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     useEffect(() => {
         if (initialDealer) {
@@ -227,68 +185,12 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
         };
     }, []);
 
-    useEffect(() => {
-        onDealersFiltered(filteredDealers);
-    }, [filters, searchTerm, dealers, onDealersFiltered]);
-
-    useEffect(() => {
-        if (!dealers?.length) {
-            console.log('No dealers data available');
-            return;
-        }
-
-        console.log('Raw dealer data:', {
-            first: dealers[0],
-            salesmen: dealers
-                .filter(d => d?.SalesmanName)
-                .map(d => d.SalesmanName)
-                .filter(Boolean),
-            productLines: dealers
-                .filter(d => d?.ProductLines)
-                .map(d => d.ProductLines)
-                .filter(Boolean)
-        });
-    }, [dealers]);
-
-    if (loading) return <div>Loading dealer details...</div>;
+    if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
-    if (!dealers?.length) return <div>No dealers found</div>;
 
     return (
         <div className="details-section">
             <div className="dealer-picker">
-                <div className="filter-container">
-                    <select 
-                        value={filters.salesman}
-                        onChange={(e) => setFilters({...filters, salesman: e.target.value})}
-                    >
-                        <option value="">All Salesmen</option>
-                        {getUniqueSalesmen(dealers).map(name => (
-                            <option key={name} value={name}>{name}</option>
-                        ))}
-                    </select>
-
-                    <select 
-                        value={filters.productLine}
-                        onChange={(e) => setFilters({...filters, productLine: e.target.value})}
-                    >
-                        <option value="">All Product Lines</option>
-                        {getUniqueProductLines(dealers).map(line => (
-                            <option key={line} value={line}>{line}</option>
-                        ))}
-                    </select>
-
-                    <select 
-                        value={filters.state}
-                        onChange={(e) => setFilters({...filters, state: e.target.value})}
-                    >
-                        <option value="">All States</option>
-                        {getUniqueStates(dealers).map(state => (
-                            <option key={state} value={state}>{state}</option>
-                        ))}
-                    </select>
-                </div>
-
                 <div className="search-container">
                     <input
                         type="text"
