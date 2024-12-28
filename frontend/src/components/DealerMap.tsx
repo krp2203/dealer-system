@@ -14,17 +14,6 @@ interface DealerLocation {
     lng?: number;
 }
 
-interface GeocodeResponse {
-    results: Array<{
-        geometry: {
-            location: {
-                lat: number;
-                lng: number;
-            };
-        };
-    }>;
-}
-
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCKWHs3ywhjQ7kfakEuv0dfxeuCMvzRrZs';
 
 const DealerMap: React.FC<{
@@ -32,7 +21,8 @@ const DealerMap: React.FC<{
 }> = ({ onDealerSelect }) => {
     const [dealers, setDealers] = useState<DealerLocation[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
-    const [mapCenter] = useState({ lat: 39.8283, lng: -98.5795 });
+    const [mapCenter] = useState({ lat: 37.5407, lng: -77.4360 }); // Center on Virginia
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const mapStyles = {
@@ -43,76 +33,66 @@ const DealerMap: React.FC<{
     useEffect(() => {
         const fetchDealers = async () => {
             try {
-                console.log('Fetching dealers for map...');
+                console.log('Fetching dealers...');
                 const response = await axios.get<DealerLocation[]>('http://35.212.41.99:3002/api/dealers/coordinates');
                 console.log('Received dealers:', response.data);
 
                 if (!response.data || response.data.length === 0) {
                     setError('No dealers found');
+                    setLoading(false);
                     return;
                 }
 
+                // Geocode each dealer's address
                 const dealersWithCoords = await Promise.all(
-                    response.data
-                        .filter(dealer => 
-                            dealer.StreetAddress && 
-                            dealer.City && 
-                            dealer.State && 
-                            dealer.ZipCode
-                        )
-                        .map(async (dealer: DealerLocation) => {
-                            const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
-                            console.log('Geocoding address:', address);
+                    response.data.map(async (dealer) => {
+                        const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
+                        console.log('Geocoding:', address);
+                        
+                        try {
+                            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+                            const geocodeResponse = await axios.get(geocodeUrl);
                             
-                            try {
-                                const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
-                                const geocodeResponse = await axios.get<GeocodeResponse>(geocodeUrl);
-                                console.log('Geocode response:', geocodeResponse.data);
-
-                                if (geocodeResponse.data.results && geocodeResponse.data.results[0]) {
-                                    const { lat, lng } = geocodeResponse.data.results[0].geometry.location;
-                                    console.log('Got coordinates for', dealer.DealershipName, ':', { lat, lng });
-                                    return { ...dealer, lat, lng };
-                                } else {
-                                    console.warn('No coordinates found for address:', address);
-                                    return dealer;
-                                }
-                            } catch (error) {
-                                console.error('Geocoding error for address:', address, error);
-                                return dealer;
+                            if (geocodeResponse.data.results && geocodeResponse.data.results[0]) {
+                                const { lat, lng } = geocodeResponse.data.results[0].geometry.location;
+                                return { ...dealer, lat, lng };
                             }
-                        })
+                        } catch (error) {
+                            console.error('Geocoding error:', error);
+                        }
+                        return dealer;
+                    })
                 );
 
-                const validDealers = dealersWithCoords.filter((d): d is DealerLocation & { lat: number; lng: number } => 
-                    d.lat !== undefined && d.lng !== undefined
-                );
-
-                console.log('Final dealers with coordinates:', validDealers);
-                setDealers(validDealers);
+                const validDealers = dealersWithCoords.filter(d => d.lat && d.lng);
+                console.log('Dealers with coordinates:', validDealers);
 
                 if (validDealers.length === 0) {
                     setError('No dealers found with valid coordinates');
+                } else {
+                    setDealers(validDealers);
                 }
+                setLoading(false);
             } catch (error) {
                 console.error('Error fetching dealers:', error);
                 setError('Failed to fetch dealers');
+                setLoading(false);
             }
         };
 
         fetchDealers();
     }, []);
 
-    if (error) {
-        return <div>Error: {error}</div>;
-    }
+    if (loading) return <div>Loading dealers...</div>;
+    if (error) return <div>Error: {error}</div>;
+    if (dealers.length === 0) return <div>No dealers found</div>;
 
     return (
         <div className="map-container">
             <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
                 <GoogleMap
                     mapContainerStyle={mapStyles}
-                    zoom={4}
+                    zoom={7}
                     center={mapCenter}
                 >
                     {dealers.map(dealer => (
