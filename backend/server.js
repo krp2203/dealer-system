@@ -199,6 +199,7 @@ app.get('/', (req, res) => {
 
 // Add this new endpoint
 app.put('/api/dealers/:dealerNumber', async (req, res) => {
+    let connection;
     try {
         const dealerNumber = req.params.dealerNumber;
         const updatedDealer = req.body;
@@ -207,9 +208,12 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
         console.log('Updating dealer:', dealerNumber);
         console.log('Received data:', JSON.stringify(updatedDealer, null, 2));
 
+        // Create connection
+        connection = await mysql.createConnection(dbConfig);
+
         // Log each update operation
         console.log('Updating Dealerships table...');
-        const [dealerResult] = await promisePool.query(`
+        const [dealerResult] = await connection.query(`
             UPDATE Dealerships 
             SET DealershipName = ?, DBA = ?
             WHERE KPMDealerNumber = ?
@@ -217,13 +221,13 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
         console.log('Dealerships update result:', dealerResult);
 
         // Update Addresses - first check if address exists
-        const [existingAddress] = await promisePool.query(`
+        const [existingAddress] = await connection.query(`
             SELECT * FROM Addresses WHERE KPMDealerNumber = ?
         `, [dealerNumber]);
 
         if (existingAddress.length === 0) {
-            // Insert new address if it doesn't exist
-            await promisePool.query(`
+            // Insert new address
+            await connection.query(`
                 INSERT INTO Addresses (
                     KPMDealerNumber, 
                     StreetAddress, 
@@ -244,7 +248,7 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
             ]);
         } else {
             // Update existing address
-            await promisePool.query(`
+            await connection.query(`
                 UPDATE Addresses 
                 SET 
                     StreetAddress = ?, 
@@ -264,16 +268,15 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
                 dealerNumber
             ]);
         }
-        console.log('Address update completed');
 
         // Update ContactInformation - first check if contact exists
-        const [existingContact] = await promisePool.query(`
+        const [existingContact] = await connection.query(`
             SELECT * FROM ContactInformation WHERE KPMDealerNumber = ?
         `, [dealerNumber]);
 
         if (existingContact.length === 0) {
             // Insert new contact if it doesn't exist
-            await promisePool.query(`
+            await connection.query(`
                 INSERT INTO ContactInformation (
                     KPMDealerNumber,
                     MainPhone,
@@ -288,7 +291,7 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
             ]);
         } else {
             // Update existing contact
-            await promisePool.query(`
+            await connection.query(`
                 UPDATE ContactInformation 
                 SET 
                     MainPhone = ?,
@@ -305,11 +308,11 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
         console.log('Contact update completed');
 
         // Update LinesCarried
-        await promisePool.query('DELETE FROM LinesCarried WHERE KPMDealerNumber = ?', [dealerNumber]);
+        await connection.query('DELETE FROM LinesCarried WHERE KPMDealerNumber = ?', [dealerNumber]);
         
         if (updatedDealer.lines && updatedDealer.lines.length > 0) {
             for (const line of updatedDealer.lines) {
-                await promisePool.query(`
+                await connection.query(`
                     INSERT INTO LinesCarried (KPMDealerNumber, LineName, AccountNumber)
                     VALUES (?, ?, ?)
                 `, [dealerNumber, line.LineName, line.AccountNumber]);
@@ -318,7 +321,7 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
 
         // Update Salesman if provided
         if (updatedDealer.salesman && updatedDealer.salesman.SalesmanCode) {
-            await promisePool.query(`
+            await connection.query(`
                 UPDATE Dealerships 
                 SET SalesmanCode = ?
                 WHERE KPMDealerNumber = ?
@@ -326,7 +329,7 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
         }
 
         // After all updates, fetch the complete updated data using the same structure as GET
-        const [dealerInfo] = await promisePool.query(`
+        const [dealerInfo] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
@@ -338,7 +341,7 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
             WHERE d.KPMDealerNumber = ?
         `, [dealerNumber]);
 
-        const [address] = await promisePool.query(`
+        const [address] = await connection.query(`
             SELECT 
                 StreetAddress,
                 BoxNumber,
@@ -350,7 +353,7 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
             WHERE KPMDealerNumber = ?
         `, [dealerNumber]);
 
-        const [contact] = await promisePool.query(`
+        const [contact] = await connection.query(`
             SELECT 
                 MainPhone,
                 FaxNumber,
@@ -359,7 +362,7 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
             WHERE KPMDealerNumber = ?
         `, [dealerNumber]);
 
-        const [lines] = await promisePool.query(`
+        const [lines] = await connection.query(`
             SELECT 
                 LineName,
                 AccountNumber
@@ -403,6 +406,15 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
             error: 'Failed to update dealer',
             details: error.message 
         });
+    } finally {
+        if (connection) {
+            try {
+                await connection.end();
+                console.log('Database connection closed');
+            } catch (err) {
+                console.error('Error closing connection:', err);
+            }
+        }
     }
 });
 
