@@ -32,40 +32,37 @@ const GOOGLE_MAPS_API_KEY = 'your_new_api_key_here';
 
 async function getCoordinates(address: string): Promise<{ lat: number; lng: number } | null> {
     try {
-        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
-        console.log('Geocoding request:', geocodeUrl);
-        const response = await axios.get<GeocodeResponse>(geocodeUrl);
+        // Add a small delay to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, 200));
         
-        // Log the full response
-        console.log('Full geocoding response:', response.data);
+        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+        const response = await axios.get<GeocodeResponse>(geocodeUrl);
         
         if (response.data.status === 'OK' && response.data.results?.[0]?.geometry?.location) {
             const location = response.data.results[0].geometry.location;
-            console.log('Found coordinates for:', address, location);
+            console.log(`Found coordinates for ${address}:`, location);
             return location;
-        } else {
-            console.warn('No coordinates found for:', address, 'Status:', response.data.status);
+        }
+
+        // If first attempt fails, try with city and state only
+        const [, city, stateZip] = address.split(',').map(s => s.trim());
+        if (city && stateZip) {
+            const simpleAddress = `${city}, ${stateZip}`;
+            const fallbackResponse = await axios.get<GeocodeResponse>(
+                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(simpleAddress)}&key=${GOOGLE_MAPS_API_KEY}`
+            );
             
-            // Try with just city and state
-            const [, city, stateZip] = address.split(',').map(s => s.trim());
-            if (city && stateZip) {
-                const simpleAddress = `${city}, ${stateZip}`;
-                console.log('Trying simpler address:', simpleAddress);
-                const fallbackResponse = await axios.get<GeocodeResponse>(
-                    `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(simpleAddress)}&key=${GOOGLE_MAPS_API_KEY}`
-                );
-                
-                if (fallbackResponse.data.status === 'OK' && fallbackResponse.data.results?.[0]?.geometry?.location) {
-                    const location = fallbackResponse.data.results[0].geometry.location;
-                    console.log('Found coordinates with simpler address:', location);
-                    return location;
-                }
+            if (fallbackResponse.data.status === 'OK' && fallbackResponse.data.results?.[0]?.geometry?.location) {
+                const location = fallbackResponse.data.results[0].geometry.location;
+                console.log(`Found coordinates for ${simpleAddress}:`, location);
+                return location;
             }
         }
-        
+
+        console.warn(`No coordinates found for ${address}`);
         return null;
     } catch (error) {
-        console.error('Geocoding error for:', address, error);
+        console.error(`Geocoding error for ${address}:`, error);
         return null;
     }
 }
