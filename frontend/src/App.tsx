@@ -33,7 +33,7 @@ function App() {
         }
 
         // Fetch dealers with coordinates
-        const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers/coordinates`);
+        const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
         if (response.data) {
           console.log('Received dealers data:', response.data.map(d => ({
             name: d.DealershipName,
