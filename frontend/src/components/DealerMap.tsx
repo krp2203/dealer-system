@@ -31,7 +31,7 @@ interface GeocodeResponse {
 }
 
 interface CustomMarkerIcon {
-    path: google.maps.SymbolPath;
+    path: string;
     fillColor: string;
     fillOpacity: number;
     strokeWeight: number;
@@ -40,21 +40,21 @@ interface CustomMarkerIcon {
 }
 
 const defaultMarker = {
-    path: google.maps.SymbolPath.CIRCLE,
+    path: 'M 0,0 m -10,0 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0',  // SVG circle path
     fillColor: "#FF0000",
     fillOpacity: 0.9,
     strokeWeight: 2,
     strokeColor: "#FFFFFF",
-    scale: 10
+    scale: 1
 };
 
 const selectedMarker = {
-    path: google.maps.SymbolPath.CIRCLE,
+    path: 'M 0,0 m -12,0 a 12,12 0 1,0 24,0 a 12,12 0 1,0 -24,0',  // Larger SVG circle
     fillColor: "#4CAF50",
     fillOpacity: 1,
     strokeWeight: 3,
     strokeColor: "#FFFFFF",
-    scale: 12
+    scale: 1
 };
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
