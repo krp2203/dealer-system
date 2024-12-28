@@ -360,13 +360,57 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
             dealerNumber
         ]);
 
-        // Fetch updated dealer details
-        const [updatedDealer] = await connection.query(`
-            SELECT * FROM Dealerships 
-            WHERE KPMDealerNumber = ?
+        // Fetch and return the complete updated dealer details
+        const [dealerInfo] = await connection.query(`
+            SELECT 
+                d.KPMDealerNumber,
+                d.DealershipName,
+                d.DBA,
+                d.SalesmanCode,
+                s.SalesmanName
+            FROM Dealerships d
+            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            WHERE d.KPMDealerNumber = ?
         `, [dealerNumber]);
 
-        res.json(updatedDealer[0]);
+        const [address] = await connection.query(`
+            SELECT * FROM Addresses WHERE KPMDealerNumber = ?
+        `, [dealerNumber]);
+
+        const [contact] = await connection.query(`
+            SELECT * FROM ContactInformation WHERE KPMDealerNumber = ?
+        `, [dealerNumber]);
+
+        const [lines] = await connection.query(`
+            SELECT * FROM LinesCarried WHERE KPMDealerNumber = ?
+        `, [dealerNumber]);
+
+        // Return the complete dealer details
+        const updatedDealer = {
+            KPMDealerNumber: dealerInfo[0].KPMDealerNumber,
+            DealershipName: dealerInfo[0].DealershipName,
+            DBA: dealerInfo[0].DBA || '',
+            address: address[0] || {
+                StreetAddress: '',
+                BoxNumber: '',
+                City: '',
+                State: '',
+                ZipCode: '',
+                County: ''
+            },
+            contact: contact[0] || {
+                MainPhone: '',
+                FaxNumber: '',
+                MainEmail: ''
+            },
+            lines: lines || [],
+            salesman: {
+                SalesmanName: dealerInfo[0].SalesmanName || '',
+                SalesmanCode: dealerInfo[0].SalesmanCode || ''
+            }
+        };
+
+        res.json(updatedDealer);
     } catch (error) {
         console.error('Error updating dealer:', error);
         res.status(500).json({ error: 'Failed to update dealer details' });
