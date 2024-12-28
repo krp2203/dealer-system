@@ -1,10 +1,11 @@
 import * as React from 'react';
+import { useState } from 'react';
 import DealerPicker from './components/DealerPicker';
 import DealerMap from './components/DealerMap';
 import './App.css';
 
 function App() {
-  const [selectedDealerNumber, setSelectedDealerNumber] = React.useState<string | null>(null);
+  const [selectedDealerNumber, setSelectedDealerNumber] = useState<string | null>(null);
 
   return (
     <div className="App">
