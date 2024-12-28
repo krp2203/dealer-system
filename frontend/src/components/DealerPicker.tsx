@@ -123,12 +123,22 @@ function DealerPicker() {
     const handleInputChange = (section: string, field: string, value: string) => {
         if (!editedDetails) return;
 
-        setEditedDetails({
-            ...editedDetails,
-            [section]: section === 'address' || section === 'contact' || section === 'salesman'
-                ? { ...editedDetails[section], [field]: value }
-                : value
-        });
+        if (section === '') {
+            // Handle root-level properties directly
+            setEditedDetails({
+                ...editedDetails,
+                [field]: value
+            });
+        } else {
+            // Handle nested properties (address, contact, salesman)
+            setEditedDetails({
+                ...editedDetails,
+                [section]: {
+                    ...editedDetails[section],
+                    [field]: value
+                }
+            });
+        }
     };
 
     if (loading) return <div>Loading...</div>;
