@@ -108,12 +108,46 @@ const DealerMap: React.FC<{
     useEffect(() => {
         const fetchDealers = async () => {
             try {
+                // Try to get cached coordinates
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    const { data } = JSON.parse(cached);
+                    if (data && data.length > 0) {
+                        setDealers(data);
+                        setLoading(false);
+                        return;
+                    }
+                }
+
                 const response = await axios.get<DealerLocation[]>('http://35.212.41.99:3002/api/dealers/coordinates');
                 
-                if (response.data && Array.isArray(response.data)) {
-                    setDealers(response.data);
+                if (!response.data || !Array.isArray(response.data)) {
+                    throw new Error('Invalid data received');
+                }
+
+                // Process dealers in batches
+                const dealersWithCoords = [];
+                const batchSize = 10;
+
+                for (let i = 0; i < response.data.length; i += batchSize) {
+                    const batch = response.data.slice(i, i + batchSize);
+                    const batchResults = await Promise.all(
+                        batch.map(async (dealer) => {
+                            const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
+                            const coords = await getCoordinates(address);
+                            return coords ? { ...dealer, ...coords } : dealer;
+                        })
+                    );
+                    dealersWithCoords.push(...batchResults);
+                }
+
+                const validDealers = dealersWithCoords.filter(d => d.lat && d.lng);
+                
+                if (validDealers.length > 0) {
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({ data: validDealers }));
+                    setDealers(validDealers);
                 } else {
-                    setError('Invalid data received');
+                    setError('No dealers found with valid coordinates');
                 }
             } catch (error) {
                 setError('Failed to fetch dealers');
