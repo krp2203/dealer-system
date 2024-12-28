@@ -171,14 +171,6 @@ const DealerMap: React.FC<{
         fetchDealers();
     }, []);
 
-    const defaultMarker = {
-        url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
-    };
-
-    const selectedMarker = {
-        url: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png'
-    };
-
     useEffect(() => {
         const selectedDealerData = dealers.find(d => d.KPMDealerNumber === selectedDealerId);
         if (selectedDealerData) {
@@ -193,6 +185,11 @@ const DealerMap: React.FC<{
     if (error) {
         return <div className="map-container">Error: {error}</div>;
     }
+
+    console.log('Rendering dealers:', dealers.map(d => ({
+        name: d.DealershipName,
+        coords: { lat: d.lat, lng: d.lng }
+    })));
 
     return (
         <div className="map-container">
@@ -225,7 +222,10 @@ const DealerMap: React.FC<{
                         <Marker
                             key={dealer.KPMDealerNumber}
                             position={{ lat: dealer.lat, lng: dealer.lng }}
-                            icon={dealer.KPMDealerNumber === selectedDealerId ? selectedMarker : defaultMarker}
+                            icon={dealer.KPMDealerNumber === selectedDealerId 
+                                ? "https://maps.google.com/mapfiles/ms/icons/green-dot.png"
+                                : "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                            }
                             onMouseOver={() => setHoveredDealer(dealer)}
                             onMouseOut={() => {
                                 if (!isHoveringInfoWindow) {
