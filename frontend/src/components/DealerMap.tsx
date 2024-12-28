@@ -171,6 +171,15 @@ const DealerMap: React.FC<{
         coords: { lat: d.lat, lng: d.lng }
     })));
 
+    console.log('Map center:', mapCenter);
+    console.log('Map zoom:', 7);
+    console.log('Valid dealers:', dealers.filter(d => d.lat && d.lng).length);
+    console.log('All dealers:', dealers.map(d => ({
+        name: d.DealershipName,
+        address: `${d.StreetAddress}, ${d.City}, ${d.State} ${d.ZipCode}`,
+        coords: { lat: d.lat, lng: d.lng }
+    })));
+
     return (
         <div className="map-container">
             <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
@@ -178,14 +187,18 @@ const DealerMap: React.FC<{
                     mapContainerStyle={mapStyles}
                     zoom={7}
                     center={mapCenter}
+                    onLoad={(map) => console.log('Map loaded:', map)}
                 >
-                    {dealers.map(dealer => (
-                        <Marker
-                            key={dealer.KPMDealerNumber}
-                            position={{ lat: dealer.lat!, lng: dealer.lng! }}
-                            onClick={() => setSelectedDealer(dealer)}
-                        />
-                    ))}
+                    {dealers.map(dealer => {
+                        console.log('Rendering marker for:', dealer.DealershipName, { lat: dealer.lat, lng: dealer.lng });
+                        return (
+                            <Marker
+                                key={dealer.KPMDealerNumber}
+                                position={{ lat: dealer.lat!, lng: dealer.lng! }}
+                                onClick={() => setSelectedDealer(dealer)}
+                            />
+                        );
+                    })}
 
                     {selectedDealer && (
                         <InfoWindow
