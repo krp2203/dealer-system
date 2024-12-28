@@ -30,15 +30,6 @@ interface GeocodeResponse {
     error_message?: string;
 }
 
-interface CustomMarkerIcon {
-    path: string;
-    fillColor: string;
-    fillOpacity: number;
-    strokeWeight: number;
-    strokeColor: string;
-    scale: number;
-}
-
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
 
 const CACHE_KEY = 'dealerCoordinates';
@@ -222,20 +213,13 @@ const DealerMap: React.FC<{
                         <Marker
                             key={dealer.KPMDealerNumber}
                             position={{ lat: dealer.lat, lng: dealer.lng }}
-                            icon={dealer.KPMDealerNumber === selectedDealerId 
-                                ? "https://maps.google.com/mapfiles/ms/icons/green-dot.png"
-                                : "https://maps.google.com/mapfiles/ms/icons/red-dot.png"
-                            }
                             onMouseOver={() => setHoveredDealer(dealer)}
                             onMouseOut={() => {
                                 if (!isHoveringInfoWindow) {
                                     setHoveredDealer(null);
                                 }
                             }}
-                            onClick={() => {
-                                setSelectedDealerId(dealer.KPMDealerNumber);
-                                onDealerSelect(dealer.KPMDealerNumber);
-                            }}
+                            onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
                         />
                     );
                 })}
