@@ -63,10 +63,13 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         fetchDealers();
     }, []);
 
-    const handleDealerChange = async (dealerNumber: string) => {
+    const handleDealerChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const dealerNumber = event.target.value;
+        
         if (!dealerNumber) {
             setSelectedDealer(null);
             setDealerDetails(null);
+            setSelectedDealerName('');
             return;
         }
 
@@ -76,6 +79,12 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
             console.log('Received dealer details:', response.data);
             setSelectedDealer(dealerNumber);
             setDealerDetails(response.data);
+            
+            // Set the dealer name for the title
+            const dealer = dealers.find(d => d.KPMDealerNumber === dealerNumber);
+            if (dealer) {
+                setSelectedDealerName(dealer.DealershipName);
+            }
         } catch (err) {
             console.error('Fetch error:', err);
             setError('Failed to fetch dealer details');
