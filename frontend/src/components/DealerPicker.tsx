@@ -160,27 +160,9 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
 
     // Add helper functions for getting unique values
     const getUniqueSalesmen = (dealers: Dealer[]): string[] => {
-        // Log raw data for first few dealers
-        console.log('Raw salesmen data:', dealers.slice(0, 3).map(d => ({
-            name: d.DealershipName,
-            salesman: d.SalesmanName,
-            salesmanCode: d.SalesmanCode,
-            fullDealer: JSON.stringify(d)
-        })));
-
         const salesmen = dealers
-            .filter(d => {
-                console.log('Checking salesman:', {
-                    name: d.DealershipName,
-                    salesman: d.SalesmanName,
-                    type: typeof d.SalesmanName,
-                    length: d.SalesmanName?.length
-                });
-                return d.SalesmanName && d.SalesmanName.trim().length > 0;
-            })
-            .map(d => d.SalesmanName!.trim());
-
-        console.log('Found salesmen:', salesmen);
+            .filter(d => d.SalesmanName)
+            .map(d => d.SalesmanName!);
         return Array.from(new Set(salesmen)).sort();
     };
 
@@ -192,38 +174,10 @@ const DealerPicker: React.FC<DealerPickerProps> = ({
     };
 
     const getUniqueProductLines = (dealers: Dealer[]): string[] => {
-        // Log raw data for first few dealers
-        console.log('Raw product lines data:', {
-            total: dealers.length,
-            sample: dealers.slice(0, 3).map(d => ({
-                name: d.DealershipName,
-                lines: d.ProductLines,
-                type: typeof d.ProductLines,
-                keys: Object.keys(d)
-            }))
-        });
-    
-        const allLines = dealers
-            .filter(d => {
-                console.log('Checking dealer:', {
-                    name: d.DealershipName,
-                    lines: d.ProductLines,
-                    type: typeof d.ProductLines,
-                    length: d.ProductLines?.length,
-                    allData: d
-                });
-                return d.ProductLines && d.ProductLines.trim().length > 0;
-            })
-            .flatMap(d => {
-                const lines = d.ProductLines!.split(',')
-                    .map(line => line.trim())
-                    .filter(line => line.length > 0);
-                console.log(`Lines for ${d.DealershipName}:`, lines);
-                return lines;
-            });
-    
-        console.log('Found product lines:', allLines);
-        return Array.from(new Set(allLines)).sort();
+        const lines = dealers
+            .filter(d => d.ProductLines)
+            .flatMap(d => d.ProductLines!.split(',').map(line => line.trim()));
+        return Array.from(new Set(lines)).sort();
     };
 
     const filteredDealers = dealers.filter(dealer => {
