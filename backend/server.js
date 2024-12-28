@@ -42,66 +42,54 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // First, let's verify the data exists in each table
-        const [salesmanCount] = await connection.query('SELECT COUNT(*) as count FROM Salesman');
-        const [linesCount] = await connection.query('SELECT COUNT(*) as count FROM LinesCarried');
-        console.log('Table counts:', {
-            salesmanCount: salesmanCount[0].count,
-            linesCount: linesCount[0].count
-        });
-
-        // Then get a sample from each table
-        const [salesmanSample] = await connection.query('SELECT * FROM Salesman LIMIT 1');
-        const [linesSample] = await connection.query('SELECT * FROM LinesCarried LIMIT 1');
-        console.log('Sample data:', {
-            salesman: salesmanSample[0],
-            lines: linesSample[0]
-        });
-        
-        // Add this before the main query
-        const [linesCheck] = await connection.query(`
-            SELECT KPMDealerNumber, GROUP_CONCAT(LineName) as lines
-            FROM LinesCarried
-            GROUP BY KPMDealerNumber
-            LIMIT 5
-        `);
-        console.log('Lines check:', linesCheck);
-
-        // Update the main query to be more explicit about JOINs
-        const [rows] = await connection.query(`
+        // Get base dealer data
+        const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
-                s.SalesmanName,
-                a.State,
-                l.ProductLines
+                s.SalesmanName
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            LEFT JOIN (
-                SELECT DISTINCT KPMDealerNumber, State
-                FROM Addresses
-            ) a ON d.KPMDealerNumber = a.KPMDealerNumber
-            LEFT JOIN (
-                SELECT 
-                    KPMDealerNumber,
-                    GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
-                FROM LinesCarried
-                GROUP BY KPMDealerNumber
-            ) l ON d.KPMDealerNumber = l.KPMDealerNumber
             ORDER BY d.DealershipName
         `);
 
+        // Get states
+        const [states] = await connection.query(`
+            SELECT DISTINCT KPMDealerNumber, State
+            FROM Addresses
+        `);
+
+        // Get product lines
+        const [lines] = await connection.query(`
+            SELECT 
+                KPMDealerNumber,
+                GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
+            FROM LinesCarried
+            GROUP BY KPMDealerNumber
+        `);
+
+        // Create a map for quick lookups
+        const stateMap = new Map(states.map(s => [s.KPMDealerNumber, s.State]));
+        const lineMap = new Map(lines.map(l => [l.KPMDealerNumber, l.ProductLines]));
+
+        // Combine the data
+        const combinedData = dealers.map(dealer => ({
+            ...dealer,
+            State: stateMap.get(dealer.KPMDealerNumber) || '',
+            ProductLines: lineMap.get(dealer.KPMDealerNumber) || ''
+        }));
+
         // Add logging to verify the data
-        console.log('Sample dealer data:', rows.slice(0, 2).map(row => ({
+        console.log('Sample dealer data:', combinedData.slice(0, 2).map(row => ({
             name: row.DealershipName,
             salesman: row.SalesmanName,
             productLines: row.ProductLines,
             state: row.State
         })));
 
-        res.json(rows);
+        res.json(combinedData);
     } catch (error) {
         console.error('Database error:', error);
         res.status(500).json({ 
