@@ -14,6 +14,17 @@ interface DealerLocation {
     lng?: number;
 }
 
+interface GeocodeResponse {
+    results: Array<{
+        geometry: {
+            location: {
+                lat: number;
+                lng: number;
+            };
+        };
+    }>;
+}
+
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCKWHs3ywhjQ7kfakEuv0dfxeuCMvzRrZs';
 
 const DealerMap: React.FC<{
@@ -21,18 +32,18 @@ const DealerMap: React.FC<{
 }> = ({ onDealerSelect }) => {
     const [dealers, setDealers] = useState<DealerLocation[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
-    const [mapCenter, setMapCenter] = useState({ lat: 39.8283, lng: -98.5795 }); // Center of USA
+    const [mapCenter] = useState({ lat: 39.8283, lng: -98.5795 }); // Center of USA
 
     useEffect(() => {
         const fetchDealers = async () => {
             try {
-                const response = await axios.get('http://35.212.41.99:3002/api/dealers/coordinates');
+                const response = await axios.get<DealerLocation[]>('http://35.212.41.99:3002/api/dealers/coordinates');
                 const dealersWithCoords = await Promise.all(response.data.map(async (dealer: DealerLocation) => {
                     const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
                     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
                     
                     try {
-                        const geocodeResponse = await axios.get(geocodeUrl);
+                        const geocodeResponse = await axios.get<GeocodeResponse>(geocodeUrl);
                         if (geocodeResponse.data.results[0]) {
                             const { lat, lng } = geocodeResponse.data.results[0].geometry.location;
                             return { ...dealer, lat, lng };
@@ -43,7 +54,7 @@ const DealerMap: React.FC<{
                     return dealer;
                 }));
                 
-                setDealers(dealersWithCoords.filter(d => d.lat && d.lng));
+                setDealers(dealersWithCoords.filter((d: DealerLocation) => d.lat && d.lng));
             } catch (error) {
                 console.error('Error fetching dealers:', error);
             }
