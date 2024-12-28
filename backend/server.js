@@ -42,41 +42,57 @@ app.get('/api/dealers', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // Get base dealer data with states
+        // Get base dealer data
         const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
-                s.SalesmanName,
-                a.State
+                s.SalesmanName
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            LEFT JOIN (
-                SELECT DISTINCT KPMDealerNumber, State 
-                FROM Addresses 
+        `);
+
+        // Get states - one state per dealer
+        const [states] = await connection.query(`
+            SELECT DISTINCT a1.KPMDealerNumber, a1.State
+            FROM Addresses a1
+            INNER JOIN (
+                SELECT KPMDealerNumber, MIN(AddressID) as FirstAddressID
+                FROM Addresses
                 WHERE State IS NOT NULL
-            ) a ON d.KPMDealerNumber = a.KPMDealerNumber
+                GROUP BY KPMDealerNumber
+            ) a2 ON a1.KPMDealerNumber = a2.KPMDealerNumber AND a1.AddressID = a2.FirstAddressID
         `);
 
-        // Get product lines separately
+        // Get product lines
         const [lines] = await connection.query(`
-            SELECT 
-                KPMDealerNumber,
-                GROUP_CONCAT(DISTINCT LineName ORDER BY LineName SEPARATOR ', ') as ProductLines
+            SELECT KPMDealerNumber, LineName
             FROM LinesCarried
-            GROUP BY KPMDealerNumber
+            WHERE LineName IS NOT NULL
+            ORDER BY LineName
         `);
 
-        // Create a map for product lines
-        const lineMap = new Map(lines.map(l => [l.KPMDealerNumber, l.ProductLines || '']));
+        // Create maps for lookups
+        const stateMap = new Map(states.map(s => [s.KPMDealerNumber, s.State]));
+        const lineMap = new Map();
+        
+        // Group product lines by dealer
+        lines.forEach(l => {
+            if (!lineMap.has(l.KPMDealerNumber)) {
+                lineMap.set(l.KPMDealerNumber, new Set());
+            }
+            lineMap.get(l.KPMDealerNumber).add(l.LineName);
+        });
 
-        // Combine the data
+        // Combine all data
         const combinedData = dealers.map(dealer => ({
             ...dealer,
-            State: dealer.State || '',
-            ProductLines: lineMap.get(dealer.KPMDealerNumber) || ''
+            State: stateMap.get(dealer.KPMDealerNumber) || '',
+            ProductLines: lineMap.has(dealer.KPMDealerNumber)
+                ? Array.from(lineMap.get(dealer.KPMDealerNumber)).sort().join(', ')
+                : ''
         }));
 
         // Sort by dealership name
@@ -443,6 +459,85 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
                 console.error('Error closing connection:', err);
             }
         }
+    }
+});
+
+// Get dealer details by dealer number
+app.get('/api/dealers/:dealerNumber', async (req, res) => {
+    let connection;
+    try {
+        connection = await mysql.createConnection(dbConfig);
+        
+        // Get dealer and salesman info
+        const [dealers] = await connection.query(`
+            SELECT 
+                d.KPMDealerNumber,
+                d.DealershipName,
+                d.DBA,
+                d.SalesmanCode,
+                s.SalesmanName as 'salesman.SalesmanName',
+                s.SalesmanCode as 'salesman.SalesmanCode'
+            FROM Dealerships d
+            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            WHERE d.KPMDealerNumber = ?
+        `, [req.params.dealerNumber]);
+
+        if (dealers.length === 0) {
+            return res.status(404).json({ error: 'Dealer not found' });
+        }
+
+        // Get address
+        const [addresses] = await connection.query(`
+            SELECT 
+                StreetAddress as 'address.StreetAddress',
+                BoxNumber as 'address.BoxNumber',
+                City as 'address.City',
+                State as 'address.State',
+                ZipCode as 'address.ZipCode',
+                County as 'address.County'
+            FROM Addresses
+            WHERE KPMDealerNumber = ?
+            LIMIT 1
+        `, [req.params.dealerNumber]);
+
+        // Get contact info
+        const [contacts] = await connection.query(`
+            SELECT 
+                MainPhone as 'contact.MainPhone',
+                FaxNumber as 'contact.FaxNumber',
+                MainEmail as 'contact.MainEmail'
+            FROM ContactInformation
+            WHERE KPMDealerNumber = ?
+            LIMIT 1
+        `, [req.params.dealerNumber]);
+
+        // Get lines carried
+        const [lines] = await connection.query(`
+            SELECT 
+                LineName as 'LineName',
+                AccountNumber as 'AccountNumber'
+            FROM LinesCarried
+            WHERE KPMDealerNumber = ?
+            ORDER BY LineName
+        `, [req.params.dealerNumber]);
+
+        // Combine all data
+        const dealerDetails = {
+            ...dealers[0],
+            address: addresses[0]?.address || {},
+            contact: contacts[0]?.contact || {},
+            lines: lines || []
+        };
+
+        res.json(dealerDetails);
+    } catch (error) {
+        console.error('Error fetching dealer details:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch dealer details',
+            details: error.message
+        });
+    } finally {
+        if (connection) await connection.end();
     }
 });
 
