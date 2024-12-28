@@ -48,7 +48,10 @@ interface Filters {
 
 const API_URL = 'http://35.212.41.99:3002';
 
-const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
+const DealerPicker: React.FC<{ 
+    selectedDealer?: string | null;
+    onDealersFiltered: (dealers: Dealer[]) => void;
+}> = ({ selectedDealer: initialDealer, onDealersFiltered }) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
     const [dealerDetails, setDealerDetails] = useState<DealerDetails | null>(null);
@@ -235,6 +238,10 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);
+
+    useEffect(() => {
+        onDealersFiltered(filteredDealers);
+    }, [filters, searchTerm, dealers, onDealersFiltered]);
 
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;

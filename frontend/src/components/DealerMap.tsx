@@ -90,8 +90,8 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
 
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
-}> = ({ onDealerSelect }) => {
-    const [dealers, setDealers] = useState<DealerLocation[]>([]);
+    dealers: DealerLocation[];
+}> = ({ onDealerSelect, dealers }) => {
     const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
     const [mapCenter] = useState({ lat: 38.5, lng: -77.5 });
     const [mapZoom] = useState(8);

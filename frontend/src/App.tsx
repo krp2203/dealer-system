@@ -9,6 +9,7 @@ const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
 
 function App() {
   const [selectedDealerNumber, setSelectedDealerNumber] = useState<string | null>(null);
+  const [filteredDealers, setFilteredDealers] = useState<Dealer[]>([]);
 
   return (
     <div className="App">
@@ -18,11 +19,17 @@ function App() {
       <div className="main-content">
         <div className="map-section">
           <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
-            <DealerMap onDealerSelect={setSelectedDealerNumber} />
+            <DealerMap 
+              onDealerSelect={setSelectedDealerNumber}
+              dealers={filteredDealers}
+            />
           </LoadScript>
         </div>
         <div className="details-section">
-          <DealerPicker selectedDealer={selectedDealerNumber} />
+          <DealerPicker 
+            selectedDealer={selectedDealerNumber}
+            onDealersFiltered={setFilteredDealers}
+          />
         </div>
       </div>
     </div>
