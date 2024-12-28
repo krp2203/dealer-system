@@ -221,7 +221,6 @@ const DealerMap: React.FC<{
             >
                 {dealers.length > 0 && dealers.map(dealer => {
                     if (!dealer.lat || !dealer.lng) {
-                        console.warn('Missing coordinates for dealer:', dealer.DealershipName);
                         return null;
                     }
                     return (
@@ -229,8 +228,8 @@ const DealerMap: React.FC<{
                             key={dealer.KPMDealerNumber}
                             position={{ lat: dealer.lat, lng: dealer.lng }}
                             onClick={() => {
-                                console.log('Marker clicked:', dealer);
                                 setSelectedDealer(dealer);
+                                onDealerSelect(dealer.KPMDealerNumber);
                             }}
                         />
                     );
@@ -245,9 +244,6 @@ const DealerMap: React.FC<{
                             <h3>{selectedDealer.DealershipName}</h3>
                             <p>{selectedDealer.StreetAddress}</p>
                             <p>{selectedDealer.City}, {selectedDealer.State} {selectedDealer.ZipCode}</p>
-                            <button onClick={() => onDealerSelect(selectedDealer.KPMDealerNumber)}>
-                                View Details
-                            </button>
                         </div>
                     </InfoWindow>
                 )}
