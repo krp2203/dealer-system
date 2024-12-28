@@ -6,7 +6,6 @@ interface Dealer {
     KPMDealerNumber: string;
     DealershipName: string;
     DBA?: string;
-    SalesmanCode: string;
 }
 
 interface DealerDetails {
@@ -36,17 +35,9 @@ interface DealerDetails {
     };
 }
 
-interface Salesman {
-    SalesmanCode: string;
-    SalesmanName: string;
-}
-
 const API_URL = 'http://35.212.41.99:3002';
 
-const DealerPicker: React.FC<{ 
-    selectedDealer?: string | null;
-    onSalesmanSelect: (salesmanCode: string) => void;
-}> = ({ selectedDealer: initialDealer, onSalesmanSelect }) => {
+const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
     const [dealerDetails, setDealerDetails] = useState<DealerDetails | null>(null);
@@ -59,8 +50,6 @@ const DealerPicker: React.FC<{
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const detailsRef = useRef<HTMLDivElement>(null);
-    const [salesmen, setSalesmen] = useState<Salesman[]>([]);
-    const [selectedSalesman, setSelectedSalesman] = useState<string>('');
 
     useEffect(() => {
         const fetchDealers = async () => {
@@ -75,19 +64,6 @@ const DealerPicker: React.FC<{
         };
 
         fetchDealers();
-    }, []);
-
-    useEffect(() => {
-        const fetchSalesmen = async () => {
-            try {
-                const response = await axios.get<Salesman[]>(`${API_URL}/api/salesmen`);
-                setSalesmen(response.data);
-            } catch (err) {
-                console.error('Failed to fetch salesmen:', err);
-            }
-        };
-
-        fetchSalesmen();
     }, []);
 
     const loadDealerDetails = async (dealerNumber: string) => {
@@ -184,17 +160,10 @@ const DealerPicker: React.FC<{
         }
     };
 
-    const filteredDealers = dealers.filter(dealer => {
-        const matchesSearch = 
-            dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase());
-        
-        if (selectedSalesman) {
-            return matchesSearch && dealer.SalesmanCode === selectedSalesman;
-        }
-        
-        return matchesSearch;
-    });
+    const filteredDealers = dealers.filter(dealer => 
+        dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     useEffect(() => {
         if (initialDealer) {
@@ -216,36 +185,12 @@ const DealerPicker: React.FC<{
         };
     }, []);
 
-    const handleSalesmanChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const salesmanCode = e.target.value;
-        console.log('Salesman selected:', {
-            code: salesmanCode,
-            salesmen: salesmen.map(s => ({ code: s.SalesmanCode, name: s.SalesmanName }))
-        });
-        setSelectedSalesman(salesmanCode);
-        onSalesmanSelect(salesmanCode);
-    };
-
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
 
     return (
         <div className="details-section">
             <div className="dealer-picker">
-                <div className="filter-container">
-                    <select
-                        value={selectedSalesman}
-                        onChange={handleSalesmanChange}
-                        className="salesman-filter"
-                    >
-                        <option value="">All Salesmen</option>
-                        {salesmen.map(salesman => (
-                            <option key={salesman.SalesmanCode} value={salesman.SalesmanCode}>
-                                {salesman.SalesmanName}
-                            </option>
-                        ))}
-                    </select>
-                </div>
                 <div className="search-container">
                     <input
                         type="text"

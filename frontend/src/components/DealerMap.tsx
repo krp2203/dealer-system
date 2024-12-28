@@ -12,7 +12,6 @@ interface DealerLocation {
     ZipCode: string;
     lat?: number;
     lng?: number;
-    SalesmanCode: string;
 }
 
 interface GeocodeResult {
@@ -91,8 +90,7 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
 
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
-    selectedSalesman?: string;
-}> = ({ onDealerSelect, selectedSalesman }) => {
+}> = ({ onDealerSelect }) => {
     const [dealers, setDealers] = useState<DealerLocation[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
     const [mapCenter] = useState({ lat: 38.5, lng: -77.5 });
@@ -115,8 +113,7 @@ const DealerMap: React.FC<{
                 const cached = localStorage.getItem(CACHE_KEY);
                 if (cached) {
                     const { data } = JSON.parse(cached);
-                    if (data && Array.isArray(data) && data.length > 0) {
-                        console.log('Loading from cache:', data.length, 'dealers');
+                    if (data && data.length > 0) {
                         setDealers(data);
                         setLoading(false);
                         return;
@@ -148,7 +145,6 @@ const DealerMap: React.FC<{
                 const validDealers = dealersWithCoords.filter(d => d.lat && d.lng);
                 
                 if (validDealers.length > 0) {
-                    console.log('Setting', validDealers.length, 'dealers with coordinates');
                     localStorage.setItem(CACHE_KEY, JSON.stringify({ data: validDealers }));
                     setDealers(validDealers);
                 } else {
@@ -164,38 +160,6 @@ const DealerMap: React.FC<{
 
         fetchDealers();
     }, []);
-
-    // Filter dealers based on selectedSalesman
-    const visibleDealers = dealers.filter(dealer => {
-        if (!selectedSalesman) {
-            return true;  // Show all dealers when no salesman is selected
-        }
-        
-        console.log('Filtering dealer:', {
-            dealerName: dealer.DealershipName,
-            dealerSalesman: dealer.SalesmanCode,
-            selectedSalesman,
-            matches: dealer.SalesmanCode === selectedSalesman
-        });
-        
-        return dealer.SalesmanCode === selectedSalesman;
-    });
-
-    // Add logging after filtering
-    useEffect(() => {
-        console.log('Selected Salesman:', selectedSalesman);
-        console.log('Total dealers:', dealers.length);
-        console.log('Visible dealers:', visibleDealers.length);
-    }, [selectedSalesman, dealers, visibleDealers]);
-
-    // Add this useEffect for debugging
-    useEffect(() => {
-        console.log('Dealers state updated:', {
-            total: dealers.length,
-            visible: visibleDealers.length,
-            selectedSalesman
-        });
-    }, [dealers, visibleDealers, selectedSalesman]);
 
     if (loading) {
         return <div className="map-container">Loading dealers...</div>;
@@ -219,19 +183,8 @@ const DealerMap: React.FC<{
                     rotateControl: true,
                     fullscreenControl: true
                 }}
-                onLoad={(map) => {
-                    if (visibleDealers.length > 0) {
-                        const bounds = new window.google.maps.LatLngBounds();
-                        visibleDealers.forEach(dealer => {
-                            if (dealer.lat && dealer.lng) {
-                                bounds.extend({ lat: dealer.lat, lng: dealer.lng });
-                            }
-                        });
-                        map.fitBounds(bounds);
-                    }
-                }}
             >
-                {visibleDealers.map(dealer => {
+                {dealers && dealers.map(dealer => {
                     if (!dealer?.lat || !dealer?.lng) return null;
                     return (
                         <Marker

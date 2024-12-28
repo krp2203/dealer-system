@@ -90,26 +90,114 @@ app.get('/api/dealers', async (req, res) => {
 app.get('/api/dealers/coordinates', async (req, res) => {
     let connection;
     try {
+        console.log('Fetching dealer coordinates...');
         connection = await mysql.createConnection(dbConfig);
-        const [rows] = await connection.query(`
+        
+        // First, let's check address data quality
+        const [addressStats] = await connection.query(`
             SELECT 
+                COUNT(*) as total,
+                COUNT(CASE WHEN StreetAddress != '' AND StreetAddress IS NOT NULL THEN 1 END) as hasStreet,
+                COUNT(CASE WHEN City != '' AND City IS NOT NULL THEN 1 END) as hasCity,
+                COUNT(CASE WHEN State != '' AND State IS NOT NULL THEN 1 END) as hasState,
+                COUNT(CASE WHEN ZipCode != '' AND ZipCode IS NOT NULL THEN 1 END) as hasZip,
+                COUNT(CASE 
+                    WHEN StreetAddress != '' AND StreetAddress IS NOT NULL
+                    AND City != '' AND City IS NOT NULL
+                    AND (State != '' OR City LIKE '% VA %' OR City LIKE '% MD %' OR City LIKE '% DE %' OR City LIKE '% NC %')
+                    AND (ZipCode != '' OR City REGEXP '[0-9]{5}$')
+                    THEN 1 END) as hasComplete
+            FROM Addresses
+        `);
+        console.log('Address statistics:', addressStats[0]);
+
+        // Get dealers with addresses, handling various formats
+        const [dealers] = await connection.query(`
+            SELECT DISTINCT
                 d.KPMDealerNumber,
                 d.DealershipName,
-                d.SalesmanCode,
                 a.StreetAddress,
-                a.City,
-                a.State,
-                a.ZipCode
+                CASE 
+                    WHEN a.City LIKE '% NC %' THEN SUBSTRING_INDEX(a.City, ' NC ', 1)
+                    WHEN a.City LIKE '% NC.%' THEN SUBSTRING_INDEX(a.City, ' NC.', 1)
+                    WHEN a.City LIKE '% VA %' THEN SUBSTRING_INDEX(a.City, ' VA ', 1)
+                    WHEN a.City LIKE '% VA.%' THEN SUBSTRING_INDEX(a.City, ' VA.', 1)
+                    WHEN a.City LIKE '% MD %' THEN SUBSTRING_INDEX(a.City, ' MD ', 1)
+                    WHEN a.City LIKE '% MD.%' THEN SUBSTRING_INDEX(a.City, ' MD.', 1)
+                    WHEN a.City LIKE '% DE %' THEN SUBSTRING_INDEX(a.City, ' DE ', 1)
+                    WHEN a.City LIKE '% DE.%' THEN SUBSTRING_INDEX(a.City, ' DE.', 1)
+                    WHEN a.City LIKE '% WV %' THEN SUBSTRING_INDEX(a.City, ' WV ', 1)
+                    WHEN a.City LIKE '% WV.%' THEN SUBSTRING_INDEX(a.City, ' WV.', 1)
+                    WHEN a.City LIKE '% PA %' THEN SUBSTRING_INDEX(a.City, ' PA ', 1)
+                    WHEN a.City LIKE '% PA.%' THEN SUBSTRING_INDEX(a.City, ' PA.', 1)
+                    ELSE TRIM(a.City)
+                END as City,
+                CASE 
+                    WHEN a.State = '' AND a.City LIKE '% NC%' THEN 'NC'
+                    WHEN a.State = '' AND a.City LIKE '% VA%' THEN 'VA'
+                    WHEN a.State = '' AND a.City LIKE '% MD%' THEN 'MD'
+                    WHEN a.State = '' AND a.City LIKE '% DE%' THEN 'DE'
+                    WHEN a.State = '' AND a.City LIKE '% WV%' THEN 'WV'
+                    WHEN a.State = '' AND a.City LIKE '% PA%' THEN 'PA'
+                    WHEN a.State LIKE '%.%' THEN REPLACE(a.State, '.', '')
+                    WHEN LENGTH(a.State) > 2 THEN 
+                        CASE 
+                            WHEN a.State LIKE '%Virginia%' THEN 'VA'
+                            WHEN a.State LIKE '%Maryland%' THEN 'MD'
+                            WHEN a.State LIKE '%Delaware%' THEN 'DE'
+                            WHEN a.State LIKE '%North Carolina%' THEN 'NC'
+                            WHEN a.State LIKE '%West Virginia%' THEN 'WV'
+                            WHEN a.State LIKE '%Pennsylvania%' THEN 'PA'
+                            ELSE a.State
+                        END
+                    ELSE a.State
+                END as State,
+                CASE 
+                    WHEN a.ZipCode = '' AND a.City REGEXP '[0-9]{5}$' THEN SUBSTRING(a.City, -5)
+                    WHEN a.ZipCode REGEXP '^[0-9]{5}-[0-9]{4}$' THEN SUBSTRING(a.ZipCode, 1, 5)
+                    ELSE a.ZipCode
+                END as ZipCode,
+                a.City as RawCity,
+                a.State as RawState,
+                a.ZipCode as RawZip
             FROM Dealerships d
-            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE a.StreetAddress IS NOT NULL
-            ORDER BY d.DealershipName
+            INNER JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            WHERE a.StreetAddress IS NOT NULL 
+                AND a.StreetAddress != ''
+                AND a.City IS NOT NULL 
+                AND a.City != ''
         `);
+        
+        // Log some sample data for debugging
+        console.log('Sample raw addresses:');
+        dealers.slice(0, 5).forEach(d => {
+            console.log(`${d.DealershipName}:
+                Raw: ${d.StreetAddress}, ${d.RawCity}, ${d.RawState} ${d.RawZip}
+                Parsed: ${d.StreetAddress}, ${d.City}, ${d.State} ${d.ZipCode}`
+            );
+        });
 
-        const validDealers = rows.filter(d => 
-            d.StreetAddress && d.City && d.State && d.ZipCode
+        // Add more detailed logging
+        console.log('Address Analysis:');
+        dealers.forEach(d => {
+            if (!d.State || !d.ZipCode) {
+                console.log(`\nIncomplete Address for ${d.DealershipName}:`);
+                console.log(`Raw: ${d.StreetAddress}, ${d.RawCity}, ${d.RawState} ${d.RawZip}`);
+                console.log(`Parsed: ${d.StreetAddress}, ${d.City}, ${d.State} ${d.ZipCode}`);
+            }
+        });
+
+        // Filter out dealers with incomplete addresses
+        const validDealers = dealers.filter(d => 
+            d.StreetAddress && 
+            d.City && 
+            (d.State || d.City.match(/\b(NC|VA|MD|DE|WV)\b/)) &&
+            (d.ZipCode || d.City.match(/\d{5}/))
         );
 
+        console.log(`Found ${dealers.length} total dealers`);
+        console.log(`Found ${validDealers.length} dealers with valid addresses`);
+        
         res.json(validDealers);
     } catch (error) {
         console.error('Error fetching dealer coordinates:', error);
@@ -567,32 +655,6 @@ app.post('/api/import', async (req, res) => {
             } catch (err) {
                 console.error('Error closing connection:', err);
             }
-        }
-    }
-});
-
-// Add this new endpoint
-app.get('/api/salesmen', async (req, res) => {
-    let connection;
-    try {
-        connection = await mysql.createConnection(dbConfig);
-        const [rows] = await connection.query(`
-            SELECT DISTINCT 
-                s.SalesmanCode,
-                s.SalesmanName
-            FROM Salesman s
-            ORDER BY s.SalesmanName
-        `);
-        res.json(rows);
-    } catch (error) {
-        console.error('Error fetching salesmen:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch salesmen',
-            details: error.message 
-        });
-    } finally {
-        if (connection) {
-            await connection.end();
         }
     }
 });
