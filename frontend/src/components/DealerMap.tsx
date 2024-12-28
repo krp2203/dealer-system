@@ -31,6 +31,8 @@ interface GeocodeResponse {
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
 
+const CACHE_KEY = 'dealerCoordinates';
+
 async function getCoordinates(address: string): Promise<{ lat: number; lng: number } | null> {
     try {
         // Add a small delay to avoid rate limits
@@ -104,9 +106,17 @@ const DealerMap: React.FC<{
     useEffect(() => {
         const fetchDealers = async () => {
             try {
+                // Try to get cached coordinates first
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    const parsedCache = JSON.parse(cached);
+                    setDealers(parsedCache);
+                    setLoading(false);
+                    return;
+                }
+
                 console.log('Fetching dealers...');
                 const response = await axios.get<DealerLocation[]>('http://35.212.41.99:3002/api/dealers/coordinates');
-                console.log('Received dealers:', response.data);
 
                 if (!response.data || response.data.length === 0) {
                     setError('No dealers found');
@@ -114,58 +124,38 @@ const DealerMap: React.FC<{
                     return;
                 }
 
-                // Process dealers in smaller batches to avoid rate limits
-                const batchSize = 5;
+                // Process dealers in parallel with rate limiting
                 const allDealers = [...response.data];
                 const dealersWithCoords = [];
+                const batchSize = 10; // Increased batch size
 
                 for (let i = 0; i < allDealers.length; i += batchSize) {
                     const batch = allDealers.slice(i, i + batchSize);
-                    console.log(`Processing batch ${i/batchSize + 1}...`);
+                    const batchPromises = batch.map(async (dealer) => {
+                        const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
+                        const coords = await getCoordinates(address);
+                        return coords ? { ...dealer, ...coords } : dealer;
+                    });
 
-                    const batchResults = await Promise.all(
-                        batch.map(async (dealer) => {
-                            const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
-                            console.log('Geocoding:', address);
-                            
-                            const coords = await getCoordinates(address);
-                            if (coords) {
-                                console.log(`Got coordinates for ${dealer.DealershipName}:`, coords);
-                                return { ...dealer, ...coords };
-                            }
-                            return dealer;
-                        })
-                    );
-
-                    dealersWithCoords.push(...batchResults);
-                    // Add a delay between batches to respect rate limits
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    const results = await Promise.all(batchPromises);
+                    dealersWithCoords.push(...results);
+                    
+                    // Shorter delay between batches
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
 
-                const validDealers = dealersWithCoords.filter((d): d is DealerLocation & { lat: number; lng: number } => {
-                    const isValid = typeof d.lat === 'number' && typeof d.lng === 'number';
-                    if (!isValid) {
-                        console.warn('Invalid dealer coordinates:', {
-                            name: d.DealershipName,
-                            address: `${d.StreetAddress}, ${d.City}, ${d.State} ${d.ZipCode}`,
-                            coords: { lat: d.lat, lng: d.lng }
-                        });
-                    }
-                    return isValid;
-                });
+                const validDealers = dealersWithCoords.filter((d): d is DealerLocation & { lat: number; lng: number } => 
+                    typeof d.lat === 'number' && typeof d.lng === 'number'
+                );
 
-                console.log('Valid dealers after filtering:', validDealers.map(d => ({
-                    name: d.DealershipName,
-                    address: `${d.StreetAddress}, ${d.City}, ${d.State} ${d.ZipCode}`,
-                    coords: { lat: d.lat, lng: d.lng }
-                })));
-
-                if (validDealers.length === 0) {
-                    setError('No dealers found with valid coordinates');
-                } else {
-                    console.log(`Setting ${validDealers.length} dealers with coordinates`);
+                if (validDealers.length > 0) {
+                    // Cache the results
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(validDealers));
                     setDealers(validDealers);
+                } else {
+                    setError('No dealers found with valid coordinates');
                 }
+                
                 setLoading(false);
             } catch (error) {
                 console.error('Error fetching dealers:', error);
@@ -241,6 +231,7 @@ const DealerMap: React.FC<{
                     >
                         <div 
                             onMouseOver={() => setHoveredDealer(hoveredDealer)}
+                            onMouseOut={() => setHoveredDealer(null)}
                             style={{ padding: '8px', minWidth: '200px' }}
                         >
                             <h3>{hoveredDealer.DealershipName}</h3>
