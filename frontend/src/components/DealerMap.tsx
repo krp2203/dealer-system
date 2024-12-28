@@ -28,58 +28,16 @@ interface GeocodeResponse {
     status: string;
 }
 
-// Add this interface for Nominatim response
-interface NominatimResponse {
-    lat: string;
-    lon: string;
-    display_name: string;
-}
-
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCKWHs3ywhjQ7kfakEuv0dfxeuCMvzRrZs';
 
 async function getCoordinates(address: string): Promise<{ lat: number; lng: number } | null> {
     try {
-        // Using OpenStreetMap's Nominatim service with simpler configuration
-        const response = await axios.get<NominatimResponse[]>(
-            'https://nominatim.openstreetmap.org/search', {
-                params: {
-                    q: address,
-                    format: 'json',
-                    limit: 1
-                }
-            }
-        );
-
-        if (response.data && response.data.length > 0) {
-            const location = response.data[0];
-            return {
-                lat: parseFloat(location.lat),
-                lng: parseFloat(location.lon)
-            };
+        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+        const response = await axios.get<GeocodeResponse>(geocodeUrl);
+        
+        if (response.data.results?.[0]?.geometry?.location) {
+            return response.data.results[0].geometry.location;
         }
-
-        // If first attempt fails, try with city and state only
-        const [, city, stateZip] = address.split(',').map(s => s.trim());
-        if (city && stateZip) {
-            const fallbackResponse = await axios.get<NominatimResponse[]>(
-                'https://nominatim.openstreetmap.org/search', {
-                    params: {
-                        q: `${city}, ${stateZip}`,
-                        format: 'json',
-                        limit: 1
-                    }
-                }
-            );
-
-            if (fallbackResponse.data && fallbackResponse.data.length > 0) {
-                const location = fallbackResponse.data[0];
-                return {
-                    lat: parseFloat(location.lat),
-                    lng: parseFloat(location.lon)
-                };
-            }
-        }
-
         return null;
     } catch (error) {
         console.error('Geocoding error:', error);
