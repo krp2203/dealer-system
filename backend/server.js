@@ -95,17 +95,30 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 d.SalesmanCode,
                 s.SalesmanName,
                 a.StreetAddress,
-                a.City,
-                a.State,
-                a.ZipCode,
+                CASE 
+                    WHEN a.City LIKE '% VA %' THEN SUBSTRING_INDEX(a.City, ' VA ', 1)
+                    ELSE a.City 
+                END as City,
+                COALESCE(a.State, 
+                    CASE 
+                        WHEN a.City LIKE '% VA %' THEN 'VA'
+                        WHEN a.City LIKE '% NC %' THEN 'NC'
+                        ELSE ''
+                    END
+                ) as State,
+                COALESCE(a.ZipCode,
+                    CASE 
+                        WHEN a.City LIKE '% VA %' THEN TRIM(SUBSTRING_INDEX(a.City, ' VA ', -1))
+                        WHEN a.City LIKE '% NC %' THEN TRIM(SUBSTRING_INDEX(a.City, ' NC ', -1))
+                        ELSE ''
+                    END
+                ) as ZipCode,
                 CAST(a.lat AS DECIMAL(10,8)) as lat,
                 CAST(a.lng AS DECIMAL(11,8)) as lng
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE a.lat IS NOT NULL 
-            AND a.lng IS NOT NULL
-            AND a.StreetAddress IS NOT NULL
+            WHERE a.StreetAddress IS NOT NULL
         `);
 
         console.log(`Found ${dealers.length} dealers with coordinates`);
