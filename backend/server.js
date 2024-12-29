@@ -168,7 +168,8 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
-                s.SalesmanName
+                s.SalesmanName,
+                s.SalesmanCode as ConfirmedSalesmanCode
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             WHERE d.KPMDealerNumber = ?

@@ -75,13 +75,20 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
 
         try {
+            console.log('Loading details for dealer:', dealerNumber);
             const response = await axios.get<DealerDetails>(`${API_URL}/api/dealers/${dealerNumber}`);
-            setSelectedDealer(dealerNumber);
+            console.log('Received dealer details:', response.data);
+            
             setDealerDetails(response.data);
+            setSelectedDealer(dealerNumber);
             
             const dealer = dealers.find(d => d.KPMDealerNumber === dealerNumber);
             if (dealer) {
                 setSelectedDealerName(dealer.DealershipName);
+                console.log('Salesman info:', {
+                    code: response.data.salesman.SalesmanCode,
+                    name: response.data.salesman.SalesmanName
+                });
             }
 
             setTimeout(() => {
@@ -89,7 +96,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
             }, 100);
 
         } catch (err) {
-            console.error('Fetch error:', err);
+            console.error('Error loading dealer details:', err);
             setError('Failed to fetch dealer details');
         }
     };
