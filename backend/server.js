@@ -495,15 +495,28 @@ app.post('/api/import', async (req, res) => {
 
             // Update Dealerships table with validated salesman code
             try {
-                await connection.query(`
-                    INSERT INTO Dealerships 
-                        (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                    VALUES (?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        DealershipName = VALUES(DealershipName),
-                        DBA = VALUES(DBA),
-                        SalesmanCode = ?  -- Explicit parameter for update
-                `, [dealerNumber, dealershipName, dba, salesmanCode, salesmanCode]);
+                if (salesmanCode) {
+                    await connection.query(`
+                        INSERT INTO Dealerships 
+                            (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
+                        VALUES (?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            DealershipName = VALUES(DealershipName),
+                            DBA = VALUES(DBA),
+                            SalesmanCode = ?
+                    `, [dealerNumber, dealershipName, dba, salesmanCode, salesmanCode]);
+                } else {
+                    // If no salesman code, don't include it in the query
+                    await connection.query(`
+                        INSERT INTO Dealerships 
+                            (KPMDealerNumber, DealershipName, DBA)
+                        VALUES (?, ?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            DealershipName = VALUES(DealershipName),
+                            DBA = VALUES(DBA),
+                            SalesmanCode = NULL
+                    `, [dealerNumber, dealershipName, dba]);
+                }
 
                 // Verify the update
                 const [updated] = await connection.query(
