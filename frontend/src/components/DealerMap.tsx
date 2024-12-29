@@ -183,10 +183,17 @@ const DealerMap: React.FC<{
             >
                 {dealers && dealers.map(dealer => {
                     if (!dealer?.lat || !dealer?.lng) return null;
+                    
+                    // Convert string coordinates to numbers
+                    const position = {
+                        lat: typeof dealer.lat === 'string' ? parseFloat(dealer.lat) : dealer.lat,
+                        lng: typeof dealer.lng === 'string' ? parseFloat(dealer.lng) : dealer.lng
+                    };
+
                     return (
                         <Marker
                             key={dealer.KPMDealerNumber}
-                            position={{ lat: dealer.lat, lng: dealer.lng }}
+                            position={position}
                             onMouseOver={() => setHoveredDealer(dealer)}
                             onMouseOut={() => {
                                 if (!isHoveringInfoWindow) {
@@ -201,8 +208,8 @@ const DealerMap: React.FC<{
                 {hoveredDealer && hoveredDealer.lat && hoveredDealer.lng && (
                     <InfoWindow
                         position={{
-                            lat: parseFloat(hoveredDealer.lat.toString()),
-                            lng: parseFloat(hoveredDealer.lng.toString())
+                            lat: typeof hoveredDealer.lat === 'string' ? parseFloat(hoveredDealer.lat) : hoveredDealer.lat,
+                            lng: typeof hoveredDealer.lng === 'string' ? parseFloat(hoveredDealer.lng) : hoveredDealer.lng
                         }}
                         onCloseClick={() => setHoveredDealer(null)}
                         options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
