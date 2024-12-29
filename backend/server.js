@@ -452,8 +452,9 @@ app.post('/api/import', async (req, res) => {
                         DealershipName = VALUES(DealershipName),
                         DBA = VALUES(DBA),
                         SalesmanCode = CASE 
-                            WHEN VALUES(SalesmanCode) = '' THEN NULL 
-                            ELSE VALUES(SalesmanCode) 
+                            WHEN VALUES(SalesmanCode) = '' OR VALUES(SalesmanCode) IS NULL 
+                            THEN Dealerships.SalesmanCode  -- Keep existing salesman code if none provided
+                            ELSE VALUES(SalesmanCode)      -- Use new code if provided
                         END
                 `, [dealerNumber, dealershipName, dba, salesmanCode || null]);
 
