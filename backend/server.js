@@ -445,6 +445,24 @@ app.post('/api/import', async (req, res) => {
 
             try {
                 // Update Dealerships table
+                console.log('Attempting dealer update:', {
+                    dealerNumber,
+                    dealershipName,
+                    salesmanCode,
+                    query: `
+                        INSERT INTO Dealerships 
+                            (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
+                        VALUES ('${dealerNumber}', '${dealershipName}', '${dba}', ${salesmanCode || 'NULL'})
+                        ON DUPLICATE KEY UPDATE
+                            DealershipName = VALUES(DealershipName),
+                            DBA = VALUES(DBA),
+                            SalesmanCode = CASE 
+                                WHEN VALUES(SalesmanCode) = '' THEN NULL 
+                                ELSE VALUES(SalesmanCode) 
+                            END
+                    `
+                });
+
                 await connection.query(`
                     INSERT INTO Dealerships 
                         (KPMDealerNumber, DealershipName, DBA, SalesmanCode)

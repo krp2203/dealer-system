@@ -54,7 +54,9 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     useEffect(() => {
         const fetchDealers = async () => {
             try {
+                console.log('Fetching fresh dealer list...');
                 const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
+                console.log('Received dealers:', response.data);
                 setDealers(response.data);
                 setLoading(false);
             } catch (err) {

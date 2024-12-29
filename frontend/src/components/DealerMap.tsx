@@ -106,27 +106,12 @@ const DealerMap: React.FC<{
     };
 
     useEffect(() => {
-        // Clear the coordinates cache
+        // Clear all caches
         localStorage.removeItem(CACHE_KEY);
-    }, []);
-
-    useEffect(() => {
+        
         const fetchDealers = async () => {
             try {
-                // Try to get cached coordinates first
-                const cached = localStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    const { data, timestamp } = JSON.parse(cached);
-                    const isExpired = Date.now() - timestamp > CACHE_DURATION;
-                    
-                    if (!isExpired && data && data.length > 0) {
-                        console.log(`Using cached data with ${data.length} dealers`);
-                        setDealers(data);
-                        setLoading(false);
-                        return;
-                    }
-                }
-
+                console.log('Fetching fresh dealer data...');
                 const response = await axios.get<DealerLocation[]>(`${API_URL}/api/dealers/coordinates`);
                 
                 if (!response.data || !Array.isArray(response.data)) {
