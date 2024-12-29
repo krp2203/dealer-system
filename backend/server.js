@@ -37,6 +37,8 @@ console.log('Attempting to connect to database with config:', {
     database: dbConfig.database
 });
 
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+
 // Get list of all dealers
 app.get('/api/dealers', async (req, res) => {
     console.log('Received request for dealers');
@@ -371,17 +373,14 @@ app.post('/api/import', async (req, res) => {
         }
 
         connection = await mysql.createConnection(dbConfig);
+        await connection.beginTransaction(); // Start transaction
 
         // Get all valid salesman codes at the start
         const [salesmanList] = await connection.query('SELECT SalesmanCode, SalesmanName FROM Salesman');
         const validSalesmanCodes = new Map(salesmanList.map(s => [s.SalesmanCode, s.SalesmanName]));
 
-        // Log available salesman codes
-        console.log('Available salesman codes:', Object.fromEntries(validSalesmanCodes));
-
         // Process each row
         for (const row of rows) {
-            // Skip empty rows
             if (!row[0]) continue;
 
             // Map column indices
@@ -447,81 +446,6 @@ app.post('/api/import', async (req, res) => {
                 isValid: salesmanCode ? validSalesmanCodes.has(salesmanCode) : false
             });
 
-            // Update Dealerships table with explicit NULL handling
-            const updateQuery = `
-                INSERT INTO Dealerships 
-                    (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    DealershipName = VALUES(DealershipName),
-                    DBA = VALUES(DBA),
-                    SalesmanCode = NULLIF(VALUES(SalesmanCode), '')
-            `;
-
-            const queryParams = [
-                dealerNumber,
-                dealershipName,
-                dba,
-                salesmanCode || null,  // Convert empty string to NULL
-                salesmanCode || null   // Convert empty string to NULL
-            ];
-
-            try {
-                await connection.query(updateQuery, queryParams);
-                
-                // Verify the update
-                const [verifyResult] = await connection.query(
-                    'SELECT DealershipName, SalesmanCode FROM Dealerships WHERE KPMDealerNumber = ?',
-                    [dealerNumber]
-                );
-                
-                console.log('Update verification:', {
-                    dealerNumber,
-                    dealershipName,
-                    intendedSalesmanCode: salesmanCode,
-                    actualSalesmanCode: verifyResult[0]?.SalesmanCode,
-                    queryParams
-                });
-            } catch (error) {
-                console.error('Error updating dealer:', {
-                    error: error.message,
-                    dealerNumber,
-                    salesmanCode,
-                    queryParams
-                });
-                throw error;
-            }
-
-            // Log the assignment
-            console.log(`Dealer ${dealerNumber} (${dealershipName}): ${salesmanCode ? 
-                `Assigned to salesman ${salesmanCode} (${validSalesmanCodes.get(salesmanCode)})` : 
-                'No salesman assigned'}`);
-
-            // Update Addresses table
-            await connection.query(`
-                INSERT INTO Addresses 
-                    (KPMDealerNumber, StreetAddress, BoxNumber, City, State, ZipCode, County)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    StreetAddress = VALUES(StreetAddress),
-                    BoxNumber = VALUES(BoxNumber),
-                    City = VALUES(City),
-                    State = VALUES(State),
-                    ZipCode = VALUES(ZipCode),
-                    County = VALUES(County)
-            `, [dealerNumber, streetAddress, boxNumber, city, state, zipCode, county]);
-
-            // Update ContactInformation table
-            await connection.query(`
-                INSERT INTO ContactInformation 
-                    (KPMDealerNumber, MainPhone, FaxNumber, MainEmail)
-                VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    MainPhone = VALUES(MainPhone),
-                    FaxNumber = VALUES(FaxNumber),
-                    MainEmail = VALUES(MainEmail)
-            `, [dealerNumber, mainPhone, faxNumber, mainEmail]);
-
             // Handle Lines Carried
             const lineColumns = {
                 'Scag Account No': 'Scag',
@@ -537,46 +461,93 @@ app.post('/api/import', async (req, res) => {
                 'Wright Account No.': 'Wright'
             };
 
-            // Clear existing lines
-            await connection.query('DELETE FROM LinesCarried WHERE KPMDealerNumber = ?', [dealerNumber]);
+            try {
+                // Update Dealerships table
+                await connection.query(`
+                    INSERT INTO Dealerships 
+                        (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        DealershipName = VALUES(DealershipName),
+                        DBA = VALUES(DBA),
+                        SalesmanCode = CASE 
+                            WHEN VALUES(SalesmanCode) = '' THEN NULL 
+                            ELSE VALUES(SalesmanCode) 
+                        END
+                `, [dealerNumber, dealershipName, dba, salesmanCode || null]);
 
-            // Insert new lines
-            for (const [column, lineName] of Object.entries(lineColumns)) {
-                const accountNumber = getColumnValue(column);
-                if (accountNumber) {
-                    await connection.query(`
-                        INSERT INTO LinesCarried (KPMDealerNumber, LineName, AccountNumber)
-                        VALUES (?, ?, ?)
-                    `, [dealerNumber, lineName, accountNumber]);
-                }
-            }
+                // Update Addresses table
+                await connection.query(`
+                    INSERT INTO Addresses 
+                        (KPMDealerNumber, StreetAddress, BoxNumber, City, State, ZipCode, County)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        StreetAddress = VALUES(StreetAddress),
+                        BoxNumber = VALUES(BoxNumber),
+                        City = VALUES(City),
+                        State = VALUES(State),
+                        ZipCode = VALUES(ZipCode),
+                        County = VALUES(County)
+                `, [dealerNumber, streetAddress, boxNumber, city, state, zipCode, county]);
 
-            // Add geocoding for new addresses
-            if (streetAddress && city && state && zipCode) {
-                const address = `${streetAddress}, ${city}, ${state} ${zipCode}`;
-                try {
-                    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
-                    const response = await axios.get(geocodeUrl);
-                    
-                    if (response.data.status === 'OK' && response.data.results[0]?.geometry?.location) {
-                        const { lat, lng } = response.data.results[0].geometry.location;
-                        
-                        // Update coordinates in Addresses table
+                // Update ContactInformation table
+                await connection.query(`
+                    INSERT INTO ContactInformation 
+                        (KPMDealerNumber, MainPhone, FaxNumber, MainEmail)
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        MainPhone = VALUES(MainPhone),
+                        FaxNumber = VALUES(FaxNumber),
+                        MainEmail = VALUES(MainEmail)
+                `, [dealerNumber, mainPhone, faxNumber, mainEmail]);
+
+                // Handle Lines Carried
+                await connection.query('DELETE FROM LinesCarried WHERE KPMDealerNumber = ?', [dealerNumber]);
+                for (const [column, lineName] of Object.entries(lineColumns)) {
+                    const accountNumber = getColumnValue(column);
+                    if (accountNumber) {
                         await connection.query(`
-                            UPDATE Addresses 
-                            SET lat = ?, lng = ?
-                            WHERE KPMDealerNumber = ?
-                        `, [lat, lng, dealerNumber]);
-                        
-                        console.log(`Updated coordinates for ${dealerNumber}: ${lat}, ${lng}`);
-                    } else {
-                        console.warn(`Failed to geocode address for dealer ${dealerNumber}: ${address}`);
+                            INSERT INTO LinesCarried (KPMDealerNumber, LineName, AccountNumber)
+                            VALUES (?, ?, ?)
+                        `, [dealerNumber, lineName, accountNumber]);
                     }
-                } catch (error) {
-                    console.error(`Geocoding error for ${dealerNumber}:`, error);
                 }
+
+                // Add geocoding for new addresses
+                if (streetAddress && city && state && zipCode) {
+                    const address = `${streetAddress}, ${city}, ${state} ${zipCode}`;
+                    try {
+                        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+                        const response = await axios.get(geocodeUrl);
+                        
+                        if (response.data.status === 'OK' && response.data.results[0]?.geometry?.location) {
+                            const { lat, lng } = response.data.results[0].geometry.location;
+                            
+                            // Update coordinates in Addresses table
+                            await connection.query(`
+                                UPDATE Addresses 
+                                SET lat = ?, lng = ?
+                                WHERE KPMDealerNumber = ?
+                            `, [lat, lng, dealerNumber]);
+                            
+                            console.log(`Updated coordinates for ${dealerNumber}: ${lat}, ${lng}`);
+                        } else {
+                            console.warn(`Failed to geocode address for dealer ${dealerNumber}: ${address}`);
+                        }
+                    } catch (error) {
+                        console.warn(`Geocoding error for ${dealerNumber}:`, error.message);
+                        // Don't throw error for geocoding failures - continue with import
+                    }
+                }
+
+            } catch (error) {
+                await connection.rollback();
+                throw error;
             }
         }
+
+        // Commit the transaction if everything succeeded
+        await connection.commit();
 
         res.json({ 
             message: 'Import completed successfully',
@@ -584,6 +555,9 @@ app.post('/api/import', async (req, res) => {
         });
 
     } catch (error) {
+        if (connection) {
+            await connection.rollback();
+        }
         console.error('Import error:', error);
         res.status(500).json({ 
             error: 'Failed to import data',
