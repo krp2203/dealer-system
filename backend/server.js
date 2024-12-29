@@ -447,6 +447,10 @@ app.post('/api/import', async (req, res) => {
             // Map column indices
             const getColumnValue = (columnName) => {
                 const index = headers.indexOf(columnName);
+                // Add more detailed logging for salesman code
+                if (columnName === 'Salesman Code') {
+                    console.log(`Found salesman code at index ${index}, value: ${row[index]}`);
+                }
                 return index >= 0 ? row[index]?.toString().trim() || '' : '';
             };
 
@@ -463,27 +467,33 @@ app.post('/api/import', async (req, res) => {
             const county = getColumnValue('County');
             const mainEmail = getColumnValue('Main Email');
             let salesmanCode = getColumnValue('Salesman Code');
+            console.log('Initial salesman code:', salesmanCode);
 
             // Skip if no dealer number
             if (!dealerNumber) continue;
 
             // Check if the provided code is valid
             if (salesmanCode) {
-                // Try to clean up the salesman code (remove spaces, leading zeros, etc.)
+                // Clean up the salesman code
                 salesmanCode = salesmanCode.toString().trim();
                 
-                // Check if it exists in valid codes
+                // Log the salesman code lookup
+                console.log('Looking up salesman code:', salesmanCode);
+                console.log('Valid codes:', Array.from(validSalesmanCodes.keys()));
+                
                 if (!validSalesmanCodes.has(salesmanCode)) {
                     console.warn(`Invalid salesman code ${salesmanCode} for dealer ${dealerNumber}`);
                     
-                    // Try to match salesman code format
+                    // Try to match numeric code
                     const numericCode = salesmanCode.replace(/\D/g, '');
+                    console.log('Trying numeric code:', numericCode);
+                    
                     if (validSalesmanCodes.has(numericCode)) {
                         salesmanCode = numericCode;
                         console.log(`Matched salesman code ${salesmanCode} (${validSalesmanCodes.get(salesmanCode)})`);
                     } else {
                         salesmanCode = null;
-                        console.log(`No valid salesman code match found for ${dealerNumber} (${dealershipName})`);
+                        console.log(`No valid salesman code match found for ${dealerNumber}`);
                     }
                 }
             }
@@ -498,7 +508,7 @@ app.post('/api/import', async (req, res) => {
             });
 
             // Update Dealerships table with explicit NULL handling
-            const updateQuery = salesmanCode ? `
+            const updateQuery = `
                 INSERT INTO Dealerships 
                     (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
                 VALUES (?, ?, ?, ?)
@@ -506,33 +516,41 @@ app.post('/api/import', async (req, res) => {
                     DealershipName = VALUES(DealershipName),
                     DBA = VALUES(DBA),
                     SalesmanCode = ?
-            ` : `
-                INSERT INTO Dealerships 
-                    (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                VALUES (?, ?, ?, NULL)
-                ON DUPLICATE KEY UPDATE
-                    DealershipName = VALUES(DealershipName),
-                    DBA = VALUES(DBA),
-                    SalesmanCode = NULL
             `;
 
-            const queryParams = salesmanCode ? 
-                [dealerNumber, dealershipName, dba, salesmanCode, salesmanCode] :
-                [dealerNumber, dealershipName, dba];
-
-            await connection.query(updateQuery, queryParams);
-
-            // Add immediate verification
-            const [verifyResult] = await connection.query(
-                'SELECT DealershipName, SalesmanCode FROM Dealerships WHERE KPMDealerNumber = ?',
-                [dealerNumber]
-            );
-            console.log('Verification after update:', {
+            const queryParams = [
                 dealerNumber,
                 dealershipName,
-                intendedSalesmanCode: salesmanCode,
-                actualSalesmanCode: verifyResult[0]?.SalesmanCode
-            });
+                dba,
+                salesmanCode,
+                salesmanCode  // Explicit parameter for UPDATE
+            ];
+
+            try {
+                await connection.query(updateQuery, queryParams);
+                
+                // Verify the update
+                const [verifyResult] = await connection.query(
+                    'SELECT DealershipName, SalesmanCode FROM Dealerships WHERE KPMDealerNumber = ?',
+                    [dealerNumber]
+                );
+                
+                console.log('Update verification:', {
+                    dealerNumber,
+                    dealershipName,
+                    intendedSalesmanCode: salesmanCode,
+                    actualSalesmanCode: verifyResult[0]?.SalesmanCode,
+                    queryParams
+                });
+            } catch (error) {
+                console.error('Error updating dealer:', {
+                    error: error.message,
+                    dealerNumber,
+                    salesmanCode,
+                    queryParams
+                });
+                throw error;
+            }
 
             // Log the assignment
             console.log(`Dealer ${dealerNumber} (${dealershipName}): ${salesmanCode ? 
