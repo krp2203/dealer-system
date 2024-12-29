@@ -101,7 +101,7 @@ app.get('/api/dealers/coordinates', async (req, res) => {
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            -- Removed WHERE clause to show all dealers
+            WHERE a.StreetAddress IS NOT NULL
         `);
 
         console.log(`Found ${dealers.length} total dealers`);
