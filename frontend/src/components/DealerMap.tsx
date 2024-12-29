@@ -92,8 +92,8 @@ const DealerMap: React.FC<{
 }> = ({ onDealerSelect }) => {
     const [dealers, setDealers] = useState<DealerLocation[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
-    const [mapCenter] = useState({ lat: 38.5, lng: -77.5 });
-    const [mapZoom] = useState(8);
+    const [mapCenter] = useState({ lat: 37.5, lng: -79.0 });
+    const [mapZoom] = useState(6);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [hoveredDealer, setHoveredDealer] = useState<DealerLocation | null>(null);
