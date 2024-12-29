@@ -380,11 +380,18 @@ app.post('/api/import', async (req, res) => {
 
             // Map column indices
             const getColumnValue = (columnName) => {
-                const index = headers.indexOf(columnName);
-                // Add more detailed logging for salesman code
-                if (columnName === 'Salesman Code') {
-                    console.log(`Found salesman code at index ${index}, value: ${row[index]}`);
+                // Try exact match first
+                let index = headers.indexOf(columnName);
+                
+                // If not found, try case-insensitive match
+                if (index === -1) {
+                    index = headers.findIndex(h => 
+                        h.toLowerCase() === columnName.toLowerCase() ||
+                        h.toLowerCase().includes('salesman') && h.toLowerCase().includes('code')
+                    );
                 }
+                
+                console.log(`Column lookup: "${columnName}" -> index: ${index}, value: ${row[index]}`);
                 return index >= 0 ? row[index]?.toString().trim() || '' : '';
             };
 
@@ -401,7 +408,12 @@ app.post('/api/import', async (req, res) => {
             const county = getColumnValue('County');
             const mainEmail = getColumnValue('Main Email');
             let salesmanCode = getColumnValue('Salesman Code');
-            console.log('Initial salesman code:', salesmanCode);
+            console.log('Salesman code processing:', {
+                rawValue: salesmanCode,
+                headers: headers,
+                possibleColumns: headers.filter(h => h.toLowerCase().includes('salesman')),
+                validCodes: Array.from(validSalesmanCodes.keys())
+            });
 
             // Skip if no dealer number
             if (!dealerNumber) continue;
@@ -483,11 +495,7 @@ app.post('/api/import', async (req, res) => {
                     ON DUPLICATE KEY UPDATE
                         DealershipName = VALUES(DealershipName),
                         DBA = VALUES(DBA),
-                        SalesmanCode = CASE 
-                            WHEN VALUES(SalesmanCode) = '' OR VALUES(SalesmanCode) IS NULL 
-                            THEN Dealerships.SalesmanCode  -- Keep existing salesman code if none provided
-                            ELSE VALUES(SalesmanCode)      -- Use new code if provided
-                        END
+                        SalesmanCode = VALUES(SalesmanCode)  -- Always use the new value
                 `, [dealerNumber, dealershipName, dba, salesmanCode || null]);
 
                 // Update Addresses table
