@@ -374,9 +374,21 @@ app.post('/api/import', async (req, res) => {
         const [salesmanList] = await connection.query('SELECT SalesmanCode, SalesmanName FROM Salesman');
         const validSalesmanCodes = new Map(salesmanList.map(s => [s.SalesmanCode, s.SalesmanName]));
 
+        // Log starting import
+        console.log('Starting import with headers:', headers);
+        console.log('Salesman Code column index:', headers.indexOf('Salesman Code'));
+
         // Process each row
         for (const row of rows) {
             if (!row[0]) continue;
+
+            // Add detailed logging for each row
+            console.log('Processing row:', {
+                dealerNumber: row[headers.indexOf('KPM Dealer Number')],
+                salesmanCodeIndex: headers.indexOf('Salesman Code'),
+                rawSalesmanCode: row[headers.indexOf('Salesman Code')],
+                rowData: row
+            });
 
             // Map column indices
             const getColumnValue = (columnName) => {
@@ -481,31 +493,46 @@ app.post('/api/import', async (req, res) => {
 
             try {
                 // Update Dealerships table
-                console.log('Processing dealer:', {
+                console.log('About to execute dealer update:', {
                     dealerNumber,
                     dealershipName,
-                    rawSalesmanCode: getColumnValue('Salesman Code'),
-                    processedSalesmanCode: salesmanCode,
+                    dba,
+                    salesmanCode,
                     query: `
-                        INSERT INTO Dealerships 
-                            (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                        VALUES ('${dealerNumber}', '${dealershipName}', '${dba}', '${salesmanCode}')
-                        ON DUPLICATE KEY UPDATE
-                            DealershipName = VALUES(DealershipName),
-                            DBA = VALUES(DBA),
-                            SalesmanCode = '${salesmanCode}'
+                        UPDATE Dealerships 
+                        SET 
+                            DealershipName = ?,
+                            DBA = ?,
+                            SalesmanCode = ?
+                        WHERE KPMDealerNumber = ?
                     `
                 });
 
+                // Try a direct UPDATE instead of INSERT ... ON DUPLICATE KEY UPDATE
                 await connection.query(`
-                    INSERT INTO Dealerships 
-                        (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                    VALUES (?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        DealershipName = VALUES(DealershipName),
-                        DBA = VALUES(DBA),
-                        SalesmanCode = ?  -- Use explicit value
-                    `, [dealerNumber, dealershipName, dba, salesmanCode, salesmanCode]);
+                    UPDATE Dealerships 
+                    SET 
+                        DealershipName = ?,
+                        DBA = ?,
+                        SalesmanCode = ?
+                    WHERE KPMDealerNumber = ?
+                `, [dealershipName, dba, salesmanCode, dealerNumber]);
+
+                // Verify the update immediately
+                const [verifyResult] = await connection.query(`
+                    SELECT d.KPMDealerNumber, d.DealershipName, d.SalesmanCode, s.SalesmanName
+                    FROM Dealerships d
+                    LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+                    WHERE d.KPMDealerNumber = ?
+                `, [dealerNumber]);
+
+                console.log('Verification after update:', {
+                    dealerNumber,
+                    before: {
+                        salesmanCode
+                    },
+                    after: verifyResult[0]
+                });
 
                 // Update Addresses table
                 await connection.query(`
