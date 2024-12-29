@@ -167,9 +167,8 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
-                d.SalesmanCode,
-                s.SalesmanName,
-                s.SalesmanCode as ConfirmedSalesmanCode
+                COALESCE(d.SalesmanCode, '') as SalesmanCode,
+                COALESCE(s.SalesmanName, '') as SalesmanName
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             WHERE d.KPMDealerNumber = ?
@@ -202,6 +201,7 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
             WHERE KPMDealerNumber = ?
         `, [req.params.dealerNumber]);
 
+   
         // Get lines carried
         const [lines] = await connection.query(`
             SELECT 
@@ -455,15 +455,15 @@ app.post('/api/import', async (req, res) => {
                 ON DUPLICATE KEY UPDATE
                     DealershipName = VALUES(DealershipName),
                     DBA = VALUES(DBA),
-                    SalesmanCode = ?
+                    SalesmanCode = NULLIF(VALUES(SalesmanCode), '')
             `;
 
             const queryParams = [
                 dealerNumber,
                 dealershipName,
                 dba,
-                salesmanCode,
-                salesmanCode  // Explicit parameter for UPDATE
+                salesmanCode || null,  // Convert empty string to NULL
+                salesmanCode || null   // Convert empty string to NULL
             ];
 
             try {
