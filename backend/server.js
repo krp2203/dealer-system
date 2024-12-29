@@ -82,7 +82,7 @@ app.get('/api/dealers/coordinates', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // Update query to include all dealer info including coordinates
+        // Remove the WHERE clause to get all dealers
         const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
@@ -99,11 +99,43 @@ app.get('/api/dealers/coordinates', async (req, res) => {
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
+            -- Removed WHERE clause to show all dealers
         `);
 
-        console.log(`Found ${dealers.length} dealers with coordinates`);
+        console.log(`Found ${dealers.length} total dealers`);
         console.log('Sample dealer data:', dealers.slice(0, 2));
+        
+        // Add geocoding for dealers without coordinates
+        for (const dealer of dealers) {
+            if (!dealer.lat || !dealer.lng) {
+                if (dealer.StreetAddress && dealer.City && dealer.State && dealer.ZipCode) {
+                    const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
+                    try {
+                        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+                        const response = await axios.get(geocodeUrl);
+                        
+                        if (response.data.status === 'OK' && response.data.results[0]?.geometry?.location) {
+                            const { lat, lng } = response.data.results[0].geometry.location;
+                            
+                            // Update coordinates in database
+                            await connection.query(`
+                                UPDATE Addresses 
+                                SET lat = ?, lng = ?
+                                WHERE KPMDealerNumber = ?
+                            `, [lat, lng, dealer.KPMDealerNumber]);
+                            
+                            // Update dealer object
+                            dealer.lat = lat;
+                            dealer.lng = lng;
+                            
+                            console.log(`Added coordinates for ${dealer.DealershipName}: ${lat}, ${lng}`);
+                        }
+                    } catch (error) {
+                        console.error(`Geocoding error for ${dealer.DealershipName}:`, error);
+                    }
+                }
+            }
+        }
         
         res.json(dealers);
     } catch (error) {
