@@ -84,9 +84,9 @@ app.get('/api/dealers/coordinates', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // Log the query
         console.log('Fetching dealer coordinates...');
         
+        // Update query to get all dealers with coordinates
         const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
@@ -98,54 +98,27 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 a.City,
                 a.State,
                 a.ZipCode,
-                a.lat,
-                a.lng
+                CAST(a.lat AS DECIMAL(10,8)) as lat,
+                CAST(a.lng AS DECIMAL(11,8)) as lng
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE a.StreetAddress IS NOT NULL
+            WHERE a.lat IS NOT NULL 
+            AND a.lng IS NOT NULL
+            AND a.StreetAddress IS NOT NULL
         `);
 
-        console.log(`Found ${dealers.length} dealers`);
-        console.log('First dealer:', dealers[0]);
-        
-        // Add geocoding for dealers without coordinates
-        let geocodedCount = 0;
-        for (const dealer of dealers) {
-            if (!dealer.lat || !dealer.lng) {
-                if (dealer.StreetAddress && dealer.City && dealer.State && dealer.ZipCode) {
-                    const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
-                    try {
-                        console.log(`Geocoding address: ${address}`);
-                        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
-                        const response = await axios.get(geocodeUrl);
-                        
-                        if (response.data.status === 'OK' && response.data.results[0]?.geometry?.location) {
-                            const { lat, lng } = response.data.results[0].geometry.location;
-                            
-                            // Update coordinates in database
-                            await connection.query(`
-                                UPDATE Addresses 
-                                SET lat = ?, lng = ?
-                                WHERE KPMDealerNumber = ?
-                            `, [lat, lng, dealer.KPMDealerNumber]);
-                            
-                            // Update dealer object
-                            dealer.lat = lat;
-                            dealer.lng = lng;
-                            geocodedCount++;
-                            
-                            console.log(`Added coordinates for ${dealer.DealershipName}: ${lat}, ${lng}`);
-                        }
-                    } catch (error) {
-                        console.error(`Geocoding error for ${dealer.DealershipName}:`, error);
-                    }
+        console.log(`Found ${dealers.length} dealers with coordinates`);
+        if (dealers.length > 0) {
+            console.log('Sample dealer:', {
+                name: dealers[0].DealershipName,
+                address: dealers[0].StreetAddress,
+                coordinates: {
+                    lat: dealers[0].lat,
+                    lng: dealers[0].lng
                 }
-            }
+            });
         }
-        
-        console.log(`Geocoded ${geocodedCount} new addresses`);
-        console.log(`Returning ${dealers.length} dealers with coordinates`);
         
         res.json(dealers);
     } catch (error) {
