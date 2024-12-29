@@ -151,7 +151,8 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
                 d.DealershipName,
                 d.DBA,
                 COALESCE(d.SalesmanCode, '') as SalesmanCode,
-                COALESCE(s.SalesmanName, '') as SalesmanName
+                COALESCE(s.SalesmanName, '') as SalesmanName,
+                s.SalesmanCode as ConfirmedSalesmanCode
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             WHERE d.KPMDealerNumber = ?

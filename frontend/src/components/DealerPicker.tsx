@@ -385,8 +385,12 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
                             <section>
                                 <h3>Salesman Information</h3>
-                                <p><strong>Name:</strong> {dealerDetails.salesman.SalesmanName}</p>
-                                <p><strong>Code:</strong> {dealerDetails.salesman.SalesmanCode}</p>
+                                {dealerDetails.salesman.SalesmanCode && (
+                                    <>
+                                        <p><strong>Name:</strong> {dealerDetails.salesman.SalesmanName}</p>
+                                        <p><strong>Code:</strong> {dealerDetails.salesman.SalesmanCode}</p>
+                                    </>
+                                )}
                             </section>
 
                             {dealerDetails.lines && dealerDetails.lines.length > 0 && (
