@@ -461,15 +461,38 @@ app.post('/api/import', async (req, res) => {
             if (!dealerNumber) continue;
 
             // Update Dealerships table
-            await connection.query(`
-                INSERT INTO Dealerships 
-                    (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    DealershipName = VALUES(DealershipName),
-                    DBA = VALUES(DBA),
-                    SalesmanCode = VALUES(SalesmanCode)
-            `, [dealerNumber, dealershipName, dba, salesmanCode]);
+            if (salesmanCode) {
+                // Check if salesman exists
+                const [existingSalesman] = await connection.query(
+                    'SELECT SalesmanCode FROM Salesman WHERE SalesmanCode = ?',
+                    [salesmanCode]
+                );
+
+                if (existingSalesman.length === 0) {
+                    console.log(`Warning: Salesman code ${salesmanCode} not found for dealer ${dealerNumber}. Skipping salesman code.`);
+                }
+
+                // Only include salesman code if it exists
+                await connection.query(`
+                    INSERT INTO Dealerships 
+                        (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        DealershipName = VALUES(DealershipName),
+                        DBA = VALUES(DBA),
+                        SalesmanCode = ?
+                `, [dealerNumber, dealershipName, dba, salesmanCode, salesmanCode]);
+            } else {
+                // Insert without salesman code
+                await connection.query(`
+                    INSERT INTO Dealerships 
+                        (KPMDealerNumber, DealershipName, DBA)
+                    VALUES (?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        DealershipName = VALUES(DealershipName),
+                        DBA = VALUES(DBA)
+                `, [dealerNumber, dealershipName, dba]);
+            }
 
             // Update Addresses table
             await connection.query(`
