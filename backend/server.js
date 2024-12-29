@@ -481,21 +481,19 @@ app.post('/api/import', async (req, res) => {
 
             try {
                 // Update Dealerships table
-                console.log('Attempting dealer update:', {
+                console.log('Processing dealer:', {
                     dealerNumber,
                     dealershipName,
-                    salesmanCode,
+                    rawSalesmanCode: getColumnValue('Salesman Code'),
+                    processedSalesmanCode: salesmanCode,
                     query: `
                         INSERT INTO Dealerships 
                             (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                        VALUES ('${dealerNumber}', '${dealershipName}', '${dba}', ${salesmanCode || 'NULL'})
+                        VALUES ('${dealerNumber}', '${dealershipName}', '${dba}', '${salesmanCode}')
                         ON DUPLICATE KEY UPDATE
                             DealershipName = VALUES(DealershipName),
                             DBA = VALUES(DBA),
-                            SalesmanCode = CASE 
-                                WHEN VALUES(SalesmanCode) = '' THEN NULL 
-                                ELSE VALUES(SalesmanCode) 
-                            END
+                            SalesmanCode = '${salesmanCode}'
                     `
                 });
 
@@ -507,7 +505,7 @@ app.post('/api/import', async (req, res) => {
                         DealershipName = VALUES(DealershipName),
                         DBA = VALUES(DBA),
                         SalesmanCode = ?  -- Use explicit value
-                `, [dealerNumber, dealershipName, dba, salesmanCode, salesmanCode]);
+                    `, [dealerNumber, dealershipName, dba, salesmanCode, salesmanCode]);
 
                 // Update Addresses table
                 await connection.query(`
@@ -572,6 +570,12 @@ app.post('/api/import', async (req, res) => {
                         // Don't throw error for geocoding failures - continue with import
                     }
                 }
+
+                // After the update
+                const [result] = await connection.query(`
+                    SELECT * FROM Dealerships WHERE KPMDealerNumber = ?
+                `, [dealerNumber]);
+                console.log('After update:', result[0]);
 
             } catch (error) {
                 await connection.rollback();
