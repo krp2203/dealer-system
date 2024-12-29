@@ -383,16 +383,30 @@ app.post('/api/import', async (req, res) => {
                 // Try exact match first
                 let index = headers.indexOf(columnName);
                 
-                // If not found, try case-insensitive match
-                if (index === -1) {
+                // If not found and it's the salesman code column, try variations
+                if (index === -1 && columnName === 'Salesman Code') {
                     index = headers.findIndex(h => 
-                        h.toLowerCase() === columnName.toLowerCase() ||
-                        h.toLowerCase().includes('salesman') && h.toLowerCase().includes('code')
+                        h === 'Salesman Code' ||
+                        h === 'SalesmanCode' ||
+                        h === 'Salesman_Code'
                     );
+                    console.log('Salesman code column search:', {
+                        searchedFor: columnName,
+                        foundAt: index,
+                        headers: headers,
+                        value: row[index]
+                    });
                 }
                 
-                console.log(`Column lookup: "${columnName}" -> index: ${index}, value: ${row[index]}`);
-                return index >= 0 ? row[index]?.toString().trim() || '' : '';
+                const value = index >= 0 ? row[index]?.toString().trim() || '' : '';
+                if (columnName === 'Salesman Code') {
+                    console.log('Found salesman code:', {
+                        index,
+                        value,
+                        headers: headers
+                    });
+                }
+                return value;
             };
 
             const dealerNumber = getColumnValue('KPM Dealer Number');
@@ -408,11 +422,10 @@ app.post('/api/import', async (req, res) => {
             const county = getColumnValue('County');
             const mainEmail = getColumnValue('Main Email');
             let salesmanCode = getColumnValue('Salesman Code');
-            console.log('Salesman code processing:', {
-                rawValue: salesmanCode,
-                headers: headers,
-                possibleColumns: headers.filter(h => h.toLowerCase().includes('salesman')),
-                validCodes: Array.from(validSalesmanCodes.keys())
+            console.log('Processing salesman:', {
+                rawCode: salesmanCode,
+                validCodes: Array.from(validSalesmanCodes.keys()),
+                headers: headers
             });
 
             // Skip if no dealer number
