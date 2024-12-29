@@ -484,16 +484,44 @@ app.post('/api/import', async (req, res) => {
                 }
             }
 
+            // Add debug logging for salesman code
+            console.log('Processing salesman code:', {
+                dealerNumber,
+                dealershipName,
+                originalCode: getColumnValue('Salesman Code'),
+                processedCode: salesmanCode,
+                isValid: salesmanCode ? validSalesmanCodes.has(salesmanCode) : false
+            });
+
             // Update Dealerships table with validated salesman code
-            await connection.query(`
-                INSERT INTO Dealerships 
-                    (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    DealershipName = VALUES(DealershipName),
-                    DBA = VALUES(DBA),
-                    SalesmanCode = VALUES(SalesmanCode)
-            `, [dealerNumber, dealershipName, dba, salesmanCode || null]);
+            try {
+                await connection.query(`
+                    INSERT INTO Dealerships 
+                        (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        DealershipName = VALUES(DealershipName),
+                        DBA = VALUES(DBA),
+                        SalesmanCode = ?  -- Explicit parameter for update
+                `, [dealerNumber, dealershipName, dba, salesmanCode, salesmanCode]);
+
+                // Verify the update
+                const [updated] = await connection.query(
+                    'SELECT SalesmanCode FROM Dealerships WHERE KPMDealerNumber = ?',
+                    [dealerNumber]
+                );
+                console.log('Updated dealer record:', {
+                    dealerNumber,
+                    updatedSalesmanCode: updated[0]?.SalesmanCode
+                });
+            } catch (error) {
+                console.error('Error updating dealer salesman code:', {
+                    dealerNumber,
+                    salesmanCode,
+                    error: error.message
+                });
+                throw error;
+            }
 
             // Log the assignment
             console.log(`Dealer ${dealerNumber} (${dealershipName}): ${salesmanCode ? 
