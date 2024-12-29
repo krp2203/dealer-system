@@ -107,52 +107,50 @@ const DealerMap: React.FC<{
     };
 
     useEffect(() => {
+        // Clear the coordinates cache
+        localStorage.removeItem(CACHE_KEY);
+    }, []);
+
+    useEffect(() => {
         const fetchDealers = async () => {
             try {
-                // Try to get cached coordinates
+                // Try to get cached coordinates first
                 const cached = localStorage.getItem(CACHE_KEY);
                 if (cached) {
-                    const { data } = JSON.parse(cached);
-                    if (data && data.length > 0) {
+                    const { data, timestamp } = JSON.parse(cached);
+                    const isExpired = Date.now() - timestamp > CACHE_DURATION;
+                    
+                    if (!isExpired && data && data.length > 0) {
+                        console.log(`Using cached data with ${data.length} dealers`);
                         setDealers(data);
                         setLoading(false);
                         return;
                     }
                 }
 
-                const response = await axios.get<DealerLocation[]>('http://35.212.41.99:3002/api/dealers/coordinates');
+                const response = await axios.get<DealerLocation[]>(`${API_URL}/api/dealers/coordinates`);
                 
                 if (!response.data || !Array.isArray(response.data)) {
                     throw new Error('Invalid data received');
                 }
 
-                // Process dealers in batches
-                const dealersWithCoords = [];
-                const batchSize = 10;
+                // Filter out dealers without coordinates
+                const validDealers = response.data.filter(d => d.lat && d.lng);
+                console.log(`Got ${validDealers.length} dealers with valid coordinates`);
 
-                for (let i = 0; i < response.data.length; i += batchSize) {
-                    const batch = response.data.slice(i, i + batchSize);
-                    const batchResults = await Promise.all(
-                        batch.map(async (dealer) => {
-                            const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
-                            const coords = await getCoordinates(address);
-                            return coords ? { ...dealer, ...coords } : dealer;
-                        })
-                    );
-                    dealersWithCoords.push(...batchResults);
-                }
-
-                const validDealers = dealersWithCoords.filter(d => d.lat && d.lng);
-                
                 if (validDealers.length > 0) {
-                    localStorage.setItem(CACHE_KEY, JSON.stringify({ data: validDealers }));
+                    // Update cache
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({
+                        timestamp: Date.now(),
+                        data: validDealers
+                    }));
                     setDealers(validDealers);
                 } else {
                     setError('No dealers found with valid coordinates');
                 }
             } catch (error) {
-                setError('Failed to fetch dealers');
-                console.error(error);
+                console.error('Error fetching dealer coordinates:', error);
+                setError('Failed to fetch dealer coordinates');
             } finally {
                 setLoading(false);
             }
