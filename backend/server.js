@@ -521,43 +521,66 @@ app.post('/api/import', async (req, res) => {
                 });
 
                 if (existingDealer.length > 0) {
-                    // Force update all fields
+                    // First, insert the new dealer record with a temporary number
+                    const tempDealerNumber = dealerNumber + '_temp';
                     await connection.query(`
-                        UPDATE Dealerships 
-                        SET 
-                            KPMDealerNumber = ?,
-                            DealershipName = ?,
-                            DBA = ?,
-                            SalesmanCode = ?
-                        WHERE REPLACE(KPMDealerNumber, '*', '') = ?
-                    `, [
-                        dealerNumber,         // New dealer number format
-                        dealershipName,       // New name
-                        dba || '',           // New DBA
-                        salesmanCode,        // New salesman code
-                        cleanDealerNumber(dealerNumber)  // Match on cleaned number
-                    ]);
+                        INSERT INTO Dealerships 
+                            (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
+                        VALUES (?, ?, ?, ?)
+                    `, [tempDealerNumber, dealershipName, dba || '', salesmanCode]);
 
-                    // Also update related tables with new dealer number
+                    // Update related tables to use temporary number
                     await connection.query(`
                         UPDATE Addresses 
                         SET KPMDealerNumber = ?
-                        WHERE REPLACE(KPMDealerNumber, '*', '') = ?
-                    `, [dealerNumber, cleanDealerNumber(dealerNumber)]);
+                        WHERE KPMDealerNumber = ?
+                    `, [tempDealerNumber, existingDealer[0].KPMDealerNumber]);
 
                     await connection.query(`
                         UPDATE ContactInformation 
                         SET KPMDealerNumber = ?
-                        WHERE REPLACE(KPMDealerNumber, '*', '') = ?
-                    `, [dealerNumber, cleanDealerNumber(dealerNumber)]);
+                        WHERE KPMDealerNumber = ?
+                    `, [tempDealerNumber, existingDealer[0].KPMDealerNumber]);
 
                     await connection.query(`
                         UPDATE LinesCarried 
                         SET KPMDealerNumber = ?
-                        WHERE REPLACE(KPMDealerNumber, '*', '') = ?
-                    `, [dealerNumber, cleanDealerNumber(dealerNumber)]);
+                        WHERE KPMDealerNumber = ?
+                    `, [tempDealerNumber, existingDealer[0].KPMDealerNumber]);
+
+                    // Delete the old dealer record
+                    await connection.query(`
+                        DELETE FROM Dealerships 
+                        WHERE KPMDealerNumber = ?
+                    `, [existingDealer[0].KPMDealerNumber]);
+
+                    // Update temporary record to final number
+                    await connection.query(`
+                        UPDATE Dealerships 
+                        SET KPMDealerNumber = ?
+                        WHERE KPMDealerNumber = ?
+                    `, [dealerNumber, tempDealerNumber]);
+
+                    // Update related tables to final number
+                    await connection.query(`
+                        UPDATE Addresses 
+                        SET KPMDealerNumber = ?
+                        WHERE KPMDealerNumber = ?
+                    `, [dealerNumber, tempDealerNumber]);
+
+                    await connection.query(`
+                        UPDATE ContactInformation 
+                        SET KPMDealerNumber = ?
+                        WHERE KPMDealerNumber = ?
+                    `, [dealerNumber, tempDealerNumber]);
+
+                    await connection.query(`
+                        UPDATE LinesCarried 
+                        SET KPMDealerNumber = ?
+                        WHERE KPMDealerNumber = ?
+                    `, [dealerNumber, tempDealerNumber]);
                 } else {
-                    // Insert new dealer
+                    // For new dealers, just insert normally
                     await connection.query(`
                         INSERT INTO Dealerships 
                             (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
