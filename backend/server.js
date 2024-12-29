@@ -419,63 +419,48 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
     }
 });
 
-// Add Google Sheets credentials and configuration
-const GOOGLE_CREDENTIALS = {
-    // You'll need to add your service account credentials here
-    client_email: "your-service-account@project.iam.gserviceaccount.com",
-    private_key: "your-private-key"
-};
-
-const SPREADSHEET_ID = 'your-spreadsheet-id';  // Get this from your Google Sheet URL
-const RANGE = 'Sheet1!A2:Z';  // Adjust range as needed
-
 // Add import endpoint
 app.post('/api/import', async (req, res) => {
     let connection;
     try {
-        // Authenticate with Google
-        const auth = new google.auth.JWT(
-            GOOGLE_CREDENTIALS.client_email,
-            null,
-            GOOGLE_CREDENTIALS.private_key,
-            ['https://www.googleapis.com/auth/spreadsheets.readonly']
-        );
-
-        const sheets = google.sheets({ version: 'v4', auth });
-
-        // Fetch data from Google Sheet
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: RANGE,
-        });
-
-        const rows = response.data.values;
-        if (!rows || rows.length === 0) {
-            return res.status(400).json({ error: 'No data found in spreadsheet' });
+        const { headers, rows } = req.body;
+        
+        // Validate input
+        if (!headers || !rows || !Array.isArray(headers) || !Array.isArray(rows)) {
+            throw new Error('Invalid input format');
         }
 
-        // Create database connection
         connection = await mysql.createConnection(dbConfig);
 
         // Process each row
         for (const row of rows) {
-            const [
-                dealerNumber,
-                dealershipName,
-                dba,
-                streetAddress,
-                boxNumber,
-                city,
-                state,
-                zipCode,
-                county,
-                mainPhone,
-                faxNumber,
-                mainEmail,
-                salesmanCode
-            ] = row;
+            // Skip empty rows
+            if (!row[0]) continue;
 
-            // Update or insert into Dealerships table
+            // Map column indices
+            const getColumnValue = (columnName) => {
+                const index = headers.indexOf(columnName);
+                return index >= 0 ? row[index] || '' : '';
+            };
+
+            const dealerNumber = getColumnValue('KPM Dealer Number');
+            const dealershipName = getColumnValue('Dealership Name');
+            const dba = getColumnValue('DBA');
+            const boxNumber = getColumnValue('Box Number');
+            const streetAddress = getColumnValue('Street Address');
+            const city = getColumnValue('City');
+            const state = getColumnValue('State');
+            const zipCode = getColumnValue('Zip Code');
+            const mainPhone = getColumnValue('Main Phone');
+            const faxNumber = getColumnValue('Fax Number');
+            const county = getColumnValue('County');
+            const mainEmail = getColumnValue('Main Email');
+            const salesmanCode = getColumnValue('Salesman Code');
+
+            // Skip if no dealer number
+            if (!dealerNumber) continue;
+
+            // Update Dealerships table
             await connection.query(`
                 INSERT INTO Dealerships 
                     (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
@@ -486,7 +471,7 @@ app.post('/api/import', async (req, res) => {
                     SalesmanCode = VALUES(SalesmanCode)
             `, [dealerNumber, dealershipName, dba, salesmanCode]);
 
-            // Update or insert address
+            // Update Addresses table
             await connection.query(`
                 INSERT INTO Addresses 
                     (KPMDealerNumber, StreetAddress, BoxNumber, City, State, ZipCode, County)
@@ -500,7 +485,7 @@ app.post('/api/import', async (req, res) => {
                     County = VALUES(County)
             `, [dealerNumber, streetAddress, boxNumber, city, state, zipCode, county]);
 
-            // Update or insert contact information
+            // Update ContactInformation table
             await connection.query(`
                 INSERT INTO ContactInformation 
                     (KPMDealerNumber, MainPhone, FaxNumber, MainEmail)
@@ -510,9 +495,38 @@ app.post('/api/import', async (req, res) => {
                     FaxNumber = VALUES(FaxNumber),
                     MainEmail = VALUES(MainEmail)
             `, [dealerNumber, mainPhone, faxNumber, mainEmail]);
+
+            // Handle Lines Carried
+            const lineColumns = {
+                'Scag Account No': 'Scag',
+                'Snow Way Account No': 'Snow Way',
+                'Vortex Account No': 'Vortex',
+                'Ybravo Account No': 'Ybravo',
+                'OTR Account No.': 'OTR',
+                'TY Account No': 'TY',
+                'GG Account No': 'GG',
+                'VK Account No': 'VK',
+                'Bluebird Account No': 'Bluebird',
+                'UM Account No': 'UM',
+                'Wright Account No.': 'Wright'
+            };
+
+            // Clear existing lines
+            await connection.query('DELETE FROM LinesCarried WHERE KPMDealerNumber = ?', [dealerNumber]);
+
+            // Insert new lines
+            for (const [column, lineName] of Object.entries(lineColumns)) {
+                const accountNumber = getColumnValue(column);
+                if (accountNumber) {
+                    await connection.query(`
+                        INSERT INTO LinesCarried (KPMDealerNumber, LineName, AccountNumber)
+                        VALUES (?, ?, ?)
+                    `, [dealerNumber, lineName, accountNumber]);
+                }
             }
-            
-            res.json({ 
+        }
+
+        res.json({ 
             message: 'Import completed successfully',
             rowsProcessed: rows.length 
         });
