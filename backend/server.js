@@ -432,6 +432,13 @@ app.post('/api/import', async (req, res) => {
 
         connection = await mysql.createConnection(dbConfig);
 
+        // Get all valid salesman codes at the start
+        const [salesmanList] = await connection.query('SELECT SalesmanCode, SalesmanName FROM Salesman');
+        const validSalesmanCodes = new Map(salesmanList.map(s => [s.SalesmanCode, s.SalesmanName]));
+
+        // Log available salesman codes
+        console.log('Available salesman codes:', Object.fromEntries(validSalesmanCodes));
+
         // Process each row
         for (const row of rows) {
             // Skip empty rows
@@ -440,7 +447,7 @@ app.post('/api/import', async (req, res) => {
             // Map column indices
             const getColumnValue = (columnName) => {
                 const index = headers.indexOf(columnName);
-                return index >= 0 ? row[index] || '' : '';
+                return index >= 0 ? row[index]?.toString().trim() || '' : '';
             };
 
             const dealerNumber = getColumnValue('KPM Dealer Number');
@@ -455,44 +462,43 @@ app.post('/api/import', async (req, res) => {
             const faxNumber = getColumnValue('Fax Number');
             const county = getColumnValue('County');
             const mainEmail = getColumnValue('Main Email');
-            const salesmanCode = getColumnValue('Salesman Code');
+            let salesmanCode = getColumnValue('Salesman Code');
 
             // Skip if no dealer number
             if (!dealerNumber) continue;
 
-            // Update Dealerships table
+            // Check if the provided code is valid
             if (salesmanCode) {
-                // Check if salesman exists
-                const [existingSalesman] = await connection.query(
-                    'SELECT SalesmanCode FROM Salesman WHERE SalesmanCode = ?',
-                    [salesmanCode]
-                );
-
-                if (existingSalesman.length === 0) {
-                    console.log(`Warning: Salesman code ${salesmanCode} not found for dealer ${dealerNumber}. Skipping salesman code.`);
+                if (!validSalesmanCodes.has(salesmanCode)) {
+                    console.warn(`Invalid salesman code ${salesmanCode} for dealer ${dealerNumber}`);
+                    
+                    // Try to match salesman code format (if it's a number)
+                    const numericCode = salesmanCode.replace(/\D/g, '');
+                    if (validSalesmanCodes.has(numericCode)) {
+                        salesmanCode = numericCode;
+                        console.log(`Matched salesman code ${salesmanCode} (${validSalesmanCodes.get(salesmanCode)})`);
+                    } else {
+                        salesmanCode = null; // Leave blank if no valid match
+                        console.log(`No valid salesman code match found for ${dealerNumber} (${dealershipName})`);
+                    }
                 }
-
-                // Only include salesman code if it exists
-                await connection.query(`
-                    INSERT INTO Dealerships 
-                        (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                    VALUES (?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        DealershipName = VALUES(DealershipName),
-                        DBA = VALUES(DBA),
-                        SalesmanCode = ?
-                `, [dealerNumber, dealershipName, dba, salesmanCode, salesmanCode]);
-            } else {
-                // Insert without salesman code
-                await connection.query(`
-                    INSERT INTO Dealerships 
-                        (KPMDealerNumber, DealershipName, DBA)
-                    VALUES (?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        DealershipName = VALUES(DealershipName),
-                        DBA = VALUES(DBA)
-                `, [dealerNumber, dealershipName, dba]);
             }
+
+            // Update Dealerships table with validated salesman code
+            await connection.query(`
+                INSERT INTO Dealerships 
+                    (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
+                VALUES (?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    DealershipName = VALUES(DealershipName),
+                    DBA = VALUES(DBA),
+                    SalesmanCode = VALUES(SalesmanCode)
+            `, [dealerNumber, dealershipName, dba, salesmanCode || null]);
+
+            // Log the assignment
+            console.log(`Dealer ${dealerNumber} (${dealershipName}): ${salesmanCode ? 
+                `Assigned to salesman ${salesmanCode} (${validSalesmanCodes.get(salesmanCode)})` : 
+                'No salesman assigned'}`);
 
             // Update Addresses table
             await connection.query(`
