@@ -11,8 +11,8 @@ interface DealerLocation {
     City: string;
     State: string;
     ZipCode: string;
-    lat?: number;
-    lng?: number;
+    lat: number;
+    lng: number;
 }
 
 interface GeocodeResult {
@@ -200,7 +200,10 @@ const DealerMap: React.FC<{
 
                 {hoveredDealer && hoveredDealer.lat && hoveredDealer.lng && (
                     <InfoWindow
-                        position={{ lat: hoveredDealer.lat, lng: hoveredDealer.lng }}
+                        position={{
+                            lat: parseFloat(hoveredDealer.lat.toString()),
+                            lng: parseFloat(hoveredDealer.lng.toString())
+                        }}
                         onCloseClick={() => setHoveredDealer(null)}
                         options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
                     >
