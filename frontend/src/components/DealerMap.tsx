@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import axios from 'axios';
+import { API_URL, GOOGLE_MAPS_API_KEY } from '../config';
 
 interface DealerLocation {
     KPMDealerNumber: string;
@@ -28,8 +29,6 @@ interface GeocodeResponse {
     status: string;
     error_message?: string;
 }
-
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBjFQbtxL4dTowDjMxB5UBtm4Z9Jf6UB5c';
 
 const CACHE_KEY = 'dealerCoordinates';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
