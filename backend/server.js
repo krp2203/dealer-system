@@ -84,7 +84,9 @@ app.get('/api/dealers/coordinates', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // Remove the WHERE clause to get all dealers
+        // Log the query
+        console.log('Fetching dealer coordinates...');
+        
         const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
@@ -104,15 +106,17 @@ app.get('/api/dealers/coordinates', async (req, res) => {
             WHERE a.StreetAddress IS NOT NULL
         `);
 
-        console.log(`Found ${dealers.length} total dealers`);
-        console.log('Sample dealer data:', dealers.slice(0, 2));
+        console.log(`Found ${dealers.length} dealers`);
+        console.log('First dealer:', dealers[0]);
         
         // Add geocoding for dealers without coordinates
+        let geocodedCount = 0;
         for (const dealer of dealers) {
             if (!dealer.lat || !dealer.lng) {
                 if (dealer.StreetAddress && dealer.City && dealer.State && dealer.ZipCode) {
                     const address = `${dealer.StreetAddress}, ${dealer.City}, ${dealer.State} ${dealer.ZipCode}`;
                     try {
+                        console.log(`Geocoding address: ${address}`);
                         const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
                         const response = await axios.get(geocodeUrl);
                         
@@ -129,6 +133,7 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                             // Update dealer object
                             dealer.lat = lat;
                             dealer.lng = lng;
+                            geocodedCount++;
                             
                             console.log(`Added coordinates for ${dealer.DealershipName}: ${lat}, ${lng}`);
                         }
@@ -138,6 +143,9 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 }
             }
         }
+        
+        console.log(`Geocoded ${geocodedCount} new addresses`);
+        console.log(`Returning ${dealers.length} dealers with coordinates`);
         
         res.json(dealers);
     } catch (error) {
