@@ -499,37 +499,65 @@ app.post('/api/import', async (req, res) => {
                     headers: headers.join(', ')
                 });
 
+                // Inside the import loop, update the dealer lookup
+                const cleanDealerNumber = (num) => num.toString().replace(/[^0-9]/g, '');
+
                 // First check if dealer exists and get current data
                 const [existingDealer] = await connection.query(`
-                    SELECT * FROM Dealerships WHERE KPMDealerNumber = ?
-                `, [dealerNumber]);
+                    SELECT * FROM Dealerships 
+                    WHERE REPLACE(KPMDealerNumber, '*', '') = ?
+                `, [cleanDealerNumber(dealerNumber)]);
 
-                console.log('Processing dealer:', {
+                console.log('Processing dealer update:', {
                     dealerNumber,
                     dealershipName,
-                    currentName: existingDealer[0]?.DealershipName,
-                    newName: dealershipName,
-                    currentSalesmanCode: existingDealer[0]?.SalesmanCode,
-                    newSalesmanCode: salesmanCode
+                    currentData: existingDealer[0],
+                    newData: {
+                        dealerNumber,
+                        dealershipName,
+                        dba,
+                        salesmanCode
+                    }
                 });
 
                 if (existingDealer.length > 0) {
-                    // UPDATE existing dealer - force all fields to update
+                    // Force update all fields
                     await connection.query(`
                         UPDATE Dealerships 
                         SET 
+                            KPMDealerNumber = ?,
                             DealershipName = ?,
                             DBA = ?,
                             SalesmanCode = ?
-                        WHERE KPMDealerNumber = ?
+                        WHERE REPLACE(KPMDealerNumber, '*', '') = ?
                     `, [
-                        dealershipName,  // Always use new name
-                        dba || '',      // Use new DBA or empty string
-                        salesmanCode,   // Use new salesman code
-                        dealerNumber
+                        dealerNumber,         // New dealer number format
+                        dealershipName,       // New name
+                        dba || '',           // New DBA
+                        salesmanCode,        // New salesman code
+                        cleanDealerNumber(dealerNumber)  // Match on cleaned number
                     ]);
+
+                    // Also update related tables with new dealer number
+                    await connection.query(`
+                        UPDATE Addresses 
+                        SET KPMDealerNumber = ?
+                        WHERE REPLACE(KPMDealerNumber, '*', '') = ?
+                    `, [dealerNumber, cleanDealerNumber(dealerNumber)]);
+
+                    await connection.query(`
+                        UPDATE ContactInformation 
+                        SET KPMDealerNumber = ?
+                        WHERE REPLACE(KPMDealerNumber, '*', '') = ?
+                    `, [dealerNumber, cleanDealerNumber(dealerNumber)]);
+
+                    await connection.query(`
+                        UPDATE LinesCarried 
+                        SET KPMDealerNumber = ?
+                        WHERE REPLACE(KPMDealerNumber, '*', '') = ?
+                    `, [dealerNumber, cleanDealerNumber(dealerNumber)]);
                 } else {
-                    // INSERT new dealer
+                    // Insert new dealer
                     await connection.query(`
                         INSERT INTO Dealerships 
                             (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
@@ -539,15 +567,12 @@ app.post('/api/import', async (req, res) => {
 
                 // Verify the update
                 const [verifyResult] = await connection.query(`
-                    SELECT d.KPMDealerNumber, d.DealershipName, d.SalesmanCode, s.SalesmanName
-                    FROM Dealerships d
-                    LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-                    WHERE d.KPMDealerNumber = ?
-                `, [dealerNumber]);
+                    SELECT * FROM Dealerships WHERE REPLACE(KPMDealerNumber, '*', '') = ?
+                `, [cleanDealerNumber(dealerNumber)]);
 
                 console.log('After update:', {
                     dealerNumber,
-                    before: existingDealer[0] || 'New Dealer',
+                    before: existingDealer[0],
                     after: verifyResult[0]
                 });
 
