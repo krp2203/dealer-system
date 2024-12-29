@@ -492,33 +492,49 @@ app.post('/api/import', async (req, res) => {
             };
 
             try {
-                // Update Dealerships table
-                console.log('About to execute dealer update:', {
+                // Inside the import loop, before the update
+                console.log('Starting dealer import:', {
                     dealerNumber,
-                    dealershipName,
-                    dba,
                     salesmanCode,
-                    query: `
+                    headers: headers.join(', ')
+                });
+
+                // First check if dealer exists
+                const [existingDealer] = await connection.query(`
+                    SELECT * FROM Dealerships WHERE KPMDealerNumber = ?
+                `, [dealerNumber]);
+
+                if (existingDealer.length > 0) {
+                    // UPDATE existing dealer
+                    console.log('Updating existing dealer:', {
+                        dealerNumber,
+                        currentSalesmanCode: existingDealer[0].SalesmanCode,
+                        newSalesmanCode: salesmanCode
+                    });
+
+                    await connection.query(`
                         UPDATE Dealerships 
                         SET 
                             DealershipName = ?,
                             DBA = ?,
                             SalesmanCode = ?
                         WHERE KPMDealerNumber = ?
-                    `
-                });
+                    `, [dealershipName, dba, salesmanCode, dealerNumber]);
+                } else {
+                    // INSERT new dealer
+                    console.log('Inserting new dealer:', {
+                        dealerNumber,
+                        salesmanCode
+                    });
 
-                // Try a direct UPDATE instead of INSERT ... ON DUPLICATE KEY UPDATE
-                await connection.query(`
-                    UPDATE Dealerships 
-                    SET 
-                        DealershipName = ?,
-                        DBA = ?,
-                        SalesmanCode = ?
-                    WHERE KPMDealerNumber = ?
-                `, [dealershipName, dba, salesmanCode, dealerNumber]);
+                    await connection.query(`
+                        INSERT INTO Dealerships 
+                            (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
+                        VALUES (?, ?, ?, ?)
+                    `, [dealerNumber, dealershipName, dba, salesmanCode]);
+                }
 
-                // Verify the update immediately
+                // Verify after update
                 const [verifyResult] = await connection.query(`
                     SELECT d.KPMDealerNumber, d.DealershipName, d.SalesmanCode, s.SalesmanName
                     FROM Dealerships d
@@ -526,13 +542,7 @@ app.post('/api/import', async (req, res) => {
                     WHERE d.KPMDealerNumber = ?
                 `, [dealerNumber]);
 
-                console.log('Verification after update:', {
-                    dealerNumber,
-                    before: {
-                        salesmanCode
-                    },
-                    after: verifyResult[0]
-                });
+                console.log('Dealer after update:', verifyResult[0]);
 
                 // Update Addresses table
                 await connection.query(`
