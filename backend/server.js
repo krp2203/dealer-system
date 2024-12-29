@@ -380,32 +380,30 @@ app.post('/api/import', async (req, res) => {
 
             // Map column indices
             const getColumnValue = (columnName) => {
-                // Try exact match first
                 let index = headers.indexOf(columnName);
                 
-                // If not found and it's the salesman code column, try variations
-                if (index === -1 && columnName === 'Salesman Code') {
-                    index = headers.findIndex(h => 
-                        h === 'Salesman Code' ||
-                        h === 'SalesmanCode' ||
-                        h === 'Salesman_Code'
-                    );
-                    console.log('Salesman code column search:', {
-                        searchedFor: columnName,
-                        foundAt: index,
+                // Special handling for Salesman Code
+                if (columnName === 'Salesman Code') {
+                    console.log('Looking for Salesman Code:', {
+                        exactMatch: index,
                         headers: headers,
-                        value: row[index]
+                        possibleValue: row[index],
+                        allHeaders: headers.join(', ')
                     });
                 }
                 
                 const value = index >= 0 ? row[index]?.toString().trim() || '' : '';
+                
+                // Additional logging for salesman code
                 if (columnName === 'Salesman Code') {
-                    console.log('Found salesman code:', {
+                    console.log('Found value:', {
+                        columnName,
                         index,
-                        value,
-                        headers: headers
+                        rawValue: row[index],
+                        processedValue: value
                     });
                 }
+                
                 return value;
             };
 
@@ -508,8 +506,8 @@ app.post('/api/import', async (req, res) => {
                     ON DUPLICATE KEY UPDATE
                         DealershipName = VALUES(DealershipName),
                         DBA = VALUES(DBA),
-                        SalesmanCode = VALUES(SalesmanCode)  -- Always use the new value
-                `, [dealerNumber, dealershipName, dba, salesmanCode || null]);
+                        SalesmanCode = ?  -- Use explicit value
+                `, [dealerNumber, dealershipName, dba, salesmanCode, salesmanCode]);
 
                 // Update Addresses table
                 await connection.query(`
