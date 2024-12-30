@@ -61,13 +61,13 @@ app.get('/api/dealers', async (req, res) => {
                 a.City,
                 a.State,
                 a.ZipCode,
-                COALESCE(a.Latitude, a.lat) as Latitude,
-                COALESCE(a.Longitude, a.lng) as Longitude
+                CAST(COALESCE(a.lat, 0) AS DECIMAL(10,8)) as Latitude,
+                CAST(COALESCE(a.lng, 0) AS DECIMAL(11,8)) as Longitude
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE COALESCE(a.Latitude, a.lat) IS NOT NULL 
-            AND COALESCE(a.Longitude, a.lng) IS NOT NULL
+            WHERE COALESCE(a.lat, 0) != 0 
+            AND COALESCE(a.lng, 0) != 0
             ORDER BY d.DealershipName
         `);
 
@@ -284,6 +284,44 @@ app.get('/api/test-geocoding', async (req, res) => {
             error: error.message,
             details: error.response?.data
         });
+    }
+});
+
+// Add this endpoint for individual dealer details
+app.get('/api/dealers/:dealerNumber', async (req, res) => {
+    let connection;
+    try {
+        connection = await mysql.createConnection(dbConfig);
+        const [rows] = await connection.query(`
+            SELECT 
+                d.*,
+                s.SalesmanName,
+                a.StreetAddress,
+                a.City,
+                a.State,
+                a.ZipCode,
+                CAST(COALESCE(a.lat, 0) AS DECIMAL(10,8)) as Latitude,
+                CAST(COALESCE(a.lng, 0) AS DECIMAL(11,8)) as Longitude
+            FROM Dealerships d
+            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            WHERE d.KPMDealerNumber = ?
+        `, [req.params.dealerNumber]);
+
+        if (rows.length === 0) {
+            res.status(404).json({ error: 'Dealer not found' });
+            return;
+        }
+
+        res.json(rows[0]);
+    } catch (error) {
+        console.error('Error fetching dealer details:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch dealer details',
+            details: error.message 
+        });
+    } finally {
+        if (connection) await connection.end();
     }
 });
 

@@ -79,8 +79,8 @@ const DealerMap: React.FC<DealerMapProps> = ({ onDealerSelect }) => {
                     <Marker
                         key={dealer.KPMDealerNumber}
                         position={{
-                            lat: dealer.Latitude,
-                            lng: dealer.Longitude
+                            lat: Number(dealer.Latitude),
+                            lng: Number(dealer.Longitude)
                         }}
                         onClick={() => handleMarkerClick(dealer)}
                     />
