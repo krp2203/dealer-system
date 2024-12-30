@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { API_URL, GOOGLE_MAPS_API_KEY } from '../config';
 
 interface DealerLocation {
@@ -122,7 +122,6 @@ const DealerMap: React.FC<{
                     throw new Error('Invalid data format received from server');
                 }
 
-                // Filter out dealers without coordinates
                 const validDealers = response.data.filter(d => {
                     const hasCoords = d.lat && d.lng;
                     if (!hasCoords) {
@@ -133,12 +132,14 @@ const DealerMap: React.FC<{
 
                 console.log(`Got ${validDealers.length} dealers with valid coordinates`);
                 setDealers(validDealers);
-            } catch (error) {
-                console.error('Error fetching dealer coordinates:', error);
+            } catch (err) {
+                console.error('Error fetching dealer coordinates:', err);
+                const error = err as Error | AxiosError;
                 if (axios.isAxiosError(error)) {
-                    setError(`Failed to fetch dealer data: ${error.response?.data?.error || error.message}`);
+                    const axiosError = error as AxiosError<{error?: string}>;
+                    setError(`Failed to fetch dealer data: ${axiosError.response?.data?.error || axiosError.message}`);
                 } else {
-                    setError('Failed to fetch dealer data: Unknown error');
+                    setError(`Failed to fetch dealer data: ${error.message}`);
                 }
             } finally {
                 setLoading(false);
