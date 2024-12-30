@@ -11,11 +11,8 @@ interface DealerLocation {
     City: string;
     State: string;
     ZipCode: string;
-    lat: string | number;
-    lng: string | number;
-    DBA?: string;
-    SalesmanCode?: string;
-    SalesmanName?: string;
+    lat: number;
+    lng: number;
 }
 
 interface GeocodeResult {
@@ -90,13 +87,6 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
     }
 }
 
-// Define our own error interface
-interface ApiErrorResponse {
-    error?: string;
-    details?: string;
-    message?: string;
-}
-
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
 }> = ({ onDealerSelect }) => {
@@ -121,36 +111,30 @@ const DealerMap: React.FC<{
         
         const fetchDealers = async () => {
             try {
-                console.log('Attempting to fetch dealers from:', `${API_URL}/api/dealers/coordinates`);
+                console.log('Fetching fresh dealer data...');
                 const response = await axios.get<DealerLocation[]>(`${API_URL}/api/dealers/coordinates`);
                 
-                if (!response.data) {
-                    throw new Error('No data received from server');
+                if (!response.data || !Array.isArray(response.data)) {
+                    throw new Error('Invalid data received');
                 }
 
-                const validDealers = response.data.filter(d => {
-                    const hasCoords = d.lat && d.lng;
-                    if (!hasCoords) {
-                        console.log('Dealer missing coordinates:', d.KPMDealerNumber);
-                    }
-                    return hasCoords;
-                });
-
+                // Filter out dealers without coordinates
+                const validDealers = response.data.filter(d => d.lat && d.lng);
                 console.log(`Got ${validDealers.length} dealers with valid coordinates`);
-                setDealers(validDealers);
-            } catch (err: any) {
-                console.error('Error details:', {
-                    error: err,
-                    message: err?.message,
-                    response: err?.response?.data
-                });
 
-                const errorMessage = err?.response?.data?.error 
-                    || err?.response?.data?.details 
-                    || err?.message 
-                    || 'Network error';
-                
-                setError(`Failed to fetch dealer data: ${errorMessage}`);
+                if (validDealers.length > 0) {
+                    // Update cache
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({
+                        timestamp: Date.now(),
+                        data: validDealers
+                    }));
+                    setDealers(validDealers);
+                } else {
+                    setError('No dealers found with valid coordinates');
+                }
+            } catch (error) {
+                console.error('Error fetching dealer coordinates:', error);
+                setError('Failed to fetch dealer coordinates');
             } finally {
                 setLoading(false);
             }
@@ -167,43 +151,6 @@ const DealerMap: React.FC<{
         return <div className="map-container">Error: {error}</div>;
     }
 
-    const renderInfoWindow = (dealer: any) => (
-        <div className="dealer-info" key={dealer.KPMDealerNumber}>
-            <h3>{dealer.DealershipName}</h3>
-            {dealer.DBA && <p key={`${dealer.KPMDealerNumber}-dba`}><strong>DBA:</strong> {dealer.DBA}</p>}
-            
-            {/* Address Information */}
-            <div className="address-info" key={`${dealer.KPMDealerNumber}-address`}>
-                {dealer.StreetAddress && <p>{dealer.StreetAddress}</p>}
-                {dealer.City && dealer.State && dealer.ZipCode && (
-                    <p>{dealer.City}, {dealer.State} {dealer.ZipCode}</p>
-                )}
-            </div>
-
-            {/* Contact Information */}
-            <div className="contact-info" key={`${dealer.KPMDealerNumber}-contact`}>
-                {dealer.MainPhone && <p><strong>Phone:</strong> {dealer.MainPhone}</p>}
-                {dealer.FaxNumber && <p><strong>Fax:</strong> {dealer.FaxNumber}</p>}
-                {dealer.MainEmail && <p><strong>Email:</strong> {dealer.MainEmail}</p>}
-            </div>
-
-            {/* Lines Carried */}
-            {dealer.LinesCarried && (
-                <div className="lines-info" key={`${dealer.KPMDealerNumber}-lines`}>
-                    <p><strong>Lines Carried:</strong> {dealer.LinesCarried}</p>
-                </div>
-            )}
-
-            {/* Salesman Information */}
-            {dealer.SalesmanName && (
-                <div className="salesman-info" key={`${dealer.KPMDealerNumber}-salesman`}>
-                    <p><strong>Salesman:</strong> {dealer.SalesmanName}</p>
-                    {dealer.SalesmanCode && <p><strong>Code:</strong> {dealer.SalesmanCode}</p>}
-                </div>
-            )}
-        </div>
-    );
-
     return (
         <div className="map-container">
             <GoogleMap
@@ -219,22 +166,29 @@ const DealerMap: React.FC<{
                     fullscreenControl: true
                 }}
             >
-                {dealers.map((dealer) => {
+                {dealers.map((dealer, index) => {
                     if (!dealer?.lat || !dealer?.lng) return null;
                     
-                    // Convert coordinates to numbers
+                    // Convert string coordinates to numbers
                     const position = {
                         lat: typeof dealer.lat === 'string' ? parseFloat(dealer.lat) : dealer.lat,
                         lng: typeof dealer.lng === 'string' ? parseFloat(dealer.lng) : dealer.lng
                     };
 
+                    // Use the full dealer number as the key
+                    const uniqueKey = dealer.KPMDealerNumber; // This will include SHIPTO: prefix if present
+
                     return (
                         <Marker
-                            key={`${dealer.KPMDealerNumber}-marker`}
+                            key={uniqueKey}
                             position={position}
-                            onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
                             onMouseOver={() => setHoveredDealer(dealer)}
-                            onMouseOut={() => !isHoveringInfoWindow && setHoveredDealer(null)}
+                            onMouseOut={() => {
+                                if (!isHoveringInfoWindow) {
+                                    setHoveredDealer(null);
+                                }
+                            }}
+                            onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
                         />
                     );
                 })}
@@ -242,15 +196,24 @@ const DealerMap: React.FC<{
                 {hoveredDealer && hoveredDealer.lat && hoveredDealer.lng && (
                     <InfoWindow
                         position={{
-                            lat: typeof hoveredDealer.lat === 'string' ? 
-                                parseFloat(hoveredDealer.lat) : hoveredDealer.lat,
-                            lng: typeof hoveredDealer.lng === 'string' ? 
-                                parseFloat(hoveredDealer.lng) : hoveredDealer.lng
+                            lat: typeof hoveredDealer.lat === 'string' ? parseFloat(hoveredDealer.lat) : hoveredDealer.lat,
+                            lng: typeof hoveredDealer.lng === 'string' ? parseFloat(hoveredDealer.lng) : hoveredDealer.lng
                         }}
                         onCloseClick={() => setHoveredDealer(null)}
                         options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
                     >
-                        {renderInfoWindow(hoveredDealer)}
+                        <div 
+                            onMouseEnter={() => setIsHoveringInfoWindow(true)}
+                            onMouseLeave={() => {
+                                setIsHoveringInfoWindow(false);
+                                setHoveredDealer(null);
+                            }}
+                            style={{ padding: '8px', minWidth: '200px' }}
+                        >
+                            <h3>{hoveredDealer.DealershipName}</h3>
+                            <p>{hoveredDealer.StreetAddress}</p>
+                            <p>{hoveredDealer.City}, {hoveredDealer.State} {hoveredDealer.ZipCode}</p>
+                        </div>
                     </InfoWindow>
                 )}
             </GoogleMap>
