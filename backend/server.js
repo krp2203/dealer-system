@@ -101,12 +101,27 @@ app.post('/api/import', async (req, res) => {
         // Add columns if they don't exist
         if (columns.length < 2) {
             console.log('Adding missing coordinate columns...');
-            await connection.query(`
-                ALTER TABLE Addresses
-                ADD COLUMN IF NOT EXISTS Latitude DECIMAL(10,8),
-                ADD COLUMN IF NOT EXISTS Longitude DECIMAL(11,8)
-            `);
-            console.log('Columns added successfully');
+            try {
+                // Add Latitude if it doesn't exist
+                if (!columns.find(col => col.Field === 'Latitude')) {
+                    await connection.query(`
+                        ALTER TABLE Addresses
+                        ADD COLUMN Latitude DECIMAL(10,8)
+                    `);
+                }
+                
+                // Add Longitude if it doesn't exist
+                if (!columns.find(col => col.Field === 'Longitude')) {
+                    await connection.query(`
+                        ALTER TABLE Addresses
+                        ADD COLUMN Longitude DECIMAL(11,8)
+                    `);
+                }
+                console.log('Columns added successfully');
+            } catch (error) {
+                console.error('Error adding columns:', error);
+                throw error;
+            }
         }
 
         const { headers, rows } = req.body;
