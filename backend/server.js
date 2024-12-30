@@ -188,7 +188,11 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
             SELECT 
                 MainPhone,
                 FaxNumber,
-                MainEmail
+                MainEmail,
+                SecondEmail,
+                ThirdEmail,
+                FourthEmail,
+                FifthEmail
             FROM ContactInformation 
             WHERE KPMDealerNumber = ?
         `, [req.params.dealerNumber]);
@@ -384,7 +388,7 @@ app.post('/api/import', async (req, res) => {
                 await connection.query(`
                     INSERT INTO ContactInformation 
                         (KPMDealerNumber, MainPhone, FaxNumber, MainEmail, SecondEmail, 
-                         ThirdEmail, ForthEmail, FifthEmail)
+                         ThirdEmail, FourthEmail, FifthEmail)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
                         MainPhone = VALUES(MainPhone),
@@ -392,7 +396,7 @@ app.post('/api/import', async (req, res) => {
                         MainEmail = VALUES(MainEmail),
                         SecondEmail = VALUES(SecondEmail),
                         ThirdEmail = VALUES(ThirdEmail),
-                        ForthEmail = VALUES(ForthEmail),
+                        FourthEmail = VALUES(FourthEmail),
                         FifthEmail = VALUES(FifthEmail)
                 `, [
                     currentDealerNumber,
@@ -472,7 +476,7 @@ app.get('/api/dealers/:dealerNumber/details', async (req, res) => {
                 MainEmail,
                 SecondEmail,
                 ThirdEmail,
-                ForthEmail,
+                FourthEmail,
                 FifthEmail
             FROM ContactInformation 
             WHERE KPMDealerNumber = ?
@@ -500,7 +504,7 @@ app.get('/api/dealers/:dealerNumber/details', async (req, res) => {
                 MainEmail: '',
                 SecondEmail: '',
                 ThirdEmail: '',
-                ForthEmail: '',
+                FourthEmail: '',
                 FifthEmail: ''
             },
             lines: lines[0]?.LineName || '',
