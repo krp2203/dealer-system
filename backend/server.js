@@ -130,70 +130,13 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 c.ThirdEmail,
                 c.ForthEmail,
                 c.FifthEmail,
-                l.LineName as LinesCarried,
-                GROUP_CONCAT(
-                    CASE 
-                        WHEN ac.AccountType = 'scag' THEN ac.AccountNumber
-                    END
-                ) as ScagAccountNo,
-                GROUP_CONCAT(
-                    CASE 
-                        WHEN ac.AccountType = 'snowWay' THEN ac.AccountNumber
-                    END
-                ) as SnowWayAccountNo,
-                GROUP_CONCAT(
-                    CASE 
-                        WHEN ac.AccountType = 'vortex' THEN ac.AccountNumber
-                    END
-                ) as VortexAccountNo,
-                GROUP_CONCAT(
-                    CASE 
-                        WHEN ac.AccountType = 'ybravo' THEN ac.AccountNumber
-                    END
-                ) as YbravoAccountNo,
-                GROUP_CONCAT(
-                    CASE 
-                        WHEN ac.AccountType = 'otr' THEN ac.AccountNumber
-                    END
-                ) as OTRAccountNo,
-                GROUP_CONCAT(
-                    CASE 
-                        WHEN ac.AccountType = 'ty' THEN ac.AccountNumber
-                    END
-                ) as TYAccountNo,
-                GROUP_CONCAT(
-                    CASE 
-                        WHEN ac.AccountType = 'gg' THEN ac.AccountNumber
-                    END
-                ) as GGAccountNo,
-                GROUP_CONCAT(
-                    CASE 
-                        WHEN ac.AccountType = 'vk' THEN ac.AccountNumber
-                    END
-                ) as VKAccountNo,
-                GROUP_CONCAT(
-                    CASE 
-                        WHEN ac.AccountType = 'bluebird' THEN ac.AccountNumber
-                    END
-                ) as BluebirdAccountNo,
-                GROUP_CONCAT(
-                    CASE 
-                        WHEN ac.AccountType = 'um' THEN ac.AccountNumber
-                    END
-                ) as UMAccountNo,
-                GROUP_CONCAT(
-                    CASE 
-                        WHEN ac.AccountType = 'wright' THEN ac.AccountNumber
-                    END
-                ) as WrightAccountNo
+                l.LineName as LinesCarried
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             LEFT JOIN ContactInformation c ON d.KPMDealerNumber = c.KPMDealerNumber
             LEFT JOIN LinesCarried l ON d.KPMDealerNumber = l.KPMDealerNumber
-            LEFT JOIN AccountNumbers ac ON d.KPMDealerNumber = ac.KPMDealerNumber
             WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
-            GROUP BY d.KPMDealerNumber
         `);
         
         console.log(`Found ${dealers.length} dealers with coordinates`);
