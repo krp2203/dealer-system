@@ -363,98 +363,103 @@ app.post('/api/import', async (req, res) => {
         const { headers, rows } = req.body;
         
         console.log('=== IMPORT STARTED ===');
-        console.log('Received data:', {
-            headerCount: headers.length,
-            rowCount: rows.length,
-            sampleRow: rows[0]
+        // Log the exact column names we're looking for
+        console.log('Column indexes:', {
+            dealerNumber: headers.indexOf('KPM Dealer Number'),
+            streetAddress: headers.indexOf('Street Address'),
+            city: headers.indexOf('City'),
+            state: headers.indexOf('State'),
+            zipCode: headers.indexOf('Zip Code'),
+            salesmanCode: headers.indexOf('Salesman Code')
         });
 
         connection = await mysql.createConnection(dbConfig);
-        console.log('Database connected');
-        
         await connection.beginTransaction();
-        console.log('Transaction started');
 
         let processedCount = 0;
         let updatedCount = 0;
         let errorCount = 0;
+        let addressCount = 0;
 
         for (const row of rows) {
             try {
                 const dealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
-                if (!dealerNumber) {
-                    console.log('Skipping row - no dealer number');
-                    continue;
-                }
-
+                
+                // Process all rows, even if dealer number is empty
                 const dealerData = {
-                    dealerNumber,
-                    dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
-                    dba: row[headers.indexOf('DBA')]?.toString().trim(),
+                    dealerNumber: dealerNumber || '',
+                    dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim() || '',
+                    dba: row[headers.indexOf('DBA')]?.toString().trim() || '',
                     salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null,
-                    streetAddress: row[headers.indexOf('Street Address')]?.toString().trim(),
-                    city: row[headers.indexOf('City')]?.toString().trim(),
-                    state: row[headers.indexOf('State')]?.toString().trim(),
-                    zipCode: row[headers.indexOf('Zip Code')]?.toString().trim()
+                    streetAddress: row[headers.indexOf('Street Address')]?.toString().trim() || '',
+                    city: row[headers.indexOf('City')]?.toString().trim() || '',
+                    state: row[headers.indexOf('State')]?.toString().trim() || '',
+                    zipCode: row[headers.indexOf('Zip Code')]?.toString().trim() || ''
                 };
 
                 console.log('Processing dealer:', dealerData);
 
-                // First update/insert the dealer info
-                await connection.query(`
-                    INSERT INTO Dealerships 
-                        (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                    VALUES (?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        DealershipName = VALUES(DealershipName),
-                        DBA = VALUES(DBA),
-                        SalesmanCode = ?
-                `, [
-                    dealerData.dealerNumber,
-                    dealerData.dealershipName,
-                    dealerData.dba || '',
-                    dealerData.salesmanCode,
-                    dealerData.salesmanCode
-                ]);
+                // Insert/update dealer info for all rows
+                if (dealerData.dealerNumber) {
+                    await connection.query(`
+                        INSERT INTO Dealerships 
+                            (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
+                        VALUES (?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            DealershipName = VALUES(DealershipName),
+                            DBA = VALUES(DBA),
+                            SalesmanCode = ?
+                    `, [
+                        dealerData.dealerNumber,
+                        dealerData.dealershipName,
+                        dealerData.dba,
+                        dealerData.salesmanCode,
+                        dealerData.salesmanCode
+                    ]);
 
-                // Then update/insert the address
-                if (dealerData.streetAddress && dealerData.city && dealerData.state) {
-                    const fullAddress = `${dealerData.streetAddress}, ${dealerData.city}, ${dealerData.state} ${dealerData.zipCode}`;
-                    
-                    // Get coordinates from Google Maps
-                    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
-                    const geocodeResponse = await axios.get(geocodeUrl);
-                    
-                    if (geocodeResponse.data.results && geocodeResponse.data.results[0]) {
-                        const location = geocodeResponse.data.results[0].geometry.location;
-                        
-                        // Update/insert address with coordinates
-                        await connection.query(`
-                            INSERT INTO Addresses 
-                                (KPMDealerNumber, StreetAddress, City, State, ZipCode, Latitude, Longitude)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                            ON DUPLICATE KEY UPDATE
-                                StreetAddress = VALUES(StreetAddress),
-                                City = VALUES(City),
-                                State = VALUES(State),
-                                ZipCode = VALUES(ZipCode),
-                                Latitude = VALUES(Latitude),
-                                Longitude = VALUES(Longitude)
-                        `, [
-                            dealerData.dealerNumber,
-                            dealerData.streetAddress,
-                            dealerData.city,
-                            dealerData.state,
-                            dealerData.zipCode,
-                            location.lat,
-                            location.lng
-                        ]);
+                    // Process address if we have the required fields
+                    if (dealerData.streetAddress && dealerData.city && dealerData.state) {
+                        const fullAddress = `${dealerData.streetAddress}, ${dealerData.city}, ${dealerData.state} ${dealerData.zipCode}`;
+                        console.log('Processing address:', fullAddress);
+
+                        try {
+                            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
+                            const geocodeResponse = await axios.get(geocodeUrl);
+                            
+                            if (geocodeResponse.data.results && geocodeResponse.data.results[0]) {
+                                const location = geocodeResponse.data.results[0].geometry.location;
+                                
+                                await connection.query(`
+                                    INSERT INTO Addresses 
+                                        (KPMDealerNumber, StreetAddress, City, State, ZipCode, Latitude, Longitude)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                    ON DUPLICATE KEY UPDATE
+                                        StreetAddress = VALUES(StreetAddress),
+                                        City = VALUES(City),
+                                        State = VALUES(State),
+                                        ZipCode = VALUES(ZipCode),
+                                        Latitude = VALUES(Latitude),
+                                        Longitude = VALUES(Longitude)
+                                `, [
+                                    dealerData.dealerNumber,
+                                    dealerData.streetAddress,
+                                    dealerData.city,
+                                    dealerData.state,
+                                    dealerData.zipCode,
+                                    location.lat,
+                                    location.lng
+                                ]);
+                                addressCount++;
+                            }
+                        } catch (geocodeError) {
+                            console.error('Geocoding error for address:', fullAddress, geocodeError);
+                        }
                     }
-                }
 
-                processedCount++;
-                updatedCount++;
+                    updatedCount++;
+                }
                 
+                processedCount++;
             } catch (error) {
                 console.error('Error processing row:', error);
                 errorCount++;
@@ -462,13 +467,13 @@ app.post('/api/import', async (req, res) => {
         }
 
         await connection.commit();
-        console.log('Transaction committed');
         
         const response = {
             message: 'Import completed',
             stats: {
                 processed: processedCount,
                 updated: updatedCount,
+                addressesProcessed: addressCount,
                 errors: errorCount
             }
         };
