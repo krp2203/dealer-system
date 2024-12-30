@@ -53,20 +53,26 @@ app.get('/api/dealers', async (req, res) => {
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
-                s.SalesmanName
+                s.SalesmanName,
+                a.StreetAddress,
+                a.City,
+                a.State,
+                a.ZipCode,
+                a.Latitude,
+                a.Longitude
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             ORDER BY d.DealershipName
         `);
 
         console.log(`Successfully fetched ${rows.length} dealers`);
-        // Log a few rows to verify salesman data
         console.log('Sample dealers:', rows.slice(0, 3));
         
         res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
-            res.status(500).json({ 
+        res.status(500).json({ 
             error: 'Failed to fetch dealers',
             details: error.message,
             code: error.code
@@ -495,6 +501,16 @@ app.post('/api/import', async (req, res) => {
             await connection.end();
         }
     }
+});
+
+// Add this before your import endpoint
+app.post('/api/debug-import', async (req, res) => {
+    const { headers, rows } = req.body;
+    console.log('=== DEBUG IMPORT ===');
+    console.log('Headers:', headers);
+    console.log('First row:', rows[0]);
+    console.log('Row count:', rows.length);
+    res.json({ received: true });
 });
 
 const PORT = process.env.PORT || 3002;
