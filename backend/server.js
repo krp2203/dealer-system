@@ -50,14 +50,6 @@ app.get('/api/dealers', async (req, res) => {
         connection = await mysql.createConnection(dbConfig);
         console.log('Database connected for dealer fetch');
         
-        // First check if the columns exist
-        const [columns] = await connection.query(`
-            SHOW COLUMNS FROM Addresses 
-            WHERE Field IN ('Latitude', 'Longitude')
-        `);
-        
-        console.log('Address columns:', columns);
-        
         const [rows] = await connection.query(`
             SELECT DISTINCT 
                 d.KPMDealerNumber,
@@ -69,19 +61,23 @@ app.get('/api/dealers', async (req, res) => {
                 a.City,
                 a.State,
                 a.ZipCode,
-                a.Latitude,
-                a.Longitude
+                COALESCE(a.Latitude, a.lat) as Latitude,
+                COALESCE(a.Longitude, a.lng) as Longitude
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            WHERE COALESCE(a.Latitude, a.lat) IS NOT NULL 
+            AND COALESCE(a.Longitude, a.lng) IS NOT NULL
             ORDER BY d.DealershipName
         `);
 
-        console.log(`Found ${rows.length} dealers`);
-        console.log('First dealer:', rows[0]);
-
-        if (!rows.length) {
-            throw new Error('No dealers found in database');
+        console.log(`Found ${rows.length} dealers with coordinates`);
+        if (rows.length > 0) {
+            console.log('Sample dealer:', {
+                name: rows[0].DealershipName,
+                lat: rows[0].Latitude,
+                lng: rows[0].Longitude
+            });
         }
         
         res.json(rows);
@@ -216,15 +212,15 @@ app.post('/api/import', async (req, res) => {
                             
                             await connection.query(`
                                 INSERT INTO Addresses 
-                                    (KPMDealerNumber, StreetAddress, City, State, ZipCode, Latitude, Longitude)
+                                    (KPMDealerNumber, StreetAddress, City, State, ZipCode, lat, lng)
                                 VALUES (?, ?, ?, ?, ?, ?, ?)
                                 ON DUPLICATE KEY UPDATE
                                     StreetAddress = VALUES(StreetAddress),
                                     City = VALUES(City),
                                     State = VALUES(State),
                                     ZipCode = VALUES(ZipCode),
-                                    Latitude = VALUES(Latitude),
-                                    Longitude = VALUES(Longitude)
+                                    lat = VALUES(lat),
+                                    lng = VALUES(lng)
                             `, [
                                 dealerData.dealerNumber,
                                 dealerData.streetAddress,
