@@ -83,10 +83,6 @@ app.get('/api/dealers/coordinates', async (req, res) => {
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
-        
-        console.log('Fetching dealer coordinates...');
-        
-        // Update query to get all dealers with coordinates
         const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
@@ -95,55 +91,23 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 d.SalesmanCode,
                 s.SalesmanName,
                 a.StreetAddress,
-                CASE 
-                    WHEN a.City LIKE '% VA %' THEN SUBSTRING_INDEX(a.City, ' VA ', 1)
-                    ELSE a.City 
-                END as City,
-                COALESCE(a.State, 
-                    CASE 
-                        WHEN a.City LIKE '% VA %' THEN 'VA'
-                        WHEN a.City LIKE '% NC %' THEN 'NC'
-                        ELSE ''
-                    END
-                ) as State,
-                COALESCE(a.ZipCode,
-                    CASE 
-                        WHEN a.City LIKE '% VA %' THEN TRIM(SUBSTRING_INDEX(a.City, ' VA ', -1))
-                        WHEN a.City LIKE '% NC %' THEN TRIM(SUBSTRING_INDEX(a.City, ' NC ', -1))
-                        ELSE ''
-                    END
-                ) as ZipCode,
+                a.City,
+                a.State,
+                a.ZipCode,
                 CAST(a.lat AS DECIMAL(10,8)) as lat,
                 CAST(a.lng AS DECIMAL(11,8)) as lng
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE a.StreetAddress IS NOT NULL
+            WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
         `);
-
-        console.log(`Found ${dealers.length} dealers with coordinates`);
-        if (dealers.length > 0) {
-            console.log('Sample dealer:', {
-                name: dealers[0].DealershipName,
-                address: dealers[0].StreetAddress,
-                coordinates: {
-                    lat: dealers[0].lat,
-                    lng: dealers[0].lng
-                }
-            });
-        }
         
         res.json(dealers);
     } catch (error) {
-        console.error('Error fetching dealer coordinates:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch dealer coordinates',
-            details: error.message 
-        });
+        console.error('Error fetching coordinates:', error);
+        res.status(500).json({ error: 'Failed to fetch dealer coordinates' });
     } finally {
-        if (connection) {
-            await connection.end();
-        }
+        if (connection) await connection.end();
     }
 });
 
@@ -417,7 +381,7 @@ app.post('/api/import', async (req, res) => {
         }
 
         await connection.commit();
-        res.json({
+            res.json({ 
             message: 'Import completed successfully',
             stats: { processedCount, updatedCount, errorCount }
         });
