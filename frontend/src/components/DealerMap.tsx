@@ -11,8 +11,11 @@ interface DealerLocation {
     City: string;
     State: string;
     ZipCode: string;
-    lat: number;
-    lng: number;
+    lat: string | number;
+    lng: string | number;
+    DBA?: string;
+    SalesmanCode?: string;
+    SalesmanName?: string;
 }
 
 interface GeocodeResult {
@@ -205,21 +208,33 @@ const DealerMap: React.FC<{
                     fullscreenControl: true
                 }}
             >
-                {dealers.map((dealer) => (
-                    <Marker
-                        key={`${dealer.KPMDealerNumber}-marker`}
-                        position={{ lat: parseFloat(dealer.lat), lng: parseFloat(dealer.lng) }}
-                        onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
-                        onMouseOver={() => setHoveredDealer(dealer)}
-                        onMouseOut={() => !isHoveringInfoWindow && setHoveredDealer(null)}
-                    />
-                ))}
+                {dealers.map((dealer) => {
+                    if (!dealer?.lat || !dealer?.lng) return null;
+                    
+                    // Convert coordinates to numbers
+                    const position = {
+                        lat: typeof dealer.lat === 'string' ? parseFloat(dealer.lat) : dealer.lat,
+                        lng: typeof dealer.lng === 'string' ? parseFloat(dealer.lng) : dealer.lng
+                    };
+
+                    return (
+                        <Marker
+                            key={`${dealer.KPMDealerNumber}-marker`}
+                            position={position}
+                            onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
+                            onMouseOver={() => setHoveredDealer(dealer)}
+                            onMouseOut={() => !isHoveringInfoWindow && setHoveredDealer(null)}
+                        />
+                    );
+                })}
 
                 {hoveredDealer && hoveredDealer.lat && hoveredDealer.lng && (
                     <InfoWindow
                         position={{
-                            lat: typeof hoveredDealer.lat === 'string' ? parseFloat(hoveredDealer.lat) : hoveredDealer.lat,
-                            lng: typeof hoveredDealer.lng === 'string' ? parseFloat(hoveredDealer.lng) : hoveredDealer.lng
+                            lat: typeof hoveredDealer.lat === 'string' ? 
+                                parseFloat(hoveredDealer.lat) : hoveredDealer.lat,
+                            lng: typeof hoveredDealer.lng === 'string' ? 
+                                parseFloat(hoveredDealer.lng) : hoveredDealer.lng
                         }}
                         onCloseClick={() => setHoveredDealer(null)}
                         options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
