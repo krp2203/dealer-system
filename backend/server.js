@@ -561,6 +561,71 @@ app.post('/api/import', async (req, res) => {
     }
 });
 
+// Add this new endpoint for additional dealer data
+app.get('/api/dealers/:dealerNumber/details', async (req, res) => {
+    let connection;
+    try {
+        console.log('Fetching additional dealer details for:', req.params.dealerNumber);
+        
+        connection = await mysql.createConnection(dbConfig);
+        
+        // Get contact information
+        const [contact] = await connection.query(`
+            SELECT 
+                MainPhone,
+                FaxNumber,
+                MainEmail,
+                SecondEmail,
+                ThirdEmail,
+                ForthEmail,
+                FifthEmail
+            FROM ContactInformation 
+            WHERE KPMDealerNumber = ?
+        `, [req.params.dealerNumber]);
+
+        // Get lines carried
+        const [lines] = await connection.query(`
+            SELECT LineName
+            FROM LinesCarried 
+            WHERE KPMDealerNumber = ?
+        `, [req.params.dealerNumber]);
+
+        // Get county information
+        const [address] = await connection.query(`
+            SELECT County
+            FROM Addresses 
+            WHERE KPMDealerNumber = ?
+        `, [req.params.dealerNumber]);
+
+        // Combine all the additional information
+        const additionalDetails = {
+            contact: contact[0] || {
+                MainPhone: '',
+                FaxNumber: '',
+                MainEmail: '',
+                SecondEmail: '',
+                ThirdEmail: '',
+                ForthEmail: '',
+                FifthEmail: ''
+            },
+            lines: lines[0]?.LineName || '',
+            county: address[0]?.County || ''
+        };
+
+        console.log('Additional details found:', additionalDetails);
+        res.json(additionalDetails);
+
+    } catch (error) {
+        console.error('Error fetching additional dealer details:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch additional dealer details',
+            details: error.message 
+        });
+    } finally {
+        if (connection) await connection.end();
+    }
+});
+
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
