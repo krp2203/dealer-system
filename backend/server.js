@@ -31,11 +31,11 @@ const dbConfig = {
 
 // Add debug logging
 console.log('Attempting to connect to database with config:', {
-    host: dbConfig.host,
-    port: dbConfig.port,
-    user: dbConfig.user,
-    database: dbConfig.database
-});
+        host: dbConfig.host,
+        port: dbConfig.port,
+        user: dbConfig.user,
+        database: dbConfig.database
+    });
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -66,7 +66,7 @@ app.get('/api/dealers', async (req, res) => {
         res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
-        res.status(500).json({ 
+            res.status(500).json({ 
             error: 'Failed to fetch dealers',
             details: error.message,
             code: error.code
@@ -363,48 +363,44 @@ app.post('/api/import', async (req, res) => {
         const { headers, rows } = req.body;
         
         console.log('=== IMPORT STARTED ===');
-        // Log the exact column name for Salesman Code
-        const salesmanCodeIndex = headers.indexOf('Salesman Code');
-        console.log('Salesman Code column:', {
-            index: salesmanCodeIndex,
-            columnName: headers[salesmanCodeIndex],
-            exists: salesmanCodeIndex !== -1
+        console.log('Received data:', {
+            headerCount: headers.length,
+            rowCount: rows.length,
+            sampleRow: rows[0]
         });
 
         connection = await mysql.createConnection(dbConfig);
+        console.log('Database connected');
+        
         await connection.beginTransaction();
+        console.log('Transaction started');
 
         let processedCount = 0;
         let updatedCount = 0;
         let errorCount = 0;
 
-        // Process each row
         for (const row of rows) {
             try {
                 const dealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
-                if (!dealerNumber) continue;
-
-                const salesmanCode = row[salesmanCodeIndex]?.toString().trim();
-                
-                // Log the raw data we're processing
-                console.log('Processing dealer data:', {
-                    dealerNumber,
-                    rawSalesmanCode: row[salesmanCodeIndex],
-                    processedSalesmanCode: salesmanCode,
-                    fullRow: row
-                });
+                if (!dealerNumber) {
+                    console.log('Skipping row - no dealer number');
+                    continue;
+                }
 
                 const dealerData = {
                     dealerNumber,
                     dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
                     dba: row[headers.indexOf('DBA')]?.toString().trim(),
-                    salesmanCode: salesmanCode || null  // Ensure null if empty
+                    salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null,
+                    streetAddress: row[headers.indexOf('Street Address')]?.toString().trim(),
+                    city: row[headers.indexOf('City')]?.toString().trim(),
+                    state: row[headers.indexOf('State')]?.toString().trim(),
+                    zipCode: row[headers.indexOf('Zip Code')]?.toString().trim()
                 };
 
-                // Log the query parameters
-                console.log('Updating dealer:', dealerData);
+                console.log('Processing dealer:', dealerData);
 
-                // Explicitly update the salesman code
+                // First update/insert the dealer info
                 await connection.query(`
                     INSERT INTO Dealerships 
                         (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
@@ -412,55 +408,73 @@ app.post('/api/import', async (req, res) => {
                     ON DUPLICATE KEY UPDATE
                         DealershipName = VALUES(DealershipName),
                         DBA = VALUES(DBA),
-                        SalesmanCode = ?  -- Explicitly set salesman code
+                        SalesmanCode = ?
                 `, [
-                    dealerNumber,
+                    dealerData.dealerNumber,
                     dealerData.dealershipName,
                     dealerData.dba || '',
                     dealerData.salesmanCode,
-                    dealerData.salesmanCode  // Pass salesmanCode again for UPDATE
+                    dealerData.salesmanCode
                 ]);
 
-                // Verify the update immediately
-                const [verifyResult] = await connection.query(
-                    'SELECT * FROM Dealerships WHERE KPMDealerNumber = ?',
-                    [dealerNumber]
-                );
-                console.log('Verification after update:', {
-                    dealerNumber,
-                    beforeSalesmanCode: salesmanCode,
-                    afterSalesmanCode: verifyResult[0]?.SalesmanCode,
-                    fullRecord: verifyResult[0]
-                });
+                // Then update/insert the address
+                if (dealerData.streetAddress && dealerData.city && dealerData.state) {
+                    const fullAddress = `${dealerData.streetAddress}, ${dealerData.city}, ${dealerData.state} ${dealerData.zipCode}`;
+                    
+                    // Get coordinates from Google Maps
+                    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
+                    const geocodeResponse = await axios.get(geocodeUrl);
+                    
+                    if (geocodeResponse.data.results && geocodeResponse.data.results[0]) {
+                        const location = geocodeResponse.data.results[0].geometry.location;
+                        
+                        // Update/insert address with coordinates
+                        await connection.query(`
+                            INSERT INTO Addresses 
+                                (KPMDealerNumber, StreetAddress, City, State, ZipCode, Latitude, Longitude)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            ON DUPLICATE KEY UPDATE
+                                StreetAddress = VALUES(StreetAddress),
+                                City = VALUES(City),
+                                State = VALUES(State),
+                                ZipCode = VALUES(ZipCode),
+                                Latitude = VALUES(Latitude),
+                                Longitude = VALUES(Longitude)
+                        `, [
+                            dealerData.dealerNumber,
+                            dealerData.streetAddress,
+                            dealerData.city,
+                            dealerData.state,
+                            dealerData.zipCode,
+                            location.lat,
+                            location.lng
+                        ]);
+                    }
+                }
 
                 processedCount++;
                 updatedCount++;
+                
             } catch (error) {
-                console.error(`Error processing row:`, {
-                    row,
-                    error: error.message
-                });
+                console.error('Error processing row:', error);
                 errorCount++;
             }
         }
 
         await connection.commit();
+        console.log('Transaction committed');
         
-        console.log('=== IMPORT COMPLETED ===');
-        console.log('Results:', {
-            processed: processedCount,
-            updated: updatedCount,
-            errors: errorCount
-        });
-
-        res.json({
-            message: 'Import completed successfully',
+        const response = {
+            message: 'Import completed',
             stats: {
                 processed: processedCount,
                 updated: updatedCount,
                 errors: errorCount
             }
-        });
+        };
+        
+        console.log('Import results:', response);
+        res.json(response);
 
     } catch (error) {
         console.error('Import failed:', error);
