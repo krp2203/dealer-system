@@ -120,22 +120,11 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 a.City,
                 a.State,
                 a.ZipCode,
-                a.County,
                 CAST(a.lat AS DECIMAL(10,8)) as lat,
-                CAST(a.lng AS DECIMAL(11,8)) as lng,
-                c.MainPhone,
-                c.FaxNumber,
-                c.MainEmail,
-                c.SecondEmail,
-                c.ThirdEmail,
-                c.ForthEmail,
-                c.FifthEmail,
-                l.LineName as LinesCarried
+                CAST(a.lng AS DECIMAL(11,8)) as lng
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            LEFT JOIN ContactInformation c ON d.KPMDealerNumber = c.KPMDealerNumber
-            LEFT JOIN LinesCarried l ON d.KPMDealerNumber = l.KPMDealerNumber
             WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
         `);
         
