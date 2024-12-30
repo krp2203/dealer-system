@@ -152,12 +152,12 @@ const DealerMap: React.FC<{
     }
 
     const renderInfoWindow = (dealer: any) => (
-        <div className="dealer-info">
+        <div className="dealer-info" key={dealer.KPMDealerNumber}>
             <h3>{dealer.DealershipName}</h3>
-            {dealer.DBA && <p><strong>DBA:</strong> {dealer.DBA}</p>}
+            {dealer.DBA && <p key={`${dealer.KPMDealerNumber}-dba`}><strong>DBA:</strong> {dealer.DBA}</p>}
             
             {/* Address Information */}
-            <div className="address-info">
+            <div className="address-info" key={`${dealer.KPMDealerNumber}-address`}>
                 {dealer.StreetAddress && <p>{dealer.StreetAddress}</p>}
                 {dealer.City && dealer.State && dealer.ZipCode && (
                     <p>{dealer.City}, {dealer.State} {dealer.ZipCode}</p>
@@ -165,7 +165,7 @@ const DealerMap: React.FC<{
             </div>
 
             {/* Contact Information */}
-            <div className="contact-info">
+            <div className="contact-info" key={`${dealer.KPMDealerNumber}-contact`}>
                 {dealer.MainPhone && <p><strong>Phone:</strong> {dealer.MainPhone}</p>}
                 {dealer.FaxNumber && <p><strong>Fax:</strong> {dealer.FaxNumber}</p>}
                 {dealer.MainEmail && <p><strong>Email:</strong> {dealer.MainEmail}</p>}
@@ -173,14 +173,14 @@ const DealerMap: React.FC<{
 
             {/* Lines Carried */}
             {dealer.LinesCarried && (
-                <div className="lines-info">
+                <div className="lines-info" key={`${dealer.KPMDealerNumber}-lines`}>
                     <p><strong>Lines Carried:</strong> {dealer.LinesCarried}</p>
                 </div>
             )}
 
             {/* Salesman Information */}
             {dealer.SalesmanName && (
-                <div className="salesman-info">
+                <div className="salesman-info" key={`${dealer.KPMDealerNumber}-salesman`}>
                     <p><strong>Salesman:</strong> {dealer.SalesmanName}</p>
                     {dealer.SalesmanCode && <p><strong>Code:</strong> {dealer.SalesmanCode}</p>}
                 </div>
@@ -203,32 +203,15 @@ const DealerMap: React.FC<{
                     fullscreenControl: true
                 }}
             >
-                {dealers.map((dealer, index) => {
-                    if (!dealer?.lat || !dealer?.lng) return null;
-                    
-                    // Convert string coordinates to numbers
-                    const position = {
-                        lat: typeof dealer.lat === 'string' ? parseFloat(dealer.lat) : dealer.lat,
-                        lng: typeof dealer.lng === 'string' ? parseFloat(dealer.lng) : dealer.lng
-                    };
-
-                    // Use the full dealer number as the key
-                    const uniqueKey = dealer.KPMDealerNumber; // This will include SHIPTO: prefix if present
-
-                    return (
-                        <Marker
-                            key={uniqueKey}
-                            position={position}
-                            onMouseOver={() => setHoveredDealer(dealer)}
-                            onMouseOut={() => {
-                                if (!isHoveringInfoWindow) {
-                                    setHoveredDealer(null);
-                                }
-                            }}
-                            onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
-                        />
-                    );
-                })}
+                {dealers.map((dealer) => (
+                    <Marker
+                        key={`${dealer.KPMDealerNumber}-marker`}
+                        position={{ lat: parseFloat(dealer.lat), lng: parseFloat(dealer.lng) }}
+                        onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
+                        onMouseOver={() => setHoveredDealer(dealer)}
+                        onMouseOut={() => !isHoveringInfoWindow && setHoveredDealer(null)}
+                    />
+                ))}
 
                 {hoveredDealer && hoveredDealer.lat && hoveredDealer.lng && (
                     <InfoWindow
