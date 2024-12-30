@@ -379,12 +379,12 @@ app.post('/api/import', async (req, res) => {
                 currentDealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
                 if (!currentDealerNumber) continue;
 
-                // Only include fields that exist in the database
+                // Map data to match database column names exactly
                 const dealerData = {
-                    dealerNumber: currentDealerNumber,
-                    dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
-                    dba: row[headers.indexOf('DBA')]?.toString().trim(),
-                    salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null
+                    KPMDealerNumber: currentDealerNumber,
+                    DealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
+                    DBA: row[headers.indexOf('DBA')]?.toString().trim(),
+                    SalesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null
                 };
 
                 // Build dynamic INSERT query based on valid columns
@@ -400,21 +400,16 @@ app.post('/api/import', async (req, res) => {
                         ${validFields.map(field => `${field} = VALUES(${field})`).join(', ')}
                 `;
 
+                console.log('Executing query:', insertQuery, values);
                 await connection.query(insertQuery, values);
-
-                // Rest of your code for other tables...
 
                 stats.processedCount++;
                 stats.updatedCount++;
-                
-                console.log('Successfully processed dealer:', currentDealerNumber);
 
             } catch (error) {
                 console.error('Error processing dealer:', {
                     dealerNumber: currentDealerNumber,
-                    error: error.message,
-                    stack: error.stack,
-                    rowData: row
+                    error: error.message
                 });
                 stats.errorCount++;
             }
