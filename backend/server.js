@@ -48,6 +48,7 @@ app.get('/api/dealers', async (req, res) => {
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
+        console.log('Database connected for dealer fetch');
         
         // First check if the columns exist
         const [columns] = await connection.query(`
@@ -76,25 +77,30 @@ app.get('/api/dealers', async (req, res) => {
             ORDER BY d.DealershipName
         `);
 
-        // Log a few sample dealers with their coordinates
-        console.log('Sample dealers with coordinates:', 
-            rows.slice(0, 3).map(d => ({
-                name: d.DealershipName,
-                address: d.StreetAddress,
-                lat: d.Latitude,
-                lng: d.Longitude
-            }))
-        );
+        console.log(`Found ${rows.length} dealers`);
+        console.log('First dealer:', rows[0]);
+
+        if (!rows.length) {
+            throw new Error('No dealers found in database');
+        }
         
         res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
         res.status(500).json({ 
             error: 'Failed to fetch dealers',
-            details: error.message
+            details: error.message,
+            stack: error.stack
         });
     } finally {
-        if (connection) await connection.end();
+        if (connection) {
+            try {
+                await connection.end();
+                console.log('Database connection closed');
+            } catch (err) {
+                console.error('Error closing connection:', err);
+            }
+        }
     }
 });
 
@@ -283,6 +289,30 @@ app.post('/api/import', async (req, res) => {
         });
     } finally {
         if (connection) await connection.end();
+    }
+});
+
+// Test geocoding endpoint
+app.get('/api/test-geocoding', async (req, res) => {
+    try {
+        const testAddress = '1600 Amphitheatre Parkway, Mountain View, CA';
+        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(testAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
+        
+        console.log('Testing geocoding with URL:', geocodeUrl);
+        
+        const response = await axios.get(geocodeUrl);
+        
+        res.json({
+            success: true,
+            status: response.data.status,
+            results: response.data.results
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            details: error.response?.data
+        });
     }
 });
 
