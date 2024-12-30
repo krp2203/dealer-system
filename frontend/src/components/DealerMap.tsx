@@ -111,30 +111,32 @@ const DealerMap: React.FC<{
         
         const fetchDealers = async () => {
             try {
-                console.log('Fetching fresh dealer data...');
+                console.log('Fetching dealer data from:', `${API_URL}/api/dealers/coordinates`);
                 const response = await axios.get<DealerLocation[]>(`${API_URL}/api/dealers/coordinates`);
                 
                 if (!response.data || !Array.isArray(response.data)) {
-                    throw new Error('Invalid data received');
+                    console.error('Invalid data received:', response.data);
+                    throw new Error('Invalid data format received from server');
                 }
 
                 // Filter out dealers without coordinates
-                const validDealers = response.data.filter(d => d.lat && d.lng);
-                console.log(`Got ${validDealers.length} dealers with valid coordinates`);
+                const validDealers = response.data.filter(d => {
+                    const hasCoords = d.lat && d.lng;
+                    if (!hasCoords) {
+                        console.log('Dealer missing coordinates:', d.KPMDealerNumber);
+                    }
+                    return hasCoords;
+                });
 
-                if (validDealers.length > 0) {
-                    // Update cache
-                    localStorage.setItem(CACHE_KEY, JSON.stringify({
-                        timestamp: Date.now(),
-                        data: validDealers
-                    }));
-                    setDealers(validDealers);
-                } else {
-                    setError('No dealers found with valid coordinates');
-                }
+                console.log(`Got ${validDealers.length} dealers with valid coordinates`);
+                setDealers(validDealers);
             } catch (error) {
                 console.error('Error fetching dealer coordinates:', error);
-                setError('Failed to fetch dealer coordinates');
+                if (axios.isAxiosError(error)) {
+                    setError(`Failed to fetch dealer data: ${error.response?.data?.error || error.message}`);
+                } else {
+                    setError('Failed to fetch dealer data: Unknown error');
+                }
             } finally {
                 setLoading(false);
             }

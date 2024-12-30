@@ -11,12 +11,24 @@ app.use(cors({
         'http://localhost:3000',
         'http://35.212.41.99:3000',
         'https://35.212.41.99:3000',
-        // Add any other domains that need access
-    ],
-    methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+        'http://localhost:3002',
+        // Add development URLs
+        process.env.FRONTEND_URL,
+    ].filter(Boolean),
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
+
+// Add error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Server error:', err);
+    res.status(500).json({
+        error: 'Internal server error',
+        message: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+});
 
 // Database configuration
 const dbConfig = {
