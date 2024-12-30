@@ -172,6 +172,7 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
 
+        // First get dealer and address info
         const [dealerInfo] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
@@ -186,43 +187,42 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
                 a.County,
                 c.MainPhone,
                 c.FaxNumber,
-                c.MainEmail,
-                GROUP_CONCAT(l.LineName) as LinesCarried
+                c.MainEmail
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             LEFT JOIN ContactInformation c ON d.KPMDealerNumber = c.KPMDealerNumber
-            LEFT JOIN LinesCarried l ON d.KPMDealerNumber = l.KPMDealerNumber
             WHERE d.KPMDealerNumber = ?
-            GROUP BY 
-                d.KPMDealerNumber,
-                d.DealershipName,
-                d.DBA,
-                d.SalesmanCode,
-                s.SalesmanName,
-                a.StreetAddress,
-                a.City,
-                a.State,
-                a.ZipCode,
-                a.County,
-                c.MainPhone,
-                c.FaxNumber,
-                c.MainEmail
         `, [req.params.dealerNumber]);
 
         if (dealerInfo.length === 0) {
             return res.status(404).json({ error: 'Dealer not found' });
         }
 
+        // Then get lines carried separately
+        const [linesCarried] = await connection.query(`
+            SELECT GROUP_CONCAT(LineName) as LinesCarried
+            FROM LinesCarried
+            WHERE KPMDealerNumber = ?
+            GROUP BY KPMDealerNumber
+        `, [req.params.dealerNumber]);
+
+        // Combine the results
+        const fullDealerInfo = {
+            ...dealerInfo[0],
+            LinesCarried: linesCarried[0]?.LinesCarried || ''
+        };
+
         // Add debug logging
         console.log('Dealer details found:', {
-            dealerNumber: dealerInfo[0].KPMDealerNumber,
-            hasAddress: !!dealerInfo[0].StreetAddress,
-            hasContact: !!dealerInfo[0].MainPhone || !!dealerInfo[0].MainEmail,
-            hasLines: !!dealerInfo[0].LinesCarried
+            dealerNumber: fullDealerInfo.KPMDealerNumber,
+            hasAddress: !!fullDealerInfo.StreetAddress,
+            hasContact: !!fullDealerInfo.MainPhone || !!fullDealerInfo.MainEmail,
+            hasLines: !!fullDealerInfo.LinesCarried,
+            lines: fullDealerInfo.LinesCarried
         });
 
-        res.json(dealerInfo[0]);
+        res.json(fullDealerInfo);
     } catch (error) {
         console.error('Error fetching dealer details:', error);
         res.status(500).json({ 
