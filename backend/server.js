@@ -364,45 +364,63 @@ app.post('/api/import', async (req, res) => {
     try {
         const { headers, rows } = req.body;
         
+        console.log('Starting import with:', {
+            headerCount: headers.length,
+            rowCount: rows.length
+        });
+
         connection = await mysql.createConnection(dbConfig);
         await connection.beginTransaction();
-
-        // Get Dealerships table structure
-        const [dealershipColumns] = await connection.query(`
-            SHOW COLUMNS FROM Dealerships
-        `);
-        const validDealershipColumns = dealershipColumns.map(col => col.Field);
-        console.log('Valid Dealership columns:', validDealershipColumns);
 
         for (const row of rows) {
             try {
                 currentDealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
-                if (!currentDealerNumber) continue;
+                if (!currentDealerNumber) {
+                    console.log('Skipping row - no dealer number');
+                    continue;
+                }
 
-                // Map data to match database column names exactly
-                const dealerData = {
-                    KPMDealerNumber: currentDealerNumber,
-                    DealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
-                    DBA: row[headers.indexOf('DBA')]?.toString().trim(),
-                    SalesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null
-                };
-
-                // Build dynamic INSERT query based on valid columns
-                const validFields = Object.keys(dealerData)
-                    .filter(key => validDealershipColumns.includes(key));
-                const values = validFields.map(field => dealerData[field]);
-                
-                const insertQuery = `
-                    INSERT INTO Dealerships 
-                        (${validFields.join(', ')})
-                    VALUES (${validFields.map(() => '?').join(', ')})
+                // Update ContactInformation table
+                await connection.query(`
+                    INSERT INTO ContactInformation 
+                        (KPMDealerNumber, MainPhone, FaxNumber, MainEmail, SecondEmail, 
+                         ThirdEmail, ForthEmail, FifthEmail)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
-                        ${validFields.map(field => `${field} = VALUES(${field})`).join(', ')}
-                `;
+                        MainPhone = VALUES(MainPhone),
+                        FaxNumber = VALUES(FaxNumber),
+                        MainEmail = VALUES(MainEmail),
+                        SecondEmail = VALUES(SecondEmail),
+                        ThirdEmail = VALUES(ThirdEmail),
+                        ForthEmail = VALUES(ForthEmail),
+                        FifthEmail = VALUES(FifthEmail)
+                `, [
+                    currentDealerNumber,
+                    row[headers.indexOf('Main Phone')]?.toString().trim(),
+                    row[headers.indexOf('Fax Number')]?.toString().trim(),
+                    row[headers.indexOf('Main Email')]?.toString().trim(),
+                    row[headers.indexOf('Second Email')]?.toString().trim(),
+                    row[headers.indexOf('Third Email')]?.toString().trim(),
+                    row[headers.indexOf('Forth Email')]?.toString().trim(),
+                    row[headers.indexOf('Fifth Email')]?.toString().trim()
+                ]);
 
-                console.log('Executing query:', insertQuery, values);
-                await connection.query(insertQuery, values);
+                // Update LinesCarried table
+                const linesCarried = row[headers.indexOf('Lines Carried')]?.toString().trim();
+                if (linesCarried) {
+                    await connection.query(`
+                        INSERT INTO LinesCarried 
+                            (KPMDealerNumber, LineName)
+                        VALUES (?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            LineName = VALUES(LineName)
+                    `, [
+                        currentDealerNumber,
+                        linesCarried
+                    ]);
+                }
 
+                console.log(`Successfully processed dealer: ${currentDealerNumber}`);
                 stats.processedCount++;
                 stats.updatedCount++;
 
@@ -416,6 +434,8 @@ app.post('/api/import', async (req, res) => {
         }
 
         await connection.commit();
+        console.log('Import completed with stats:', stats);
+        
         res.json({
             success: true,
             message: 'Import completed successfully',
@@ -424,6 +444,7 @@ app.post('/api/import', async (req, res) => {
 
     } catch (error) {
         if (connection) await connection.rollback();
+        console.error('Import failed:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to import data',
