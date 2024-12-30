@@ -3,6 +3,8 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 const axios = require('axios');
+const { promisify } = require('util');
+const sleep = promisify(setTimeout);
 
 const app = express();
 app.use(express.json());
@@ -28,6 +30,8 @@ const dbConfig = {
 };
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+
+console.log('Google Maps API Key configured:', GOOGLE_MAPS_API_KEY ? 'Yes' : 'No');
 
 // Debug endpoint to check incoming data
 app.post('/api/debug-import', async (req, res) => {
@@ -193,11 +197,16 @@ app.post('/api/import', async (req, res) => {
                     console.log('Processing address:', fullAddress);
 
                     try {
+                        // Add delay between requests to avoid rate limiting
+                        await sleep(200); // 200ms delay between requests
+
                         const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
+                        
                         const geocodeResponse = await axios.get(geocodeUrl);
                         
-                        if (geocodeResponse.data.results?.[0]?.geometry?.location) {
+                        if (geocodeResponse.data.status === 'OK' && geocodeResponse.data.results?.[0]?.geometry?.location) {
                             const { lat, lng } = geocodeResponse.data.results[0].geometry.location;
+                            console.log('Got coordinates for', dealerData.dealerNumber, ':', { lat, lng });
                             
                             await connection.query(`
                                 INSERT INTO Addresses 
@@ -219,10 +228,26 @@ app.post('/api/import', async (req, res) => {
                                 lat,
                                 lng
                             ]);
+                            
+                            // Verify the update
+                            const [verifyResult] = await connection.query(
+                                'SELECT * FROM Addresses WHERE KPMDealerNumber = ?',
+                                [dealerData.dealerNumber]
+                            );
+                            console.log('Address verification:', verifyResult[0]);
+                            
                             addressCount++;
+                        } else {
+                            console.log('Geocoding failed for address:', fullAddress);
+                            console.log('Status:', geocodeResponse.data.status);
+                            console.log('Error message:', geocodeResponse.data.error_message);
                         }
                     } catch (geocodeError) {
-                        console.error('Geocoding error:', geocodeError);
+                        console.error('Geocoding error for', dealerData.dealerNumber, ':', {
+                            error: geocodeError.message,
+                            status: geocodeError.response?.status,
+                            data: geocodeError.response?.data
+                        });
                     }
                 }
 
