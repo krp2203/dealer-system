@@ -109,6 +109,30 @@ app.get('/api/dealers/coordinates', async (req, res) => {
         connection = await mysql.createConnection(dbConfig);
         console.log('Fetching dealers with coordinates...');
         
+        // First, let's count total dealers
+        const [totalCount] = await connection.query(`
+            SELECT COUNT(*) as total FROM Dealerships
+        `);
+        console.log('Total dealers in database:', totalCount[0].total);
+
+        // Now count dealers with coordinates
+        const [coordCount] = await connection.query(`
+            SELECT COUNT(*) as total 
+            FROM Dealerships d
+            JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
+        `);
+        console.log('Dealers with coordinates:', coordCount[0].total);
+
+        // Get specific dealers for debugging
+        const [salesmanDealers] = await connection.query(`
+            SELECT d.KPMDealerNumber, d.SalesmanCode, a.lat, a.lng
+            FROM Dealerships d
+            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            WHERE d.SalesmanCode = '50'
+        `);
+        console.log('Salesman 50 dealers:', salesmanDealers);
+
         const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
@@ -380,37 +404,7 @@ app.post('/api/import', async (req, res) => {
                     salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null
                 };
 
-                // Geocode the address if we have enough information
-                if (dealerData.streetAddress && dealerData.city && dealerData.state) {
-                    const fullAddress = `${dealerData.streetAddress}, ${dealerData.city}, ${dealerData.state} ${dealerData.zipCode}`;
-                    const coordinates = await geocodeAddress(fullAddress);
-                    
-                    if (coordinates) {
-                        // Update Addresses table with coordinates
-                        await connection.query(`
-                            INSERT INTO Addresses 
-                                (KPMDealerNumber, StreetAddress, City, State, ZipCode, lat, lng)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                            ON DUPLICATE KEY UPDATE
-                                StreetAddress = VALUES(StreetAddress),
-                                City = VALUES(City),
-                                State = VALUES(State),
-                                ZipCode = VALUES(ZipCode),
-                                lat = VALUES(lat),
-                                lng = VALUES(lng)
-                        `, [
-                            dealerData.dealerNumber,
-                            dealerData.streetAddress,
-                            dealerData.city,
-                            dealerData.state,
-                            dealerData.zipCode,
-                            coordinates.lat,
-                            coordinates.lng
-                        ]);
-                    }
-                }
-
-                // Update Dealerships table
+                // First update Dealerships table
                 await connection.query(`
                     INSERT INTO Dealerships 
                         (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
@@ -426,6 +420,63 @@ app.post('/api/import', async (req, res) => {
                     dealerData.salesmanCode,
                     dealerData.salesmanCode
                 ]);
+
+                // Then handle address and geocoding
+                if (dealerData.streetAddress && dealerData.city && dealerData.state) {
+                    const fullAddress = `${dealerData.streetAddress}, ${dealerData.city}, ${dealerData.state} ${dealerData.zipCode}`;
+                    console.log('Geocoding address:', fullAddress);
+                    
+                    const coordinates = await geocodeAddress(fullAddress);
+                    
+                    if (coordinates) {
+                        console.log('Got coordinates:', coordinates);
+                        
+                        // Check if address exists
+                        const [existingAddress] = await connection.query(
+                            'SELECT * FROM Addresses WHERE KPMDealerNumber = ?',
+                            [dealerData.dealerNumber]
+                        );
+
+                        if (existingAddress.length === 0) {
+                            // Insert new address
+                            await connection.query(`
+                                INSERT INTO Addresses 
+                                    (KPMDealerNumber, StreetAddress, City, State, ZipCode, lat, lng)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                            `, [
+                                dealerData.dealerNumber,
+                                dealerData.streetAddress,
+                                dealerData.city,
+                                dealerData.state,
+                                dealerData.zipCode,
+                                coordinates.lat,
+                                coordinates.lng
+                            ]);
+                        } else {
+                            // Update existing address
+                            await connection.query(`
+                                UPDATE Addresses 
+                                SET StreetAddress = ?,
+                                    City = ?,
+                                    State = ?,
+                                    ZipCode = ?,
+                                    lat = ?,
+                                    lng = ?
+                                WHERE KPMDealerNumber = ?
+                            `, [
+                                dealerData.streetAddress,
+                                dealerData.city,
+                                dealerData.state,
+                                dealerData.zipCode,
+                                coordinates.lat,
+                                coordinates.lng,
+                                dealerData.dealerNumber
+                            ]);
+                        }
+                    } else {
+                        console.error('Failed to geocode address:', fullAddress);
+                    }
+                }
 
                 processedCount++;
                 updatedCount++;
