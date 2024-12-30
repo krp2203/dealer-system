@@ -362,23 +362,6 @@ app.post('/api/import', async (req, res) => {
     try {
         const { headers, rows } = req.body;
         
-        // Find the salesman code column, accounting for misspelling
-        const salesmanCodeIndex = headers.findIndex(h => 
-            h === 'Salesman Code' || 
-            h === 'Saelsman Code' || // Handle misspelling
-            h.toLowerCase().includes('salesman') && h.toLowerCase().includes('code')
-        );
-
-        console.log('Column info:', {
-            headers: headers,
-            salesmanCodeIndex: salesmanCodeIndex,
-            foundColumn: headers[salesmanCodeIndex]
-        });
-
-        // Get valid salesman codes from database
-        const [validCodes] = await connection.query('SELECT SalesmanCode FROM Salesman');
-        console.log('Valid salesman codes in database:', validCodes);
-
         connection = await mysql.createConnection(dbConfig);
         await connection.beginTransaction();
 
@@ -386,31 +369,26 @@ app.post('/api/import', async (req, res) => {
         let updatedCount = 0;
         let errorCount = 0;
 
-        // Process each row
         for (const row of rows) {
             try {
                 const dealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
                 if (!dealerNumber) continue;
 
-                const salesmanCode = row[salesmanCodeIndex]?.toString().trim();
+                const salesmanCode = row[headers.indexOf('Salesman Code')]?.toString().trim();
                 
                 console.log('Processing dealer:', {
                     dealerNumber,
-                    salesmanCode,
-                    rawValue: row[salesmanCodeIndex]
+                    isShipto: dealerNumber.startsWith('SHIPTO:'),
+                    salesmanCode
                 });
 
                 const dealerData = {
                     dealerNumber,
                     dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
                     dba: row[headers.indexOf('DBA')]?.toString().trim(),
-                    salesmanCode: salesmanCode || null  // Ensure null if empty
+                    salesmanCode: salesmanCode || null
                 };
 
-                // Log the query parameters
-                console.log('Updating dealer:', dealerData);
-
-                // Explicitly update the salesman code
                 await connection.query(`
                     INSERT INTO Dealerships 
                         (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
@@ -418,32 +396,20 @@ app.post('/api/import', async (req, res) => {
                     ON DUPLICATE KEY UPDATE
                         DealershipName = VALUES(DealershipName),
                         DBA = VALUES(DBA),
-                        SalesmanCode = ?  -- Explicitly set salesman code
+                        SalesmanCode = ?
                 `, [
-                    dealerNumber,
+                    dealerData.dealerNumber,  // Keep full dealer number including SHIPTO
                     dealerData.dealershipName,
                     dealerData.dba || '',
                     dealerData.salesmanCode,
-                    dealerData.salesmanCode  // Pass salesmanCode again for UPDATE
+                    dealerData.salesmanCode
                 ]);
-
-                // Verify the update immediately
-                const [verifyResult] = await connection.query(
-                    'SELECT * FROM Dealerships WHERE KPMDealerNumber = ?',
-                    [dealerNumber]
-                );
-                console.log('Verification after update:', {
-                    dealerNumber,
-                    beforeSalesmanCode: salesmanCode,
-                    afterSalesmanCode: verifyResult[0]?.SalesmanCode,
-                    fullRecord: verifyResult[0]
-                });
 
                 processedCount++;
                 updatedCount++;
             } catch (error) {
-                console.error(`Error processing row:`, {
-                    row,
+                console.error('Error processing dealer:', {
+                    dealerNumber,
                     error: error.message
                 });
                 errorCount++;
@@ -451,36 +417,19 @@ app.post('/api/import', async (req, res) => {
         }
 
         await connection.commit();
-        
-        console.log('=== IMPORT COMPLETED ===');
-        console.log('Results:', {
-            processed: processedCount,
-            updated: updatedCount,
-            errors: errorCount
-        });
-            
-            res.json({ 
+        res.json({
             message: 'Import completed successfully',
-            stats: {
-                processed: processedCount,
-                updated: updatedCount,
-                errors: errorCount
-            }
+            stats: { processedCount, updatedCount, errorCount }
         });
 
     } catch (error) {
-        console.error('Import failed:', error);
-        if (connection) {
-            await connection.rollback();
-        }
+        if (connection) await connection.rollback();
         res.status(500).json({
             error: 'Failed to import data',
             details: error.message
         });
     } finally {
-        if (connection) {
-            await connection.end();
-        }
+        if (connection) await connection.end();
     }
 });
 
