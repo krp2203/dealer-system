@@ -2,7 +2,6 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import axios from 'axios';
-import type { AxiosError } from 'axios';
 import { API_URL, GOOGLE_MAPS_API_KEY } from '../config';
 
 interface DealerLocation {
@@ -91,6 +90,16 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
     }
 }
 
+// Define our own error interface
+interface ApiError {
+    response?: {
+        data?: {
+            error?: string;
+        };
+    };
+    message: string;
+}
+
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
 }> = ({ onDealerSelect }) => {
@@ -135,10 +144,11 @@ const DealerMap: React.FC<{
                 setDealers(validDealers);
             } catch (err) {
                 console.error('Error fetching dealer coordinates:', err);
-                // Type guard for Axios errors
-                if (err && typeof err === 'object' && 'isAxiosError' in err) {
-                    const axiosError = err as AxiosError<{error?: string}>;
-                    setError(`Failed to fetch dealer data: ${axiosError.response?.data?.error || axiosError.message}`);
+                
+                // Type guard for API errors
+                if (err && typeof err === 'object' && 'response' in err) {
+                    const apiError = err as ApiError;
+                    setError(`Failed to fetch dealer data: ${apiError.response?.data?.error || apiError.message}`);
                 } else if (err instanceof Error) {
                     setError(`Failed to fetch dealer data: ${err.message}`);
                 } else {
