@@ -93,18 +93,31 @@
 }
 
 .lines-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
     list-style: none;
     padding: 0;
     margin: 0;
 }
 
-.lines-list li {
-    padding: 5px 0;
-    border-bottom: 1px solid #eee;
+.line-item {
+    display: flex;
+    align-items: center;
+    padding: 4px 0;
 }
 
-.lines-list li:last-child {
-    border-bottom: none;
+.line-name {
+    width: 100px;
+    font-weight: 500;
+    color: #282c34;
+}
+
+.line-account {
+    color: #666;
+    margin-left: 8px;
+    font-size: 0.95em;
 }
 
 .dealer-details p {
