@@ -14,6 +14,7 @@ interface DealerLocation {
     lat: number;
     lng: number;
     SalesmanCode: string;
+    SalesmanName: string;
 }
 
 interface GeocodeResult {
