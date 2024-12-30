@@ -92,12 +92,14 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
 
 // Define our own error interface
 interface ApiError {
+    message: string;
     response?: {
         data?: {
             error?: string;
+            details?: string;
         };
+        status?: number;
     };
-    message: string;
 }
 
 const DealerMap: React.FC<{
@@ -124,12 +126,11 @@ const DealerMap: React.FC<{
         
         const fetchDealers = async () => {
             try {
-                console.log('Fetching dealer data from:', `${API_URL}/api/dealers/coordinates`);
+                console.log('Attempting to fetch dealers from:', `${API_URL}/api/dealers/coordinates`);
                 const response = await axios.get<DealerLocation[]>(`${API_URL}/api/dealers/coordinates`);
                 
-                if (!response.data || !Array.isArray(response.data)) {
-                    console.error('Invalid data received:', response.data);
-                    throw new Error('Invalid data format received from server');
+                if (!response.data) {
+                    throw new Error('No data received from server');
                 }
 
                 const validDealers = response.data.filter(d => {
@@ -143,16 +144,21 @@ const DealerMap: React.FC<{
                 console.log(`Got ${validDealers.length} dealers with valid coordinates`);
                 setDealers(validDealers);
             } catch (err) {
-                console.error('Error fetching dealer coordinates:', err);
-                
-                // Type guard for API errors
+                console.error('Error details:', {
+                    error: err,
+                    message: err instanceof Error ? err.message : 'Unknown error',
+                    response: (err as any)?.response
+                });
+
                 if (err && typeof err === 'object' && 'response' in err) {
                     const apiError = err as ApiError;
-                    setError(`Failed to fetch dealer data: ${apiError.response?.data?.error || apiError.message}`);
-                } else if (err instanceof Error) {
-                    setError(`Failed to fetch dealer data: ${err.message}`);
+                    const errorMessage = apiError.response?.data?.error 
+                        || apiError.response?.data?.details 
+                        || apiError.message 
+                        || 'Network error';
+                    setError(`Failed to fetch dealer data: ${errorMessage}`);
                 } else {
-                    setError('Failed to fetch dealer data: Unknown error');
+                    setError('Failed to connect to server. Please try again later.');
                 }
             } finally {
                 setLoading(false);

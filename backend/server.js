@@ -7,14 +7,7 @@ const axios = require('axios');
 const app = express();
 app.use(express.json());
 app.use(cors({
-    origin: [
-        'http://localhost:3000',
-        'http://35.212.41.99:3000',
-        'https://35.212.41.99:3000',
-        'http://localhost:3002',
-        // Add development URLs
-        process.env.FRONTEND_URL,
-    ].filter(Boolean),
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
@@ -25,7 +18,7 @@ app.use((err, req, res, next) => {
     console.error('Server error:', err);
     res.status(500).json({
         error: 'Internal server error',
-        message: err.message,
+        details: err.message,
         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
 });
