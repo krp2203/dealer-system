@@ -166,27 +166,15 @@ const DealerMap: React.FC<{
                     fullscreenControl: true
                 }}
             >
-                {dealers && dealers.map(dealer => {
-                    if (!dealer?.lat || !dealer?.lng) return null;
-                    
-                    // Convert string coordinates to numbers
-                    const position = {
-                        lat: typeof dealer.lat === 'string' ? parseFloat(dealer.lat) : dealer.lat,
-                        lng: typeof dealer.lng === 'string' ? parseFloat(dealer.lng) : dealer.lng
-                    };
+                {dealers.map((dealer, index) => {
+                    const uniqueKey = dealer.KPMDealerNumber.startsWith('SHIPTO:') 
+                        ? `${dealer.KPMDealerNumber}_${index}`
+                        : dealer.KPMDealerNumber;
 
                     return (
-                        <Marker
-                            key={dealer.KPMDealerNumber}
-                            position={position}
-                            onMouseOver={() => setHoveredDealer(dealer)}
-                            onMouseOut={() => {
-                                if (!isHoveringInfoWindow) {
-                                    setHoveredDealer(null);
-                                }
-                            }}
-                            onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
-                        />
+                        <div key={uniqueKey}>
+                            {/* Your marker and info window code */}
+                        </div>
                     );
                 })}
 
