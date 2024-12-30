@@ -39,6 +39,30 @@ console.log('Attempting to connect to database with config:', {
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
+// Add this function at the top with other imports
+const geocodeAddress = async (address) => {
+  try {
+    const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+      params: {
+        address: address,
+        key: GOOGLE_MAPS_API_KEY
+      }
+    });
+
+    if (response.data.results && response.data.results.length > 0) {
+      const location = response.data.results[0].geometry.location;
+      return {
+        lat: location.lat,
+        lng: location.lng
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return null;
+  }
+};
+
 // Get list of all dealers
 app.get('/api/dealers', async (req, res) => {
     console.log('Received request for dealers');
@@ -83,6 +107,8 @@ app.get('/api/dealers/coordinates', async (req, res) => {
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
+        console.log('Fetching dealers with coordinates...');
+        
         const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
@@ -101,6 +127,11 @@ app.get('/api/dealers/coordinates', async (req, res) => {
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
         `);
+        
+        console.log(`Found ${dealers.length} dealers with coordinates`);
+        if (dealers.length > 0) {
+            console.log('Sample dealer:', dealers[0]);
+        }
         
         res.json(dealers);
     } catch (error) {
@@ -338,21 +369,48 @@ app.post('/api/import', async (req, res) => {
                 const dealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
                 if (!dealerNumber) continue;
 
-                const salesmanCode = row[headers.indexOf('Salesman Code')]?.toString().trim();
-                
-                console.log('Processing dealer:', {
-                    dealerNumber,
-                    isShipto: dealerNumber.startsWith('SHIPTO:'),
-                    salesmanCode
-                });
-
                 const dealerData = {
                     dealerNumber,
                     dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
                     dba: row[headers.indexOf('DBA')]?.toString().trim(),
-                    salesmanCode: salesmanCode || null
+                    streetAddress: row[headers.indexOf('Street Address')]?.toString().trim(),
+                    city: row[headers.indexOf('City')]?.toString().trim(),
+                    state: row[headers.indexOf('State')]?.toString().trim(),
+                    zipCode: row[headers.indexOf('Zip Code')]?.toString().trim(),
+                    salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null
                 };
 
+                // Geocode the address if we have enough information
+                if (dealerData.streetAddress && dealerData.city && dealerData.state) {
+                    const fullAddress = `${dealerData.streetAddress}, ${dealerData.city}, ${dealerData.state} ${dealerData.zipCode}`;
+                    const coordinates = await geocodeAddress(fullAddress);
+                    
+                    if (coordinates) {
+                        // Update Addresses table with coordinates
+                        await connection.query(`
+                            INSERT INTO Addresses 
+                                (KPMDealerNumber, StreetAddress, City, State, ZipCode, lat, lng)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            ON DUPLICATE KEY UPDATE
+                                StreetAddress = VALUES(StreetAddress),
+                                City = VALUES(City),
+                                State = VALUES(State),
+                                ZipCode = VALUES(ZipCode),
+                                lat = VALUES(lat),
+                                lng = VALUES(lng)
+                        `, [
+                            dealerData.dealerNumber,
+                            dealerData.streetAddress,
+                            dealerData.city,
+                            dealerData.state,
+                            dealerData.zipCode,
+                            coordinates.lat,
+                            coordinates.lng
+                        ]);
+                    }
+                }
+
+                // Update Dealerships table
                 await connection.query(`
                     INSERT INTO Dealerships 
                         (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
@@ -362,7 +420,7 @@ app.post('/api/import', async (req, res) => {
                         DBA = VALUES(DBA),
                         SalesmanCode = ?
                 `, [
-                    dealerData.dealerNumber,  // Keep full dealer number including SHIPTO
+                    dealerData.dealerNumber,
                     dealerData.dealershipName,
                     dealerData.dba || '',
                     dealerData.salesmanCode,
@@ -373,7 +431,7 @@ app.post('/api/import', async (req, res) => {
                 updatedCount++;
             } catch (error) {
                 console.error('Error processing dealer:', {
-                    dealerNumber,
+                    dealerNumber: dealerData?.dealerNumber,
                     error: error.message
                 });
                 errorCount++;
@@ -381,7 +439,7 @@ app.post('/api/import', async (req, res) => {
         }
 
         await connection.commit();
-            res.json({ 
+        res.json({
             message: 'Import completed successfully',
             stats: { processedCount, updatedCount, errorCount }
         });
