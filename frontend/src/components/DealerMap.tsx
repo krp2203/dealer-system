@@ -103,6 +103,25 @@ interface SalesmanInfo {
     color: string;
 }
 
+// Predefined colors for markers
+const MARKER_COLORS = [
+    '#FF0000', // Red
+    '#00FF00', // Green
+    '#0000FF', // Blue
+    '#FFA500', // Orange
+    '#800080', // Purple
+    '#008080', // Teal
+    '#FF69B4', // Hot Pink
+    '#4B0082', // Indigo
+    '#FFD700', // Gold
+    '#00CED1', // Dark Turquoise
+    '#FF6347', // Tomato
+    '#32CD32', // Lime Green
+    '#BA55D3', // Medium Orchid
+    '#CD853F', // Peru
+    '#48D1CC'  // Medium Turquoise
+];
+
 const DealerMap: React.FC<{
     selectedDealer: string | null;
     onDealerSelect: (dealerNumber: string) => void;
@@ -113,44 +132,22 @@ const DealerMap: React.FC<{
     const [hoveredDealer, setHoveredDealer] = useState<DealerLocation | null>(null);
     const [isHoveringInfoWindow, setIsHoveringInfoWindow] = useState(false);
     const [salesmanColors, setSalesmanColors] = useState<{ [key: string]: SalesmanInfo }>({});
+    const [mapCenter, setMapCenter] = useState({ lat: 37.5, lng: -79.0 });
+    const [mapZoom, setMapZoom] = useState(6);
 
     const mapStyles = {
-        height: '100%',
         width: '100%',
-        minHeight: '600px'
+        height: '100%'
     };
 
     useEffect(() => {
-        // Clear all caches
-        localStorage.removeItem(CACHE_KEY);
-        
         const fetchDealers = async () => {
             try {
-                console.log('Fetching fresh dealer data...');
-                const response = await axios.get<DealerLocation[]>(`${API_URL}/api/dealers/coordinates`);
-                
-                if (!response.data || !Array.isArray(response.data)) {
-                    throw new Error('Invalid data received');
-                }
-
-                // Filter out dealers without coordinates
-                const validDealers = response.data.filter(d => d.lat && d.lng);
-                console.log(`Got ${validDealers.length} dealers with valid coordinates`);
-
-                if (validDealers.length > 0) {
-                    // Update cache
-                    localStorage.setItem(CACHE_KEY, JSON.stringify({
-                        timestamp: Date.now(),
-                        data: validDealers
-                    }));
-                    setDealers(validDealers);
-                } else {
-                    setError('No dealers found with valid coordinates');
-                }
-            } catch (error) {
-                console.error('Error fetching dealer coordinates:', error);
-                setError('Failed to fetch dealer coordinates');
-            } finally {
+                const response = await axios.get(`${API_URL}/api/dealers/coordinates`);
+                setDealers(response.data);
+                setLoading(false);
+            } catch (err) {
+                setError('Failed to fetch dealers');
                 setLoading(false);
             }
         };
@@ -161,11 +158,11 @@ const DealerMap: React.FC<{
     useEffect(() => {
         const fetchSalesmen = async () => {
             try {
-                const response = await axios.get(`${API_URL}/api/salesmen`);
+                const response = await axios.get<Array<{ SalesmanCode: string; SalesmanName: string }>>(`${API_URL}/api/salesmen`);
                 const salesmen = response.data;
                 
                 // Create color mapping for each salesman
-                const colorMap = salesmen.reduce((acc: { [key: string]: SalesmanInfo }, salesman: any, index: number) => {
+                const colorMap = salesmen.reduce((acc: { [key: string]: SalesmanInfo }, salesman, index) => {
                     acc[salesman.SalesmanCode] = {
                         name: salesman.SalesmanName,
                         color: MARKER_COLORS[index % MARKER_COLORS.length]
@@ -183,7 +180,7 @@ const DealerMap: React.FC<{
     }, []);
 
     if (loading) {
-        return <div className="map-container">Loading dealers...</div>;
+        return <div className="map-container">Loading...</div>;
     }
 
     if (error) {
@@ -214,23 +211,16 @@ const DealerMap: React.FC<{
                 options={{
                     zoomControl: true,
                     mapTypeControl: true,
-                    scaleControl: true,
-                    streetViewControl: true,
-                    rotateControl: true,
+                    streetViewControl: false,
                     fullscreenControl: true
                 }}
             >
-                {dealers.map((dealer, index) => {
-                    if (!dealer?.lat || !dealer?.lng) return null;
-                    
-                    // Convert string coordinates to numbers
+                {dealers.map((dealer) => {
                     const position = {
-                        lat: typeof dealer.lat === 'string' ? parseFloat(dealer.lat) : dealer.lat,
-                        lng: typeof dealer.lng === 'string' ? parseFloat(dealer.lng) : dealer.lng
+                        lat: dealer.lat,
+                        lng: dealer.lng
                     };
-
-                    // Use the full dealer number as the key
-                    const uniqueKey = dealer.KPMDealerNumber; // This will include SHIPTO: prefix if present
+                    const uniqueKey = `${dealer.KPMDealerNumber}-${dealer.lat}-${dealer.lng}`;
 
                     return (
                         <Marker
@@ -256,24 +246,14 @@ const DealerMap: React.FC<{
                         />
                     );
                 })}
-
-                {hoveredDealer && hoveredDealer.lat && hoveredDealer.lng && (
+                {hoveredDealer && (
                     <InfoWindow
-                        position={{
-                            lat: typeof hoveredDealer.lat === 'string' ? parseFloat(hoveredDealer.lat) : hoveredDealer.lat,
-                            lng: typeof hoveredDealer.lng === 'string' ? parseFloat(hoveredDealer.lng) : hoveredDealer.lng
-                        }}
+                        position={{ lat: hoveredDealer.lat, lng: hoveredDealer.lng }}
                         onCloseClick={() => setHoveredDealer(null)}
-                        options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
+                        onMouseOver={() => setIsHoveringInfoWindow(true)}
+                        onMouseOut={() => setIsHoveringInfoWindow(false)}
                     >
-                        <div 
-                            onMouseEnter={() => setIsHoveringInfoWindow(true)}
-                            onMouseLeave={() => {
-                                setIsHoveringInfoWindow(false);
-                                setHoveredDealer(null);
-                            }}
-                            style={{ padding: '8px', minWidth: '200px' }}
-                        >
+                        <div>
                             <h3>{hoveredDealer.DealershipName}</h3>
                             <p>{hoveredDealer.StreetAddress}</p>
                             <p>{hoveredDealer.City}, {hoveredDealer.State} {hoveredDealer.ZipCode}</p>

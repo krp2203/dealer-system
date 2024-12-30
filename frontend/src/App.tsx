@@ -18,7 +18,10 @@ function App() {
       <div className="main-content">
         <div className="map-section">
           <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
-            <DealerMap onDealerSelect={setSelectedDealerNumber} />
+            <DealerMap 
+                selectedDealer={selectedDealerNumber} 
+                onDealerSelect={setSelectedDealerNumber} 
+            />
           </LoadScript>
         </div>
         <div className="details-section">
