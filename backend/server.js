@@ -106,39 +106,14 @@ app.post('/api/import', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
         
-        // Check if columns exist first
+        // Check existing columns
         const [columns] = await connection.query(`
             SHOW COLUMNS FROM Addresses 
-            WHERE Field IN ('Latitude', 'Longitude')
+            WHERE Field IN ('lat', 'lng')
         `);
         
-        console.log('Existing columns:', columns);
-
-        // Add columns if they don't exist
-        if (columns.length < 2) {
-            console.log('Adding missing coordinate columns...');
-            try {
-                // Add Latitude if it doesn't exist
-                if (!columns.find(col => col.Field === 'Latitude')) {
-                    await connection.query(`
-                        ALTER TABLE Addresses
-                        ADD COLUMN Latitude DECIMAL(10,8)
-                    `);
-                }
-                
-                // Add Longitude if it doesn't exist
-                if (!columns.find(col => col.Field === 'Longitude')) {
-                    await connection.query(`
-                        ALTER TABLE Addresses
-                        ADD COLUMN Longitude DECIMAL(11,8)
-                    `);
-                }
-                console.log('Columns added successfully');
-            } catch (error) {
-                console.error('Error adding columns:', error);
-                throw error;
-            }
-        }
+        // We'll use the existing lat/lng columns since they're already working
+        console.log('Using existing coordinate columns:', columns);
 
         const { headers, rows } = req.body;
         
