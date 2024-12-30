@@ -393,89 +393,160 @@ app.post('/api/import', async (req, res) => {
                 const dealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
                 if (!dealerNumber) continue;
 
+                // Prepare all possible data
                 const dealerData = {
                     dealerNumber,
                     dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
                     dba: row[headers.indexOf('DBA')]?.toString().trim(),
+                    salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null,
+                    lastUpdated: row[headers.indexOf('Last Updated')]?.toString().trim()
+                };
+
+                const addressData = {
+                    boxNumber: row[headers.indexOf('Box Number')]?.toString().trim(),
                     streetAddress: row[headers.indexOf('Street Address')]?.toString().trim(),
                     city: row[headers.indexOf('City')]?.toString().trim(),
                     state: row[headers.indexOf('State')]?.toString().trim(),
                     zipCode: row[headers.indexOf('Zip Code')]?.toString().trim(),
-                    salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null
+                    mapAddress: row[headers.indexOf('Map Address')]?.toString().trim(),
+                    county: row[headers.indexOf('County')]?.toString().trim()
                 };
 
-                // First update Dealerships table
+                const contactData = {
+                    mainPhone: row[headers.indexOf('Main Phone')]?.toString().trim(),
+                    faxNumber: row[headers.indexOf('Fax Number')]?.toString().trim(),
+                    mainEmail: row[headers.indexOf('Main Email')]?.toString().trim(),
+                    secondEmail: row[headers.indexOf('Second Email')]?.toString().trim(),
+                    thirdEmail: row[headers.indexOf('Third Email')]?.toString().trim(),
+                    forthEmail: row[headers.indexOf('Forth Email')]?.toString().trim(),
+                    fifthEmail: row[headers.indexOf('Fifth Email')]?.toString().trim()
+                };
+
+                const accountData = {
+                    scag: row[headers.indexOf('Scag Account No')]?.toString().trim(),
+                    snowWay: row[headers.indexOf('Snow Way Account No')]?.toString().trim(),
+                    vortex: row[headers.indexOf('Vortex Account No')]?.toString().trim(),
+                    ybravo: row[headers.indexOf('Ybravo Account No')]?.toString().trim(),
+                    otr: row[headers.indexOf('OTR Account No.')]?.toString().trim(),
+                    ty: row[headers.indexOf('TY Account No')]?.toString().trim(),
+                    gg: row[headers.indexOf('GG Account No')]?.toString().trim(),
+                    vk: row[headers.indexOf('VK Account No')]?.toString().trim(),
+                    bluebird: row[headers.indexOf('Bluebird Account No')]?.toString().trim(),
+                    um: row[headers.indexOf('UM Account No')]?.toString().trim(),
+                    wright: row[headers.indexOf('Wright Account No.')]?.toString().trim()
+                };
+
+                const linesCarried = row[headers.indexOf('Lines Carried')]?.toString().trim();
+
+                // Update Dealerships table
                 await connection.query(`
                     INSERT INTO Dealerships 
-                        (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                    VALUES (?, ?, ?, ?)
+                        (KPMDealerNumber, DealershipName, DBA, SalesmanCode, LastUpdated)
+                    VALUES (?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
                         DealershipName = VALUES(DealershipName),
                         DBA = VALUES(DBA),
-                        SalesmanCode = ?
+                        SalesmanCode = VALUES(SalesmanCode),
+                        LastUpdated = VALUES(LastUpdated)
                 `, [
                     dealerData.dealerNumber,
                     dealerData.dealershipName,
                     dealerData.dba || '',
                     dealerData.salesmanCode,
-                    dealerData.salesmanCode
+                    dealerData.lastUpdated
                 ]);
 
-                // Then handle address and geocoding
-                if (dealerData.streetAddress && dealerData.city && dealerData.state) {
-                    const fullAddress = `${dealerData.streetAddress}, ${dealerData.city}, ${dealerData.state} ${dealerData.zipCode}`;
-                    console.log('Geocoding address:', fullAddress);
-                    
+                // Handle address and geocoding
+                if (addressData.streetAddress && addressData.city && addressData.state) {
+                    const fullAddress = `${addressData.streetAddress}, ${addressData.city}, ${addressData.state} ${addressData.zipCode}`;
                     const coordinates = await geocodeAddress(fullAddress);
                     
                     if (coordinates) {
-                        console.log('Got coordinates:', coordinates);
-                        
-                        // Check if address exists
-                        const [existingAddress] = await connection.query(
-                            'SELECT * FROM Addresses WHERE KPMDealerNumber = ?',
-                            [dealerData.dealerNumber]
-                        );
-
-                        if (existingAddress.length === 0) {
-                            // Insert new address
-                            await connection.query(`
-                                INSERT INTO Addresses 
-                                    (KPMDealerNumber, StreetAddress, City, State, ZipCode, lat, lng)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
-                            `, [
-                                dealerData.dealerNumber,
-                                dealerData.streetAddress,
-                                dealerData.city,
-                                dealerData.state,
-                                dealerData.zipCode,
-                                coordinates.lat,
-                                coordinates.lng
-                            ]);
-                        } else {
-                            // Update existing address
-                            await connection.query(`
-                                UPDATE Addresses 
-                                SET StreetAddress = ?,
-                                    City = ?,
-                                    State = ?,
-                                    ZipCode = ?,
-                                    lat = ?,
-                                    lng = ?
-                                WHERE KPMDealerNumber = ?
-                            `, [
-                                dealerData.streetAddress,
-                                dealerData.city,
-                                dealerData.state,
-                                dealerData.zipCode,
-                                coordinates.lat,
-                                coordinates.lng,
-                                dealerData.dealerNumber
-                            ]);
-                        }
-                    } else {
-                        console.error('Failed to geocode address:', fullAddress);
+                        await connection.query(`
+                            INSERT INTO Addresses 
+                                (KPMDealerNumber, BoxNumber, StreetAddress, City, State, ZipCode, 
+                                 MapAddress, County, lat, lng)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ON DUPLICATE KEY UPDATE
+                                BoxNumber = VALUES(BoxNumber),
+                                StreetAddress = VALUES(StreetAddress),
+                                City = VALUES(City),
+                                State = VALUES(State),
+                                ZipCode = VALUES(ZipCode),
+                                MapAddress = VALUES(MapAddress),
+                                County = VALUES(County),
+                                lat = VALUES(lat),
+                                lng = VALUES(lng)
+                        `, [
+                            dealerData.dealerNumber,
+                            addressData.boxNumber,
+                            addressData.streetAddress,
+                            addressData.city,
+                            addressData.state,
+                            addressData.zipCode,
+                            addressData.mapAddress,
+                            addressData.county,
+                            coordinates.lat,
+                            coordinates.lng
+                        ]);
                     }
+                }
+
+                // Update ContactInformation table
+                if (Object.values(contactData).some(val => val)) {
+                    await connection.query(`
+                        INSERT INTO ContactInformation 
+                            (KPMDealerNumber, MainPhone, FaxNumber, MainEmail, 
+                             SecondEmail, ThirdEmail, ForthEmail, FifthEmail)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            MainPhone = VALUES(MainPhone),
+                            FaxNumber = VALUES(FaxNumber),
+                            MainEmail = VALUES(MainEmail),
+                            SecondEmail = VALUES(SecondEmail),
+                            ThirdEmail = VALUES(ThirdEmail),
+                            ForthEmail = VALUES(ForthEmail),
+                            FifthEmail = VALUES(FifthEmail)
+                    `, [
+                        dealerData.dealerNumber,
+                        contactData.mainPhone,
+                        contactData.faxNumber,
+                        contactData.mainEmail,
+                        contactData.secondEmail,
+                        contactData.thirdEmail,
+                        contactData.forthEmail,
+                        contactData.fifthEmail
+                    ]);
+                }
+
+                // Update LinesCarried table
+                if (linesCarried) {
+                    await connection.query(`
+                        INSERT INTO LinesCarried 
+                            (KPMDealerNumber, LineName)
+                        VALUES (?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            LineName = VALUES(LineName)
+                    `, [
+                        dealerData.dealerNumber,
+                        linesCarried
+                    ]);
+                }
+
+                // Update AccountNumbers table
+                const accountEntries = Object.entries(accountData).filter(([_, value]) => value);
+                for (const [type, number] of accountEntries) {
+                    await connection.query(`
+                        INSERT INTO AccountNumbers 
+                            (KPMDealerNumber, AccountType, AccountNumber)
+                        VALUES (?, ?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            AccountNumber = VALUES(AccountNumber)
+                    `, [
+                        dealerData.dealerNumber,
+                        type,
+                        number
+                    ]);
                 }
 
                 processedCount++;
@@ -490,7 +561,7 @@ app.post('/api/import', async (req, res) => {
         }
 
         await connection.commit();
-            res.json({ 
+        res.json({
             message: 'Import completed successfully',
             stats: { processedCount, updatedCount, errorCount }
         });
