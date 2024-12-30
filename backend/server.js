@@ -362,343 +362,133 @@ app.post('/api/import', async (req, res) => {
     try {
         const { headers, rows } = req.body;
         
-        // Validate input
-        if (!headers || !rows || !Array.isArray(headers) || !Array.isArray(rows)) {
-            throw new Error('Invalid input format');
-        }
+        // Initial data validation logging
+        console.log('=== IMPORT STARTED ===');
+        console.log('Received data:', {
+            headerCount: headers.length,
+            rowCount: rows.length,
+            headers: headers
+        });
 
         connection = await mysql.createConnection(dbConfig);
-        await connection.beginTransaction(); // Start transaction
+        await connection.beginTransaction();
 
-        // Get all valid salesman codes at the start
+        // Get valid salesman codes
         const [salesmanList] = await connection.query('SELECT SalesmanCode, SalesmanName FROM Salesman');
         const validSalesmanCodes = new Map(salesmanList.map(s => [s.SalesmanCode, s.SalesmanName]));
+        console.log('Valid salesman codes:', Array.from(validSalesmanCodes.keys()));
 
-        // Log starting import
-        console.log('Starting import with headers:', headers);
-        console.log('Salesman Code column index:', headers.indexOf('Salesman Code'));
+        let processedCount = 0;
+        let updatedCount = 0;
+        let errorCount = 0;
 
         // Process each row
         for (const row of rows) {
-            if (!row[0]) continue;
-
-            // Add detailed logging for each row
-            console.log('Processing row:', {
-                dealerNumber: row[headers.indexOf('KPM Dealer Number')],
-                salesmanCodeIndex: headers.indexOf('Salesman Code'),
-                rawSalesmanCode: row[headers.indexOf('Salesman Code')],
-                rowData: row
-            });
-
-            // Map column indices
-            const getColumnValue = (columnName) => {
-                let index = headers.indexOf(columnName);
-                
-                // Special handling for Salesman Code
-                if (columnName === 'Salesman Code') {
-                    console.log('Looking for Salesman Code:', {
-                        exactMatch: index,
-                        headers: headers,
-                        possibleValue: row[index],
-                        allHeaders: headers.join(', ')
-                    });
-                }
-                
-                const value = index >= 0 ? row[index]?.toString().trim() || '' : '';
-                
-                // Additional logging for salesman code
-                if (columnName === 'Salesman Code') {
-                    console.log('Found value:', {
-                        columnName,
-                        index,
-                        rawValue: row[index],
-                        processedValue: value
-                    });
-                }
-                
-                return value;
-            };
-
-            const dealerNumber = getColumnValue('KPM Dealer Number');
-            const dealershipName = getColumnValue('Dealership Name');
-            const dba = getColumnValue('DBA');
-            const boxNumber = getColumnValue('Box Number');
-            const streetAddress = getColumnValue('Street Address');
-            const city = getColumnValue('City');
-            const state = getColumnValue('State');
-            const zipCode = getColumnValue('Zip Code');
-            const mainPhone = getColumnValue('Main Phone');
-            const faxNumber = getColumnValue('Fax Number');
-            const county = getColumnValue('County');
-            const mainEmail = getColumnValue('Main Email');
-            let salesmanCode = getColumnValue('Salesman Code');
-            console.log('Processing salesman:', {
-                rawCode: salesmanCode,
-                validCodes: Array.from(validSalesmanCodes.keys()),
-                headers: headers
-            });
-
-            // Skip if no dealer number
-            if (!dealerNumber) continue;
-
-            // Check if the provided code is valid
-            if (salesmanCode) {
-                // Clean up the salesman code
-                salesmanCode = salesmanCode.toString().trim();
-                
-                // Log the salesman code lookup
-                console.log('Looking up salesman code:', salesmanCode);
-                console.log('Valid codes:', Array.from(validSalesmanCodes.keys()));
-                
-                if (!validSalesmanCodes.has(salesmanCode)) {
-                    console.warn(`Invalid salesman code ${salesmanCode} for dealer ${dealerNumber}`);
-                    
-                    // Try to match numeric code
-                    const numericCode = salesmanCode.replace(/\D/g, '');
-                    console.log('Trying numeric code:', numericCode);
-                    
-                    if (validSalesmanCodes.has(numericCode)) {
-                        salesmanCode = numericCode;
-                        console.log(`Matched salesman code ${salesmanCode} (${validSalesmanCodes.get(salesmanCode)})`);
-                    } else {
-                        salesmanCode = null;
-                        console.log(`No valid salesman code match found for ${dealerNumber}`);
-                    }
-                }
-            }
-
-            // Add debug logging for salesman code
-            console.log('Processing salesman code:', {
-                dealerNumber,
-                dealershipName,
-                originalCode: getColumnValue('Salesman Code'),
-                processedCode: salesmanCode,
-                isValid: salesmanCode ? validSalesmanCodes.has(salesmanCode) : false
-            });
-
-            // Handle Lines Carried
-            const lineColumns = {
-                'Scag Account No': 'Scag',
-                'Snow Way Account No': 'Snow Way',
-                'Vortex Account No': 'Vortex',
-                'Ybravo Account No': 'Ybravo',
-                'OTR Account No.': 'OTR',
-                'TY Account No': 'TY',
-                'GG Account No': 'GG',
-                'VK Account No': 'VK',
-                'Bluebird Account No': 'Bluebird',
-                'UM Account No': 'UM',
-                'Wright Account No.': 'Wright'
-            };
-
             try {
-                // Inside the import loop, before the update
-                console.log('Starting dealer import:', {
+                const dealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
+                if (!dealerNumber) continue;
+
+                const dealerData = {
                     dealerNumber,
-                    salesmanCode,
-                    headers: headers.join(', ')
-                });
+                    dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
+                    dba: row[headers.indexOf('DBA')]?.toString().trim(),
+                    salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim(),
+                    // Add other fields as needed
+                };
 
-                // Inside the import loop, update the dealer lookup
-                const cleanDealerNumber = (num) => num.toString().replace(/[^0-9]/g, '');
+                console.log('Processing dealer:', dealerData);
 
-                // First check if dealer exists and get current data
-                const [existingDealer] = await connection.query(`
-                    SELECT * FROM Dealerships 
-                    WHERE REPLACE(KPMDealerNumber, '*', '') = ?
-                `, [cleanDealerNumber(dealerNumber)]);
-
-                console.log('Processing dealer update:', {
-                    dealerNumber,
-                    dealershipName,
-                    currentData: existingDealer[0],
-                    newData: {
-                        dealerNumber,
-                        dealershipName,
-                        dba,
-                        salesmanCode
-                    }
-                });
+                // Check if dealer exists
+                const [existingDealer] = await connection.query(
+                    'SELECT * FROM Dealerships WHERE KPMDealerNumber = ?', 
+                    [dealerNumber]
+                );
 
                 if (existingDealer.length > 0) {
-                    // First, insert the new dealer record with a temporary number
-                    const tempDealerNumber = dealerNumber + '_temp';
-                    await connection.query(`
-                        INSERT INTO Dealerships 
-                            (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                        VALUES (?, ?, ?, ?)
-                    `, [tempDealerNumber, dealershipName, dba || '', salesmanCode]);
+                    console.log(`Updating existing dealer ${dealerNumber}:`, {
+                        current: existingDealer[0],
+                        new: dealerData
+                    });
 
-                    // Update related tables to use temporary number
-                    await connection.query(`
-                        UPDATE Addresses 
-                        SET KPMDealerNumber = ?
-                        WHERE KPMDealerNumber = ?
-                    `, [tempDealerNumber, existingDealer[0].KPMDealerNumber]);
-
-                    await connection.query(`
-                        UPDATE ContactInformation 
-                        SET KPMDealerNumber = ?
-                        WHERE KPMDealerNumber = ?
-                    `, [tempDealerNumber, existingDealer[0].KPMDealerNumber]);
-
-                    await connection.query(`
-                        UPDATE LinesCarried 
-                        SET KPMDealerNumber = ?
-                        WHERE KPMDealerNumber = ?
-                    `, [tempDealerNumber, existingDealer[0].KPMDealerNumber]);
-
-                    // Delete the old dealer record
-                    await connection.query(`
-                        DELETE FROM Dealerships 
-                        WHERE KPMDealerNumber = ?
-                    `, [existingDealer[0].KPMDealerNumber]);
-
-                    // Update temporary record to final number
+                    // Update existing dealer
                     await connection.query(`
                         UPDATE Dealerships 
-                        SET KPMDealerNumber = ?
+                        SET 
+                            DealershipName = ?,
+                            DBA = ?,
+                            SalesmanCode = ?
                         WHERE KPMDealerNumber = ?
-                    `, [dealerNumber, tempDealerNumber]);
+                    `, [
+                        dealerData.dealershipName,
+                        dealerData.dba || '',
+                        dealerData.salesmanCode || null,
+                        dealerNumber
+                    ]);
 
-                    // Update related tables to final number
-                    await connection.query(`
-                        UPDATE Addresses 
-                        SET KPMDealerNumber = ?
-                        WHERE KPMDealerNumber = ?
-                    `, [dealerNumber, tempDealerNumber]);
-
-                    await connection.query(`
-                        UPDATE ContactInformation 
-                        SET KPMDealerNumber = ?
-                        WHERE KPMDealerNumber = ?
-                    `, [dealerNumber, tempDealerNumber]);
-
-                    await connection.query(`
-                        UPDATE LinesCarried 
-                        SET KPMDealerNumber = ?
-                        WHERE KPMDealerNumber = ?
-                    `, [dealerNumber, tempDealerNumber]);
+                    updatedCount++;
                 } else {
-                    // For new dealers, just insert normally
+                    console.log(`Inserting new dealer ${dealerNumber}:`, dealerData);
+
+                    // Insert new dealer
                     await connection.query(`
                         INSERT INTO Dealerships 
                             (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
                         VALUES (?, ?, ?, ?)
-                    `, [dealerNumber, dealershipName, dba || '', salesmanCode]);
+                    `, [
+                        dealerNumber,
+                        dealerData.dealershipName,
+                        dealerData.dba || '',
+                        dealerData.salesmanCode || null
+                    ]);
                 }
 
                 // Verify the update
-                const [verifyResult] = await connection.query(`
-                    SELECT * FROM Dealerships WHERE REPLACE(KPMDealerNumber, '*', '') = ?
-                `, [cleanDealerNumber(dealerNumber)]);
+                const [verifyResult] = await connection.query(
+                    'SELECT * FROM Dealerships WHERE KPMDealerNumber = ?',
+                    [dealerNumber]
+                );
+                console.log(`Verification for ${dealerNumber}:`, verifyResult[0]);
 
-                console.log('After update:', {
-                    dealerNumber,
-                    before: existingDealer[0],
-                    after: verifyResult[0]
-                });
-
-                // Update Addresses table
-                await connection.query(`
-                    INSERT INTO Addresses 
-                        (KPMDealerNumber, StreetAddress, BoxNumber, City, State, ZipCode, County)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        StreetAddress = VALUES(StreetAddress),
-                        BoxNumber = VALUES(BoxNumber),
-                        City = VALUES(City),
-                        State = VALUES(State),
-                        ZipCode = VALUES(ZipCode),
-                        County = VALUES(County)
-                `, [dealerNumber, streetAddress, boxNumber, city, state, zipCode, county]);
-
-                // Update ContactInformation table
-                await connection.query(`
-                    INSERT INTO ContactInformation 
-                        (KPMDealerNumber, MainPhone, FaxNumber, MainEmail)
-                    VALUES (?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        MainPhone = VALUES(MainPhone),
-                        FaxNumber = VALUES(FaxNumber),
-                        MainEmail = VALUES(MainEmail)
-                `, [dealerNumber, mainPhone, faxNumber, mainEmail]);
-
-                // Handle Lines Carried
-                await connection.query('DELETE FROM LinesCarried WHERE KPMDealerNumber = ?', [dealerNumber]);
-                for (const [column, lineName] of Object.entries(lineColumns)) {
-                    const accountNumber = getColumnValue(column);
-                    if (accountNumber) {
-                        await connection.query(`
-                            INSERT INTO LinesCarried (KPMDealerNumber, LineName, AccountNumber)
-                            VALUES (?, ?, ?)
-                        `, [dealerNumber, lineName, accountNumber]);
-                    }
-                }
-
-                // Add geocoding for new addresses
-                if (streetAddress && city && state && zipCode) {
-                    const address = `${streetAddress}, ${city}, ${state} ${zipCode}`;
-                    try {
-                        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
-                        const response = await axios.get(geocodeUrl);
-                        
-                        if (response.data.status === 'OK' && response.data.results[0]?.geometry?.location) {
-                            const { lat, lng } = response.data.results[0].geometry.location;
-                            
-                            // Update coordinates in Addresses table
-                            await connection.query(`
-                                UPDATE Addresses 
-                                SET lat = ?, lng = ?
-                                WHERE KPMDealerNumber = ?
-                            `, [lat, lng, dealerNumber]);
-                            
-                            console.log(`Updated coordinates for ${dealerNumber}: ${lat}, ${lng}`);
-                        } else {
-                            console.warn(`Failed to geocode address for dealer ${dealerNumber}: ${address}`);
-                        }
-                    } catch (error) {
-                        console.warn(`Geocoding error for ${dealerNumber}:`, error.message);
-                        // Don't throw error for geocoding failures - continue with import
-                    }
-                }
-
-                // After the update
-                const [result] = await connection.query(`
-                    SELECT * FROM Dealerships WHERE KPMDealerNumber = ?
-                `, [dealerNumber]);
-                console.log('After update:', result[0]);
-
+                processedCount++;
             } catch (error) {
-                await connection.rollback();
-                throw error;
+                console.error(`Error processing row:`, {
+                    row,
+                    error: error.message
+                });
+                errorCount++;
             }
         }
 
-        // Commit the transaction if everything succeeded
         await connection.commit();
+        
+        console.log('=== IMPORT COMPLETED ===');
+        console.log('Results:', {
+            processed: processedCount,
+            updated: updatedCount,
+            errors: errorCount
+        });
 
-        res.json({ 
+        res.json({
             message: 'Import completed successfully',
-            rowsProcessed: rows.length 
+            stats: {
+                processed: processedCount,
+                updated: updatedCount,
+                errors: errorCount
+            }
         });
 
     } catch (error) {
+        console.error('Import failed:', error);
         if (connection) {
             await connection.rollback();
         }
-        console.error('Import error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to import data',
-            details: error.message 
+            details: error.message
         });
     } finally {
         if (connection) {
-            try {
-                await connection.end();
-            } catch (err) {
-                console.error('Error closing connection:', err);
-            }
+            await connection.end();
         }
     }
 });
