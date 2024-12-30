@@ -51,9 +51,9 @@ app.get('/api/dealers', async (req, res) => {
             WHERE Field IN ('Latitude', 'Longitude')
         `);
         
-        // Build the query based on available columns
-        const hasCoordinates = columns.length === 2;
-        const query = `
+        console.log('Address columns:', columns);
+        
+        const [rows] = await connection.query(`
             SELECT DISTINCT 
                 d.KPMDealerNumber,
                 d.DealershipName,
@@ -63,15 +63,25 @@ app.get('/api/dealers', async (req, res) => {
                 a.StreetAddress,
                 a.City,
                 a.State,
-                a.ZipCode
-                ${hasCoordinates ? ', a.Latitude, a.Longitude' : ''}
+                a.ZipCode,
+                a.Latitude,
+                a.Longitude
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             ORDER BY d.DealershipName
-        `;
+        `);
+
+        // Log a few sample dealers with their coordinates
+        console.log('Sample dealers with coordinates:', 
+            rows.slice(0, 3).map(d => ({
+                name: d.DealershipName,
+                address: d.StreetAddress,
+                lat: d.Latitude,
+                lng: d.Longitude
+            }))
+        );
         
-        const [rows] = await connection.query(query);
         res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
