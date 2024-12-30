@@ -363,10 +363,12 @@ app.post('/api/import', async (req, res) => {
         const { headers, rows } = req.body;
         
         console.log('=== IMPORT STARTED ===');
-        console.log('Received data:', {
-            headerCount: headers.length,
-            rowCount: rows.length,
-            headers: headers
+        // Log the exact column name for Salesman Code
+        const salesmanCodeIndex = headers.indexOf('Salesman Code');
+        console.log('Salesman Code column:', {
+            index: salesmanCodeIndex,
+            columnName: headers[salesmanCodeIndex],
+            exists: salesmanCodeIndex !== -1
         });
 
         connection = await mysql.createConnection(dbConfig);
@@ -382,16 +384,27 @@ app.post('/api/import', async (req, res) => {
                 const dealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
                 if (!dealerNumber) continue;
 
+                const salesmanCode = row[salesmanCodeIndex]?.toString().trim();
+                
+                // Log the raw data we're processing
+                console.log('Processing dealer data:', {
+                    dealerNumber,
+                    rawSalesmanCode: row[salesmanCodeIndex],
+                    processedSalesmanCode: salesmanCode,
+                    fullRow: row
+                });
+
                 const dealerData = {
                     dealerNumber,
                     dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
                     dba: row[headers.indexOf('DBA')]?.toString().trim(),
-                    salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim(),
+                    salesmanCode: salesmanCode || null  // Ensure null if empty
                 };
 
-                console.log('Processing dealer:', dealerData);
+                // Log the query parameters
+                console.log('Updating dealer:', dealerData);
 
-                // Simple UPSERT using ON DUPLICATE KEY UPDATE
+                // Explicitly update the salesman code
                 await connection.query(`
                     INSERT INTO Dealerships 
                         (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
@@ -399,20 +412,26 @@ app.post('/api/import', async (req, res) => {
                     ON DUPLICATE KEY UPDATE
                         DealershipName = VALUES(DealershipName),
                         DBA = VALUES(DBA),
-                        SalesmanCode = VALUES(SalesmanCode)
+                        SalesmanCode = ?  -- Explicitly set salesman code
                 `, [
                     dealerNumber,
                     dealerData.dealershipName,
                     dealerData.dba || '',
-                    dealerData.salesmanCode || null
+                    dealerData.salesmanCode,
+                    dealerData.salesmanCode  // Pass salesmanCode again for UPDATE
                 ]);
 
-                // Verify the update
+                // Verify the update immediately
                 const [verifyResult] = await connection.query(
                     'SELECT * FROM Dealerships WHERE KPMDealerNumber = ?',
                     [dealerNumber]
                 );
-                console.log(`Verification for ${dealerNumber}:`, verifyResult[0]);
+                console.log('Verification after update:', {
+                    dealerNumber,
+                    beforeSalesmanCode: salesmanCode,
+                    afterSalesmanCode: verifyResult[0]?.SalesmanCode,
+                    fullRecord: verifyResult[0]
+                });
 
                 processedCount++;
                 updatedCount++;
