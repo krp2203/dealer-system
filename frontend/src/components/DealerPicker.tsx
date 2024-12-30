@@ -41,14 +41,17 @@ const LINE_MAPPINGS: { [key: string]: string } = {
     'SG': 'Scag',
     'SW': 'Snow Way',
     'VX': 'Vortex',
-    'YB': 'Ybravo',
-    'OT': 'OTR',
+    'YB': 'Ybrovo',
+    'OT': 'OTR Tire',
     'TY': 'Toyotomi',
     'GG': 'Grass Gobbler',
     'VK': 'Velke',
-    'BB': 'Bluebird',
-    'UM': 'U-Mount',
-    'WR': 'Wright'
+    'BB': 'Blue Bird',
+    'UM': 'Umount',
+    'WM': 'Wright',
+    'GC': 'Grass Catcher',
+    'RE': 'Rinnai',
+    'TI': 'Timbrin'
 };
 
 interface FormattedLine {
@@ -56,28 +59,26 @@ interface FormattedLine {
     accountNumber?: string;
 }
 
-const formatLinesCarried = (lines: any): FormattedLine[] => {
-    if (!lines) return [];
+interface LineInfo {
+    code: string;
+    accountNumber?: string;
+}
+
+const formatLinesCarried = (lines: LineInfo[]): FormattedLine[] => {
+    if (!Array.isArray(lines)) return [];
     
-    const expandLineName = (line: string): FormattedLine => {
-        // Split by ' - Account: ' to separate name and account number
-        const [fullName, accountNumber] = line.trim().split(' - Account: ');
-        const code = fullName.split(' ')[0];  // Get the code (SG, SW, etc.)
-        
-        return {
-            name: LINE_MAPPINGS[code] || code,
-            accountNumber: accountNumber
-        };
-    };
-    
-    if (typeof lines === 'string') {
-        return lines
-            .split(',')
-            .map(expandLineName)
-            .filter(line => line.name);
-    }
-    
-    return [];
+    // Sort lines by their display names
+    return lines
+        .map(line => ({
+            name: LINE_MAPPINGS[line.code] || line.code,
+            accountNumber: line.accountNumber,
+            originalCode: line.code // Keep original code for sorting
+        }))
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+        .map(({ name, accountNumber }) => ({
+            name,
+            accountNumber
+        }));
 };
 
 const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
