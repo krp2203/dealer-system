@@ -359,6 +359,7 @@ app.post('/api/import', async (req, res) => {
         updatedCount: 0,
         errorCount: 0
     };
+    let currentDealerNumber = null; // Add this to track current dealer
 
     try {
         const { headers, rows } = req.body;
@@ -368,12 +369,12 @@ app.post('/api/import', async (req, res) => {
 
         for (const row of rows) {
             try {
-                const dealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
-                if (!dealerNumber) continue;
+                currentDealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
+                if (!currentDealerNumber) continue;
 
                 // Prepare all possible data
                 const dealerData = {
-                    dealerNumber,
+                    dealerNumber: currentDealerNumber,
                     dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
                     dba: row[headers.indexOf('DBA')]?.toString().trim(),
                     salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null,
@@ -531,7 +532,7 @@ app.post('/api/import', async (req, res) => {
                 stats.updatedCount++;
             } catch (error) {
                 console.error('Error processing dealer:', {
-                    dealerNumber: dealerData?.dealerNumber,
+                    dealerNumber: currentDealerNumber,
                     error: error.message
                 });
                 stats.errorCount++;
@@ -540,7 +541,6 @@ app.post('/api/import', async (req, res) => {
 
         await connection.commit();
         
-        // Ensure we always send stats in the response
         res.json({
             success: true,
             message: 'Import completed successfully',
@@ -549,7 +549,11 @@ app.post('/api/import', async (req, res) => {
 
     } catch (error) {
         if (connection) await connection.rollback();
-        // Even on error, send stats
+        console.error('Import error:', {
+            dealerNumber: currentDealerNumber,
+            error: error.message,
+            stack: error.stack
+        });
         res.status(500).json({
             success: false,
             error: 'Failed to import data',
