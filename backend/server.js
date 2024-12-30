@@ -544,6 +544,28 @@ app.get('/api/dealers/:dealerNumber/details', async (req, res) => {
     }
 });
 
+// Add this new endpoint to get all salesmen
+app.get('/api/salesmen', async (req, res) => {
+    let connection;
+    try {
+        connection = await mysql.createConnection(dbConfig);
+        const [salesmen] = await connection.query(`
+            SELECT DISTINCT 
+                SalesmanCode,
+                SalesmanName
+            FROM Salesman
+            ORDER BY SalesmanName
+        `);
+        
+        res.json(salesmen);
+    } catch (error) {
+        console.error('Error fetching salesmen:', error);
+        res.status(500).json({ error: 'Failed to fetch salesmen' });
+    } finally {
+        if (connection) await connection.end();
+    }
+});
+
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

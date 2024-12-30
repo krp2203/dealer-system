@@ -104,31 +104,25 @@ interface SalesmanInfo {
     color: string;
 }
 
-// Define salesman colors with their names
-const SALESMAN_COLORS: { [key: string]: SalesmanInfo } = {
-    '48': { name: 'Kurt Schreier', color: '#FF0000' },    // Red
-    '49': { name: 'Jeff Behrens', color: '#00FF00' },     // Green
-    '50': { name: 'Mike Roche', color: '#0000FF' },       // Blue
-    // Add more salesmen as needed
-};
-
-const DEFAULT_MARKER_COLOR = '#808080'; // Gray for unknown salesmen
-
-// Add the Legend component
-const Legend: React.FC = () => (
-    <div className="map-legend">
-        <h4>Salesmen</h4>
-        {Object.entries(SALESMAN_COLORS).map(([code, info]) => (
-            <div key={code} className="legend-item">
-                <span 
-                    className="legend-color" 
-                    style={{ backgroundColor: info.color }}
-                />
-                <span className="legend-text">{info.name}</span>
-            </div>
-        ))}
-    </div>
-);
+// Predefined colors for markers (you can adjust these colors)
+const MARKER_COLORS = [
+    '#FF0000', // Red
+    '#00FF00', // Green
+    '#0000FF', // Blue
+    '#FFA500', // Orange
+    '#800080', // Purple
+    '#008080', // Teal
+    '#FF69B4', // Hot Pink
+    '#4B0082', // Indigo
+    '#FFD700', // Gold
+    '#00CED1', // Dark Turquoise
+    '#FF6347', // Tomato
+    '#32CD32', // Lime Green
+    '#BA55D3', // Medium Orchid
+    '#CD853F', // Peru
+    '#48D1CC', // Medium Turquoise
+    // Add more colors as needed
+];
 
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
@@ -141,6 +135,7 @@ const DealerMap: React.FC<{
     const [error, setError] = useState<string | null>(null);
     const [hoveredDealer, setHoveredDealer] = useState<DealerLocation | null>(null);
     const [isHoveringInfoWindow, setIsHoveringInfoWindow] = useState(false);
+    const [salesmanColors, setSalesmanColors] = useState<{ [key: string]: SalesmanInfo }>({});
 
     const mapStyles = {
         height: '100%',
@@ -186,6 +181,30 @@ const DealerMap: React.FC<{
         fetchDealers();
     }, []);
 
+    useEffect(() => {
+        const fetchSalesmen = async () => {
+            try {
+                const response = await axios.get(`${API_URL}/api/salesmen`);
+                const salesmen = response.data;
+                
+                // Create color mapping for each salesman
+                const colorMap = salesmen.reduce((acc: { [key: string]: SalesmanInfo }, salesman: any, index: number) => {
+                    acc[salesman.SalesmanCode] = {
+                        name: salesman.SalesmanName,
+                        color: MARKER_COLORS[index % MARKER_COLORS.length]
+                    };
+                    return acc;
+                }, {});
+                
+                setSalesmanColors(colorMap);
+            } catch (error) {
+                console.error('Error fetching salesmen:', error);
+            }
+        };
+        
+        fetchSalesmen();
+    }, []);
+
     if (loading) {
         return <div className="map-container">Loading dealers...</div>;
     }
@@ -228,8 +247,8 @@ const DealerMap: React.FC<{
                             icon={{
                                 path: window.google.maps.SymbolPath.CIRCLE,
                                 fillColor: dealer.SalesmanCode ? 
-                                    SALESMAN_COLORS[dealer.SalesmanCode]?.color || DEFAULT_MARKER_COLOR :
-                                    DEFAULT_MARKER_COLOR,
+                                    salesmanColors[dealer.SalesmanCode]?.color || '#808080' :
+                                    '#808080',
                                 fillOpacity: 1,
                                 strokeWeight: 1,
                                 strokeColor: '#FFFFFF',
@@ -274,5 +293,20 @@ const DealerMap: React.FC<{
         </div>
     );
 };
+
+const Legend: React.FC = () => (
+    <div className="map-legend">
+        <h4>Salesmen</h4>
+        {Object.entries(salesmanColors).map(([code, info]) => (
+            <div key={code} className="legend-item">
+                <span 
+                    className="legend-color" 
+                    style={{ backgroundColor: info.color }}
+                />
+                <span className="legend-text">{info.name}</span>
+            </div>
+        ))}
+    </div>
+);
 
 export default DealerMap; 
