@@ -25,7 +25,10 @@ interface DealerDetails {
         FaxNumber: string;
         MainEmail: string;
     };
-    lines: string;
+    lines: string | Array<{
+        LineName: string;
+        AccountNumber?: string;
+    }>;
     salesman: {
         SalesmanName: string;
         SalesmanCode: string;
@@ -34,9 +37,24 @@ interface DealerDetails {
 
 const API_URL = 'http://35.212.41.99:3002';
 
-const formatLinesCarried = (lines: string) => {
+const formatLinesCarried = (lines: any): string => {
     if (!lines) return '';
-    return lines.split(',').map(line => line.trim()).join(', ');
+    
+    // If lines is already an array, join it
+    if (Array.isArray(lines)) {
+        return lines.map(line => 
+            typeof line === 'string' ? line.trim() : 
+            typeof line === 'object' && line.LineName ? line.LineName.trim() : ''
+        ).filter(Boolean).join(', ');
+    }
+    
+    // If lines is a string, split and join
+    if (typeof lines === 'string') {
+        return lines.split(',').map(line => line.trim()).join(', ');
+    }
+    
+    // If it's neither, return empty string
+    return '';
 };
 
 const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
