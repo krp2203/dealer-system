@@ -105,19 +105,17 @@
 .line-item {
     display: flex;
     align-items: center;
-    padding: 4px 0;
+    padding: 2px 0;
 }
 
 .line-name {
-    width: 100px;
+    min-width: 80px;
     font-weight: 500;
-    color: #282c34;
 }
 
 .line-account {
     color: #666;
-    margin-left: 8px;
-    font-size: 0.95em;
+    margin-left: 4px;
 }
 
 .dealer-details p {

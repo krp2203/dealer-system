@@ -60,12 +60,24 @@ const formatLinesCarried = (lines: any): FormattedLine[] => {
     if (!lines) return [];
     
     const expandLineName = (line: string): FormattedLine => {
-        // Remove any (P) suffix and split by ':'
-        const [code, accountNumber] = line.trim().replace(/\(P\)$/, '').split(':').map(s => s.trim());
-        return {
-            name: LINE_MAPPINGS[code] || code,
-            accountNumber: accountNumber
-        };
+        // Split by spaces and look for "Account:" pattern
+        const parts = line.trim().split(/\s+/);
+        const accountIndex = parts.findIndex(p => p.toLowerCase() === 'account:');
+        
+        if (accountIndex !== -1) {
+            // If we found "Account:", combine the parts properly
+            const name = LINE_MAPPINGS[parts[0]] || parts[0];
+            const accountNumber = parts[accountIndex + 1];
+            return {
+                name: name,
+                accountNumber: accountNumber
+            };
+        } else {
+            // If no account number found, just use the first part as the name
+            return {
+                name: LINE_MAPPINGS[parts[0]] || parts[0]
+            };
+        }
     };
     
     if (typeof lines === 'string') {
@@ -444,7 +456,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                                             <div key={line.name} className="line-item">
                                                 <span className="line-name">{line.name}</span>
                                                 {line.accountNumber && (
-                                                    <span className="line-account">Account: {line.accountNumber}</span>
+                                                    <span className="line-account">- Account: {line.accountNumber}</span>
                                                 )}
                                             </div>
                                         ))}
