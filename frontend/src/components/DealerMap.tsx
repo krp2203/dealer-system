@@ -91,15 +91,10 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
 }
 
 // Define our own error interface
-interface ApiError {
-    message: string;
-    response?: {
-        data?: {
-            error?: string;
-            details?: string;
-        };
-        status?: number;
-    };
+interface ApiErrorResponse {
+    error?: string;
+    details?: string;
+    message?: string;
 }
 
 const DealerMap: React.FC<{
@@ -143,23 +138,19 @@ const DealerMap: React.FC<{
 
                 console.log(`Got ${validDealers.length} dealers with valid coordinates`);
                 setDealers(validDealers);
-            } catch (err) {
+            } catch (err: any) {
                 console.error('Error details:', {
                     error: err,
-                    message: err instanceof Error ? err.message : 'Unknown error',
-                    response: (err as any)?.response
+                    message: err?.message,
+                    response: err?.response?.data
                 });
 
-                if (err && typeof err === 'object' && 'response' in err) {
-                    const apiError = err as ApiError;
-                    const errorMessage = apiError.response?.data?.error 
-                        || apiError.response?.data?.details 
-                        || apiError.message 
-                        || 'Network error';
-                    setError(`Failed to fetch dealer data: ${errorMessage}`);
-                } else {
-                    setError('Failed to connect to server. Please try again later.');
-                }
+                const errorMessage = err?.response?.data?.error 
+                    || err?.response?.data?.details 
+                    || err?.message 
+                    || 'Network error';
+                
+                setError(`Failed to fetch dealer data: ${errorMessage}`);
             } finally {
                 setLoading(false);
             }
