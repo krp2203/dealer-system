@@ -37,23 +37,47 @@ interface DealerDetails {
 
 const API_URL = 'http://35.212.41.99:3002';
 
+const LINE_MAPPINGS: { [key: string]: string } = {
+    'SG': 'Scag',
+    'SW': 'Snow Way',
+    'VX': 'Vortex',
+    'YB': 'Ybravo',
+    'OT': 'OTR',
+    'TY': 'Toyotomi',
+    'GG': 'Grass Gobbler',
+    'VK': 'Velke',
+    'BB': 'Bluebird',
+    'UM': 'U-Mount',
+    'WR': 'Wright'
+};
+
 const formatLinesCarried = (lines: any): string => {
     if (!lines) return '';
     
-    // If lines is already an array, join it
+    const expandLineName = (line: string): string => {
+        // Remove any (P) suffix
+        const cleanLine = line.trim().replace(/\(P\)$/, '');
+        return LINE_MAPPINGS[cleanLine] || cleanLine;
+    };
+    
     if (Array.isArray(lines)) {
-        return lines.map(line => 
-            typeof line === 'string' ? line.trim() : 
-            typeof line === 'object' && line.LineName ? line.LineName.trim() : ''
-        ).filter(Boolean).join(', ');
+        return lines
+            .map(line => 
+                typeof line === 'string' ? expandLineName(line) : 
+                typeof line === 'object' && line.LineName ? expandLineName(line.LineName) : ''
+            )
+            .filter(Boolean)
+            .join(', ');
     }
     
-    // If lines is a string, split and join
     if (typeof lines === 'string') {
-        return lines.split(',').map(line => line.trim()).join(', ');
+        return lines
+            .split(',')
+            .map(line => expandLineName(line))
+            .filter(Boolean)
+            .join(', ');
     }
     
-    // If it's neither, return empty string
     return '';
 };
 
