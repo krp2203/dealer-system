@@ -25,9 +25,9 @@ interface DealerDetails {
         FaxNumber: string;
         MainEmail: string;
     };
-    lines: string | Array<{
-        LineName: string;
-        AccountNumber?: string;
+    lines: Array<{
+        code: string;
+        accountNumber?: string;
     }>;
     salesman: {
         SalesmanName: string;
