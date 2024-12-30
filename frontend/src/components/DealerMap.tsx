@@ -98,39 +98,16 @@ const formatLinesCarried = (lines: string) => {
     return lineArray.join(', ');
 };
 
-// Add interfaces for Salesman info
 interface SalesmanInfo {
     name: string;
     color: string;
 }
 
-// Predefined colors for markers (you can adjust these colors)
-const MARKER_COLORS = [
-    '#FF0000', // Red
-    '#00FF00', // Green
-    '#0000FF', // Blue
-    '#FFA500', // Orange
-    '#800080', // Purple
-    '#008080', // Teal
-    '#FF69B4', // Hot Pink
-    '#4B0082', // Indigo
-    '#FFD700', // Gold
-    '#00CED1', // Dark Turquoise
-    '#FF6347', // Tomato
-    '#32CD32', // Lime Green
-    '#BA55D3', // Medium Orchid
-    '#CD853F', // Peru
-    '#48D1CC', // Medium Turquoise
-    // Add more colors as needed
-];
-
 const DealerMap: React.FC<{
+    selectedDealer: string | null;
     onDealerSelect: (dealerNumber: string) => void;
-}> = ({ onDealerSelect }) => {
+}> = ({ selectedDealer, onDealerSelect }) => {
     const [dealers, setDealers] = useState<DealerLocation[]>([]);
-    const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
-    const [mapCenter] = useState({ lat: 37.5, lng: -79.0 });
-    const [mapZoom] = useState(6);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [hoveredDealer, setHoveredDealer] = useState<DealerLocation | null>(null);
@@ -213,6 +190,21 @@ const DealerMap: React.FC<{
         return <div className="map-container">Error: {error}</div>;
     }
 
+    const Legend = () => (
+        <div className="map-legend">
+            <h4>Salesmen</h4>
+            {Object.entries(salesmanColors).map(([code, info]) => (
+                <div key={code} className="legend-item">
+                    <span 
+                        className="legend-color" 
+                        style={{ backgroundColor: info.color }}
+                    />
+                    <span className="legend-text">{info.name}</span>
+                </div>
+            ))}
+        </div>
+    );
+
     return (
         <div className="map-container">
             <GoogleMap
@@ -293,20 +285,5 @@ const DealerMap: React.FC<{
         </div>
     );
 };
-
-const Legend: React.FC = () => (
-    <div className="map-legend">
-        <h4>Salesmen</h4>
-        {Object.entries(salesmanColors).map(([code, info]) => (
-            <div key={code} className="legend-item">
-                <span 
-                    className="legend-color" 
-                    style={{ backgroundColor: info.color }}
-                />
-                <span className="legend-text">{info.name}</span>
-            </div>
-        ))}
-    </div>
-);
 
 export default DealerMap; 
