@@ -25,22 +25,40 @@ app.use((err, req, res, next) => {
 
 // Database configuration
 const dbConfig = {
-    host: process.env.DB_HOST,
+    host: process.env.DB_HOST || '34.48.50.74',
     port: parseInt(process.env.DB_PORT || '3306'),
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
+    user: process.env.DB_USER || 'krp2203',
+    password: process.env.DB_PASSWORD || 'f_j(/"xa|i=h+ccU',
+    database: process.env.DB_NAME || 'kpm dealer data',
     connectTimeout: 30000,
     ssl: false
 };
 
-// Add debug logging
-console.log('Attempting to connect to database with config:', {
-        host: dbConfig.host,
-        port: dbConfig.port,
-        user: dbConfig.user,
-        database: dbConfig.database
-    });
+// Add more detailed logging
+console.log('Database configuration:', {
+    host: dbConfig.host,
+    port: dbConfig.port,
+    user: dbConfig.user,
+    database: dbConfig.database,
+    connectTimeout: dbConfig.connectTimeout,
+    ssl: dbConfig.ssl
+});
+
+// Test database connection on startup
+async function testDatabaseConnection() {
+    let connection;
+    try {
+        connection = await mysql.createConnection(dbConfig);
+        console.log('Successfully connected to database');
+        await connection.end();
+    } catch (error) {
+        console.error('Failed to connect to database:', error);
+        process.exit(1); // Exit if we can't connect to database
+    }
+}
+
+// Test connection on startup
+testDatabaseConnection();
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
