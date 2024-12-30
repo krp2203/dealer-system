@@ -378,15 +378,17 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
 // Add import endpoint
 app.post('/api/import', async (req, res) => {
     let connection;
+    let stats = {
+        processedCount: 0,
+        updatedCount: 0,
+        errorCount: 0
+    };
+
     try {
         const { headers, rows } = req.body;
         
         connection = await mysql.createConnection(dbConfig);
         await connection.beginTransaction();
-
-        let processedCount = 0;
-        let updatedCount = 0;
-        let errorCount = 0;
 
         for (const row of rows) {
             try {
@@ -549,28 +551,34 @@ app.post('/api/import', async (req, res) => {
                     ]);
                 }
 
-                processedCount++;
-                updatedCount++;
+                stats.processedCount++;
+                stats.updatedCount++;
             } catch (error) {
                 console.error('Error processing dealer:', {
                     dealerNumber: dealerData?.dealerNumber,
                     error: error.message
                 });
-                errorCount++;
+                stats.errorCount++;
             }
         }
 
         await connection.commit();
+        
+        // Ensure we always send stats in the response
         res.json({
+            success: true,
             message: 'Import completed successfully',
-            stats: { processedCount, updatedCount, errorCount }
+            stats: stats
         });
 
     } catch (error) {
         if (connection) await connection.rollback();
+        // Even on error, send stats
         res.status(500).json({
+            success: false,
             error: 'Failed to import data',
-            details: error.message
+            details: error.message,
+            stats: stats
         });
     } finally {
         if (connection) await connection.end();
