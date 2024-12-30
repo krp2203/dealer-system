@@ -359,18 +359,36 @@ app.post('/api/import', async (req, res) => {
         updatedCount: 0,
         errorCount: 0
     };
-    let currentDealerNumber = null; // Add this to track current dealer
+    let currentDealerNumber = null;
 
     try {
         const { headers, rows } = req.body;
         
+        // Log the incoming data
+        console.log('Import started with:', {
+            headerCount: headers.length,
+            rowCount: rows.length,
+            headers: headers
+        });
+
         connection = await mysql.createConnection(dbConfig);
         await connection.beginTransaction();
 
         for (const row of rows) {
             try {
                 currentDealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
-                if (!currentDealerNumber) continue;
+                
+                // Log each row being processed
+                console.log('Processing row:', {
+                    dealerNumber: currentDealerNumber,
+                    dealerName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
+                    rowData: row
+                });
+
+                if (!currentDealerNumber) {
+                    console.log('Skipping row - no dealer number');
+                    continue;
+                }
 
                 // Prepare all possible data
                 const dealerData = {
@@ -380,6 +398,9 @@ app.post('/api/import', async (req, res) => {
                     salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null,
                     lastUpdated: row[headers.indexOf('Last Updated')]?.toString().trim()
                 };
+
+                // Log dealer data being inserted
+                console.log('Inserting dealer data:', dealerData);
 
                 const addressData = {
                     boxNumber: row[headers.indexOf('Box Number')]?.toString().trim(),
@@ -530,16 +551,24 @@ app.post('/api/import', async (req, res) => {
 
                 stats.processedCount++;
                 stats.updatedCount++;
+                
+                console.log('Successfully processed dealer:', currentDealerNumber);
+
             } catch (error) {
                 console.error('Error processing dealer:', {
                     dealerNumber: currentDealerNumber,
-                    error: error.message
+                    error: error.message,
+                    stack: error.stack,
+                    rowData: row
                 });
                 stats.errorCount++;
             }
         }
 
         await connection.commit();
+        
+        // Log final stats
+        console.log('Import completed with stats:', stats);
         
         res.json({
             success: true,
@@ -552,7 +581,8 @@ app.post('/api/import', async (req, res) => {
         console.error('Import error:', {
             dealerNumber: currentDealerNumber,
             error: error.message,
-            stack: error.stack
+            stack: error.stack,
+            stats: stats
         });
         res.status(500).json({
             success: false,
