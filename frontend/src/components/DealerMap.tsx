@@ -106,10 +106,18 @@ interface SalesmanInfo {
 
 // Define salesman colors with their names
 const SALESMAN_COLORS: { [key: string]: SalesmanInfo } = {
-    '48': { name: 'Kurt Schreier', color: '#FF0000' },    // Red
-    '49': { name: 'Jeff Behrens', color: '#00FF00' },     // Green
-    '50': { name: 'Mike Roche', color: '#0000FF' },       // Blue
-    // Add more salesmen as needed
+    '30': { name: 'Scott Redan', color: '#FF0000' },        // Red
+    '35': { name: 'Ken Schneider', color: '#00FF00' },      // Green
+    '38': { name: 'Chris Martinelli', color: '#0000FF' },   // Blue
+    '45': { name: 'Michael Homeijer', color: '#FFA500' },   // Orange
+    '48': { name: 'Ken Siegrist', color: '#800080' },       // Purple
+    '50': { name: 'Dan Peterson', color: '#008080' },       // Teal
+    '75': { name: 'Eric Fedor', color: '#FFD700' },         // Gold
+    '78': { name: 'Peter Cobucci', color: '#FF1493' },      // Deep Pink
+    '79': { name: 'Rich Fiengo', color: '#32CD32' },        // Lime Green
+    '80': { name: 'Brian Weber', color: '#4B0082' },        // Indigo
+    '81': { name: 'Andrew Garcia', color: '#FF4500' },      // Orange Red
+    '82': { name: 'Matt Dracoules', color: '#00CED1' }      // Dark Turquoise
 };
 
 const DEFAULT_MARKER_COLOR = '#808080'; // Gray for unknown salesmen
@@ -185,6 +193,17 @@ const DealerMap: React.FC<{
 
         fetchDealers();
     }, []);
+
+    useEffect(() => {
+        // Log unique salesman codes and names
+        const uniqueSalesmen = new Map();
+        dealers.forEach(d => {
+            if (d.SalesmanCode) {
+                uniqueSalesmen.set(d.SalesmanCode, d.SalesmanName);
+            }
+        });
+        console.log('Unique Salesmen:', Object.fromEntries(uniqueSalesmen));
+    }, [dealers]);
 
     if (loading) {
         return <div className="map-container">Loading dealers...</div>;
