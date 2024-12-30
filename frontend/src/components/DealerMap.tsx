@@ -98,16 +98,37 @@ const formatLinesCarried = (lines: string) => {
     return lineArray.join(', ');
 };
 
-// Add a color mapping for salesman codes
-const SALESMAN_COLORS: { [key: string]: string } = {
-    '48': '#FF0000',    // Red
-    '49': '#00FF00',    // Green
-    '50': '#0000FF',    // Blue
-    // Add more salesman codes and colors as needed
+// Add interfaces for Salesman info
+interface SalesmanInfo {
+    name: string;
+    color: string;
+}
+
+// Define salesman colors with their names
+const SALESMAN_COLORS: { [key: string]: SalesmanInfo } = {
+    '48': { name: 'Kurt Schreier', color: '#FF0000' },    // Red
+    '49': { name: 'Jeff Behrens', color: '#00FF00' },     // Green
+    '50': { name: 'Mike Roche', color: '#0000FF' },       // Blue
+    // Add more salesmen as needed
 };
 
-// Default color for unknown salesman codes
-const DEFAULT_MARKER_COLOR = '#FF0000';
+const DEFAULT_MARKER_COLOR = '#808080'; // Gray for unknown salesmen
+
+// Add the Legend component
+const Legend: React.FC = () => (
+    <div className="map-legend">
+        <h4>Salesmen</h4>
+        {Object.entries(SALESMAN_COLORS).map(([code, info]) => (
+            <div key={code} className="legend-item">
+                <span 
+                    className="legend-color" 
+                    style={{ backgroundColor: info.color }}
+                />
+                <span className="legend-text">{info.name}</span>
+            </div>
+        ))}
+    </div>
+);
 
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
@@ -206,7 +227,9 @@ const DealerMap: React.FC<{
                             position={position}
                             icon={{
                                 path: window.google.maps.SymbolPath.CIRCLE,
-                                fillColor: SALESMAN_COLORS[dealer.SalesmanCode] || DEFAULT_MARKER_COLOR,
+                                fillColor: dealer.SalesmanCode ? 
+                                    SALESMAN_COLORS[dealer.SalesmanCode]?.color || DEFAULT_MARKER_COLOR :
+                                    DEFAULT_MARKER_COLOR,
                                 fillOpacity: 1,
                                 strokeWeight: 1,
                                 strokeColor: '#FFFFFF',
@@ -247,6 +270,7 @@ const DealerMap: React.FC<{
                     </InfoWindow>
                 )}
             </GoogleMap>
+            <Legend />
         </div>
     );
 };
