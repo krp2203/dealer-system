@@ -121,31 +121,16 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 a.State,
                 a.ZipCode,
                 CAST(a.lat AS DECIMAL(10,8)) as lat,
-                CAST(a.lng AS DECIMAL(11,8)) as lng,
-                c.MainPhone,
-                c.FaxNumber,
-                c.MainEmail,
-                c.SecondEmail,
-                c.ThirdEmail,
-                c.ForthEmail,
-                c.FifthEmail
+                CAST(a.lng AS DECIMAL(11,8)) as lng
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            LEFT JOIN ContactInformation c ON d.KPMDealerNumber = c.KPMDealerNumber
             WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
         `);
         
         console.log(`Found ${dealers.length} dealers with coordinates`);
         if (dealers.length > 0) {
-            console.log('Sample dealer:', {
-                number: dealers[0].KPMDealerNumber,
-                name: dealers[0].DealershipName,
-                contact: {
-                    phone: dealers[0].MainPhone,
-                    email: dealers[0].MainEmail
-                }
-            });
+            console.log('Sample dealer:', dealers[0]);
         }
         
         res.json(dealers);
