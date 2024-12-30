@@ -87,6 +87,16 @@ async function getCoordinates(address: string): Promise<{ lat: number; lng: numb
     }
 }
 
+const formatLinesCarried = (lines: string) => {
+    if (!lines) return '';
+    
+    // Split by commas if present
+    const lineArray = lines.split(',').map(line => line.trim());
+    
+    // Join with commas and add spaces for readability
+    return lineArray.join(', ');
+};
+
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
 }> = ({ onDealerSelect }) => {

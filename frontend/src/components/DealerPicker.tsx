@@ -25,10 +25,7 @@ interface DealerDetails {
         FaxNumber: string;
         MainEmail: string;
     };
-    lines: Array<{
-        LineName: string;
-        AccountNumber: string;
-    }>;
+    lines: string;
     salesman: {
         SalesmanName: string;
         SalesmanCode: string;
@@ -36,6 +33,11 @@ interface DealerDetails {
 }
 
 const API_URL = 'http://35.212.41.99:3002';
+
+const formatLinesCarried = (lines: string) => {
+    if (!lines) return '';
+    return lines.split(',').map(line => line.trim()).join(', ');
+};
 
 const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
@@ -395,19 +397,10 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                                 )}
                             </section>
 
-                            {dealerDetails.lines && dealerDetails.lines.length > 0 && (
+                            {dealerDetails.lines && (
                                 <section>
                                     <h3>Lines Carried</h3>
-                                    <ul className="lines-list">
-                                        {dealerDetails.lines.map((line, index) => (
-                                            <li key={index}>
-                                                <strong>{line.LineName}</strong>
-                                                {line.AccountNumber && (
-                                                    <span> - Account: {line.AccountNumber}</span>
-                                                )}
-                                            </li>
-                                        ))}
-                                    </ul>
+                                    <p>{formatLinesCarried(dealerDetails.lines)}</p>
                                 </section>
                             )}
                         </div>

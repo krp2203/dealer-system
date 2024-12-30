@@ -412,16 +412,31 @@ app.post('/api/import', async (req, res) => {
                 // Update LinesCarried table
                 const linesCarried = row[headers.indexOf('Lines Carried')]?.toString().trim();
                 if (linesCarried) {
-                    await connection.query(`
-                        INSERT INTO LinesCarried 
-                            (KPMDealerNumber, LineName)
-                        VALUES (?, ?)
-                        ON DUPLICATE KEY UPDATE
-                            LineName = VALUES(LineName)
-                    `, [
-                        currentDealerNumber,
-                        linesCarried
-                    ]);
+                    console.log('Processing Lines Carried:', {
+                        dealerNumber: currentDealerNumber,
+                        lines: linesCarried
+                    });
+                    
+                    try {
+                        await connection.query(`
+                            INSERT INTO LinesCarried 
+                                (KPMDealerNumber, LineName)
+                            VALUES (?, ?)
+                            ON DUPLICATE KEY UPDATE
+                                LineName = VALUES(LineName)
+                        `, [
+                            currentDealerNumber,
+                            linesCarried
+                        ]);
+                        console.log('Successfully updated Lines Carried');
+                    } catch (error) {
+                        console.error('Error updating Lines Carried:', {
+                            dealerNumber: currentDealerNumber,
+                            error: error.message,
+                            lines: linesCarried
+                        });
+                        throw error; // Re-throw to be caught by outer try-catch
+                    }
                 }
 
                 console.log(`Successfully processed dealer: ${currentDealerNumber}`);
@@ -507,7 +522,7 @@ app.get('/api/dealers/:dealerNumber/details', async (req, res) => {
                 FourthEmail: '',
                 FifthEmail: ''
             },
-            lines: lines[0]?.LineName || '',
+            linesCarried: lines[0]?.LineName || '',
             county: address[0]?.County || ''
         };
 
