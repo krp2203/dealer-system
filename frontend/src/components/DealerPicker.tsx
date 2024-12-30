@@ -51,34 +51,31 @@ const LINE_MAPPINGS: { [key: string]: string } = {
     'WR': 'Wright'
 };
 
-const formatLinesCarried = (lines: any): string => {
-    if (!lines) return '';
+interface FormattedLine {
+    name: string;
+    accountNumber?: string;
+}
+
+const formatLinesCarried = (lines: any): FormattedLine[] => {
+    if (!lines) return [];
     
-    const expandLineName = (line: string): string => {
-        // Remove any (P) suffix
-        const cleanLine = line.trim().replace(/\(P\)$/, '');
-        return LINE_MAPPINGS[cleanLine] || cleanLine;
+    const expandLineName = (line: string): FormattedLine => {
+        // Remove any (P) suffix and split by ':'
+        const [code, accountNumber] = line.trim().replace(/\(P\)$/, '').split(':').map(s => s.trim());
+        return {
+            name: LINE_MAPPINGS[code] || code,
+            accountNumber: accountNumber
+        };
     };
-    
-    if (Array.isArray(lines)) {
-        return lines
-            .map(line => 
-                typeof line === 'string' ? expandLineName(line) : 
-                typeof line === 'object' && line.LineName ? expandLineName(line.LineName) : ''
-            )
-            .filter(Boolean)
-            .join(', ');
-    }
     
     if (typeof lines === 'string') {
         return lines
             .split(',')
-            .map(line => expandLineName(line))
-            .filter(Boolean)
-            .join(', ');
+            .map(expandLineName)
+            .filter(line => line.name);
     }
     
-    return '';
+    return [];
 };
 
 const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
@@ -442,7 +439,16 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                             {dealerDetails.lines && (
                                 <section>
                                     <h3>Lines Carried</h3>
-                                    <p>{formatLinesCarried(dealerDetails.lines)}</p>
+                                    <div className="lines-list">
+                                        {formatLinesCarried(dealerDetails.lines).map(line => (
+                                            <div key={line.name} className="line-item">
+                                                <span className="line-name">{line.name}</span>
+                                                {line.accountNumber && (
+                                                    <span className="line-account">Account: {line.accountNumber}</span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
                                 </section>
                             )}
                         </div>
