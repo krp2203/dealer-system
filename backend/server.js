@@ -109,30 +109,6 @@ app.get('/api/dealers/coordinates', async (req, res) => {
         connection = await mysql.createConnection(dbConfig);
         console.log('Fetching dealers with coordinates...');
         
-        // First, let's count total dealers
-        const [totalCount] = await connection.query(`
-            SELECT COUNT(*) as total FROM Dealerships
-        `);
-        console.log('Total dealers in database:', totalCount[0].total);
-
-        // Now count dealers with coordinates
-        const [coordCount] = await connection.query(`
-            SELECT COUNT(*) as total 
-            FROM Dealerships d
-            JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
-        `);
-        console.log('Dealers with coordinates:', coordCount[0].total);
-
-        // Get specific dealers for debugging
-        const [salesmanDealers] = await connection.query(`
-            SELECT d.KPMDealerNumber, d.SalesmanCode, a.lat, a.lng
-            FROM Dealerships d
-            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE d.SalesmanCode = '50'
-        `);
-        console.log('Salesman 50 dealers:', salesmanDealers);
-
         const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
@@ -144,12 +120,80 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 a.City,
                 a.State,
                 a.ZipCode,
+                a.County,
                 CAST(a.lat AS DECIMAL(10,8)) as lat,
-                CAST(a.lng AS DECIMAL(11,8)) as lng
+                CAST(a.lng AS DECIMAL(11,8)) as lng,
+                c.MainPhone,
+                c.FaxNumber,
+                c.MainEmail,
+                c.SecondEmail,
+                c.ThirdEmail,
+                c.ForthEmail,
+                c.FifthEmail,
+                l.LineName as LinesCarried,
+                GROUP_CONCAT(
+                    CASE 
+                        WHEN ac.AccountType = 'scag' THEN ac.AccountNumber
+                    END
+                ) as ScagAccountNo,
+                GROUP_CONCAT(
+                    CASE 
+                        WHEN ac.AccountType = 'snowWay' THEN ac.AccountNumber
+                    END
+                ) as SnowWayAccountNo,
+                GROUP_CONCAT(
+                    CASE 
+                        WHEN ac.AccountType = 'vortex' THEN ac.AccountNumber
+                    END
+                ) as VortexAccountNo,
+                GROUP_CONCAT(
+                    CASE 
+                        WHEN ac.AccountType = 'ybravo' THEN ac.AccountNumber
+                    END
+                ) as YbravoAccountNo,
+                GROUP_CONCAT(
+                    CASE 
+                        WHEN ac.AccountType = 'otr' THEN ac.AccountNumber
+                    END
+                ) as OTRAccountNo,
+                GROUP_CONCAT(
+                    CASE 
+                        WHEN ac.AccountType = 'ty' THEN ac.AccountNumber
+                    END
+                ) as TYAccountNo,
+                GROUP_CONCAT(
+                    CASE 
+                        WHEN ac.AccountType = 'gg' THEN ac.AccountNumber
+                    END
+                ) as GGAccountNo,
+                GROUP_CONCAT(
+                    CASE 
+                        WHEN ac.AccountType = 'vk' THEN ac.AccountNumber
+                    END
+                ) as VKAccountNo,
+                GROUP_CONCAT(
+                    CASE 
+                        WHEN ac.AccountType = 'bluebird' THEN ac.AccountNumber
+                    END
+                ) as BluebirdAccountNo,
+                GROUP_CONCAT(
+                    CASE 
+                        WHEN ac.AccountType = 'um' THEN ac.AccountNumber
+                    END
+                ) as UMAccountNo,
+                GROUP_CONCAT(
+                    CASE 
+                        WHEN ac.AccountType = 'wright' THEN ac.AccountNumber
+                    END
+                ) as WrightAccountNo
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            LEFT JOIN ContactInformation c ON d.KPMDealerNumber = c.KPMDealerNumber
+            LEFT JOIN LinesCarried l ON d.KPMDealerNumber = l.KPMDealerNumber
+            LEFT JOIN AccountNumbers ac ON d.KPMDealerNumber = ac.KPMDealerNumber
             WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
+            GROUP BY d.KPMDealerNumber
         `);
         
         console.log(`Found ${dealers.length} dealers with coordinates`);
