@@ -109,7 +109,7 @@ app.get('/api/dealers/coordinates', async (req, res) => {
         connection = await mysql.createConnection(dbConfig);
         console.log('Fetching dealers with coordinates...');
         
-        const [dealersWithCoordinates] = await connection.query(`
+        const [dealers] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
@@ -128,10 +128,12 @@ app.get('/api/dealers/coordinates', async (req, res) => {
             WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
         `);
         
-        console.log(`Found ${dealersWithCoordinates.length} dealers with coordinates`);
-        console.log('First few dealers:', dealersWithCoordinates.slice(0, 3));
+        console.log(`Found ${dealers.length} dealers with coordinates`);
+        if (dealers.length > 0) {
+            console.log('Sample dealer:', dealers[0]);
+        }
         
-        res.json(dealersWithCoordinates);
+        res.json(dealers);
     } catch (error) {
         console.error('Error fetching coordinates:', error);
         res.status(500).json({ error: 'Failed to fetch dealer coordinates' });

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import axios from 'axios';
 import { API_URL, GOOGLE_MAPS_API_KEY } from '../config';
@@ -14,7 +14,6 @@ interface DealerLocation {
     lat: number;
     lng: number;
     SalesmanCode: string;
-    SalesmanName: string;
 }
 
 interface GeocodeResult {
@@ -107,18 +106,10 @@ interface SalesmanInfo {
 
 // Define salesman colors with their names
 const SALESMAN_COLORS: { [key: string]: SalesmanInfo } = {
-    '30': { name: 'Scott Redan', color: '#FF0000' },        // Red
-    '35': { name: 'Ken Schneider', color: '#00FF00' },      // Green
-    '38': { name: 'Chris Martinelli', color: '#0000FF' },   // Blue
-    '45': { name: 'Michael Homeijer', color: '#FFA500' },   // Orange
-    '48': { name: 'Ken Siegrist', color: '#800080' },       // Purple
-    '50': { name: 'Dan Peterson', color: '#008080' },       // Teal
-    '75': { name: 'Eric Fedor', color: '#FFD700' },         // Gold
-    '78': { name: 'Peter Cobucci', color: '#FF1493' },      // Deep Pink
-    '79': { name: 'Rich Fiengo', color: '#32CD32' },        // Lime Green
-    '80': { name: 'Brian Weber', color: '#4B0082' },        // Indigo
-    '81': { name: 'Andrew Garcia', color: '#FF4500' },      // Orange Red
-    '82': { name: 'Matt Dracoules', color: '#00CED1' }      // Dark Turquoise
+    '48': { name: 'Kurt Schreier', color: '#FF0000' },    // Red
+    '49': { name: 'Jeff Behrens', color: '#00FF00' },     // Green
+    '50': { name: 'Mike Roche', color: '#0000FF' },       // Blue
+    // Add more salesmen as needed
 };
 
 const DEFAULT_MARKER_COLOR = '#808080'; // Gray for unknown salesmen
@@ -140,27 +131,16 @@ const Legend: React.FC = () => (
 );
 
 const DealerMap: React.FC<{
-    dealers: DealerLocation[];
-    selectedDealer?: string | null;
     onDealerSelect: (dealerNumber: string) => void;
-}> = ({ dealers, selectedDealer, onDealerSelect }) => {
-    // Add console logging at the start of component
-    console.log('DealerMap received dealers:', dealers);
-
-    const [hoveredDealer, setHoveredDealer] = useState<DealerLocation | null>(null);
-    const [isHoveringInfoWindow, setIsHoveringInfoWindow] = useState(false);
-    const [map, setMap] = useState<google.maps.Map | null>(null);
-    const center = useMemo(() => ({ lat: 41.5, lng: -72.7 }), []);
-
-    // Check if we have valid dealer data
-    const validDealers = dealers.filter(dealer => 
-        dealer && dealer.lat && dealer.lng && 
-        !isNaN(dealer.lat) && !isNaN(dealer.lng)
-    );
-    console.log('Valid dealers for mapping:', validDealers);
-
+}> = ({ onDealerSelect }) => {
+    const [dealers, setDealers] = useState<DealerLocation[]>([]);
+    const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
+    const [mapCenter] = useState({ lat: 37.5, lng: -79.0 });
+    const [mapZoom] = useState(6);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [hoveredDealer, setHoveredDealer] = useState<DealerLocation | null>(null);
+    const [isHoveringInfoWindow, setIsHoveringInfoWindow] = useState(false);
 
     const mapStyles = {
         height: '100%',
@@ -206,17 +186,6 @@ const DealerMap: React.FC<{
         fetchDealers();
     }, []);
 
-    useEffect(() => {
-        // Log unique salesman codes and names
-        const uniqueSalesmen = new Map();
-        dealers.forEach(d => {
-            if (d.SalesmanCode) {
-                uniqueSalesmen.set(d.SalesmanCode, d.SalesmanName);
-            }
-        });
-        console.log('Unique Salesmen:', Object.fromEntries(uniqueSalesmen));
-    }, [dealers]);
-
     if (loading) {
         return <div className="map-container">Loading dealers...</div>;
     }
@@ -240,14 +209,18 @@ const DealerMap: React.FC<{
                     fullscreenControl: true
                 }}
             >
-                {validDealers.map((dealer) => {
-                    console.log('Rendering marker for dealer:', dealer);
-                    const position = {
-                        lat: parseFloat(dealer.lat.toString()),
-                        lng: parseFloat(dealer.lng.toString())
-                    };
-                    const uniqueKey = `${dealer.KPMDealerNumber}-${position.lat}-${position.lng}`;
+                {dealers.map((dealer, index) => {
+                    if (!dealer?.lat || !dealer?.lng) return null;
                     
+                    // Convert string coordinates to numbers
+                    const position = {
+                        lat: typeof dealer.lat === 'string' ? parseFloat(dealer.lat) : dealer.lat,
+                        lng: typeof dealer.lng === 'string' ? parseFloat(dealer.lng) : dealer.lng
+                    };
+
+                    // Use the full dealer number as the key
+                    const uniqueKey = dealer.KPMDealerNumber; // This will include SHIPTO: prefix if present
+
                     return (
                         <Marker
                             key={uniqueKey}
