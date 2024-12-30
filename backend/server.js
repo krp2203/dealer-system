@@ -362,7 +362,6 @@ app.post('/api/import', async (req, res) => {
     try {
         const { headers, rows } = req.body;
         
-        // Initial data validation logging
         console.log('=== IMPORT STARTED ===');
         console.log('Received data:', {
             headerCount: headers.length,
@@ -372,11 +371,6 @@ app.post('/api/import', async (req, res) => {
 
         connection = await mysql.createConnection(dbConfig);
         await connection.beginTransaction();
-
-        // Get valid salesman codes
-        const [salesmanList] = await connection.query('SELECT SalesmanCode, SalesmanName FROM Salesman');
-        const validSalesmanCodes = new Map(salesmanList.map(s => [s.SalesmanCode, s.SalesmanName]));
-        console.log('Valid salesman codes:', Array.from(validSalesmanCodes.keys()));
 
         let processedCount = 0;
         let updatedCount = 0;
@@ -393,54 +387,25 @@ app.post('/api/import', async (req, res) => {
                     dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
                     dba: row[headers.indexOf('DBA')]?.toString().trim(),
                     salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim(),
-                    // Add other fields as needed
                 };
 
                 console.log('Processing dealer:', dealerData);
 
-                // Check if dealer exists
-                const [existingDealer] = await connection.query(
-                    'SELECT * FROM Dealerships WHERE KPMDealerNumber = ?', 
-                    [dealerNumber]
-                );
-
-                if (existingDealer.length > 0) {
-                    console.log(`Updating existing dealer ${dealerNumber}:`, {
-                        current: existingDealer[0],
-                        new: dealerData
-                    });
-
-                    // Update existing dealer
-                    await connection.query(`
-                        UPDATE Dealerships 
-                        SET 
-                            DealershipName = ?,
-                            DBA = ?,
-                            SalesmanCode = ?
-                        WHERE KPMDealerNumber = ?
-                    `, [
-                        dealerData.dealershipName,
-                        dealerData.dba || '',
-                        dealerData.salesmanCode || null,
-                        dealerNumber
-                    ]);
-
-                    updatedCount++;
-                } else {
-                    console.log(`Inserting new dealer ${dealerNumber}:`, dealerData);
-
-                    // Insert new dealer
-                    await connection.query(`
-                        INSERT INTO Dealerships 
-                            (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
-                        VALUES (?, ?, ?, ?)
-                    `, [
-                        dealerNumber,
-                        dealerData.dealershipName,
-                        dealerData.dba || '',
-                        dealerData.salesmanCode || null
-                    ]);
-                }
+                // Simple UPSERT using ON DUPLICATE KEY UPDATE
+                await connection.query(`
+                    INSERT INTO Dealerships 
+                        (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        DealershipName = VALUES(DealershipName),
+                        DBA = VALUES(DBA),
+                        SalesmanCode = VALUES(SalesmanCode)
+                `, [
+                    dealerNumber,
+                    dealerData.dealershipName,
+                    dealerData.dba || '',
+                    dealerData.salesmanCode || null
+                ]);
 
                 // Verify the update
                 const [verifyResult] = await connection.query(
@@ -450,6 +415,7 @@ app.post('/api/import', async (req, res) => {
                 console.log(`Verification for ${dealerNumber}:`, verifyResult[0]);
 
                 processedCount++;
+                updatedCount++;
             } catch (error) {
                 console.error(`Error processing row:`, {
                     row,
