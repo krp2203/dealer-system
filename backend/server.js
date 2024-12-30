@@ -109,14 +109,6 @@ app.get('/api/dealers/coordinates', async (req, res) => {
         connection = await mysql.createConnection(dbConfig);
         console.log('Fetching dealers with coordinates...');
         
-        const [dealers] = await connection.query(`
-            SELECT DISTINCT d.SalesmanCode, s.SalesmanName
-            FROM Dealerships d
-            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            WHERE d.SalesmanCode IS NOT NULL
-        `);
-        console.log('Found Salesmen:', dealers);
-        
         const [dealersWithCoordinates] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
@@ -137,9 +129,7 @@ app.get('/api/dealers/coordinates', async (req, res) => {
         `);
         
         console.log(`Found ${dealersWithCoordinates.length} dealers with coordinates`);
-        if (dealersWithCoordinates.length > 0) {
-            console.log('Sample dealer:', dealersWithCoordinates[0]);
-        }
+        console.log('First few dealers:', dealersWithCoordinates.slice(0, 3));
         
         res.json(dealersWithCoordinates);
     } catch (error) {

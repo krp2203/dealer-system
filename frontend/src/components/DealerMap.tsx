@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
 import axios from 'axios';
 import { API_URL, GOOGLE_MAPS_API_KEY } from '../config';
@@ -140,16 +140,27 @@ const Legend: React.FC = () => (
 );
 
 const DealerMap: React.FC<{
+    dealers: DealerLocation[];
+    selectedDealer?: string | null;
     onDealerSelect: (dealerNumber: string) => void;
-}> = ({ onDealerSelect }) => {
-    const [dealers, setDealers] = useState<DealerLocation[]>([]);
-    const [selectedDealer, setSelectedDealer] = useState<DealerLocation | null>(null);
-    const [mapCenter] = useState({ lat: 37.5, lng: -79.0 });
-    const [mapZoom] = useState(6);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+}> = ({ dealers, selectedDealer, onDealerSelect }) => {
+    // Add console logging at the start of component
+    console.log('DealerMap received dealers:', dealers);
+
     const [hoveredDealer, setHoveredDealer] = useState<DealerLocation | null>(null);
     const [isHoveringInfoWindow, setIsHoveringInfoWindow] = useState(false);
+    const [map, setMap] = useState<google.maps.Map | null>(null);
+    const center = useMemo(() => ({ lat: 41.5, lng: -72.7 }), []);
+
+    // Check if we have valid dealer data
+    const validDealers = dealers.filter(dealer => 
+        dealer && dealer.lat && dealer.lng && 
+        !isNaN(dealer.lat) && !isNaN(dealer.lng)
+    );
+    console.log('Valid dealers for mapping:', validDealers);
+
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const mapStyles = {
         height: '100%',
@@ -229,18 +240,14 @@ const DealerMap: React.FC<{
                     fullscreenControl: true
                 }}
             >
-                {dealers.map((dealer, index) => {
-                    if (!dealer?.lat || !dealer?.lng) return null;
-                    
-                    // Convert string coordinates to numbers
+                {validDealers.map((dealer) => {
+                    console.log('Rendering marker for dealer:', dealer);
                     const position = {
-                        lat: typeof dealer.lat === 'string' ? parseFloat(dealer.lat) : dealer.lat,
-                        lng: typeof dealer.lng === 'string' ? parseFloat(dealer.lng) : dealer.lng
+                        lat: parseFloat(dealer.lat.toString()),
+                        lng: parseFloat(dealer.lng.toString())
                     };
-
-                    // Use the full dealer number as the key
-                    const uniqueKey = dealer.KPMDealerNumber; // This will include SHIPTO: prefix if present
-
+                    const uniqueKey = `${dealer.KPMDealerNumber}-${position.lat}-${position.lng}`;
+                    
                     return (
                         <Marker
                             key={uniqueKey}
