@@ -3,8 +3,6 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 const axios = require('axios');
-const { promisify } = require('util');
-const sleep = promisify(setTimeout);
 
 const app = express();
 app.use(express.json());
@@ -12,13 +10,15 @@ app.use(cors({
     origin: [
         'http://localhost:3000',
         'http://35.212.41.99:3000',
-        'https://35.212.41.99:3000'
+        'https://35.212.41.99:3000',
+        // Add any other domains that need access
     ],
     methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type'],
     credentials: true
 }));
 
+// Database configuration
 const dbConfig = {
     host: process.env.DB_HOST,
     port: parseInt(process.env.DB_PORT || '3306'),
@@ -29,64 +29,219 @@ const dbConfig = {
     ssl: false
 };
 
+// Add debug logging
+console.log('Attempting to connect to database with config:', {
+        host: dbConfig.host,
+        port: dbConfig.port,
+        user: dbConfig.user,
+        database: dbConfig.database
+    });
+
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-
-console.log('Google Maps API Key configured:', GOOGLE_MAPS_API_KEY ? 'Yes' : 'No');
-
-// Debug endpoint to check incoming data
-app.post('/api/debug-import', async (req, res) => {
-    const { headers, rows } = req.body;
-    console.log('=== DEBUG IMPORT ===');
-    console.log('Headers:', headers);
-    console.log('First row:', rows[0]);
-    console.log('Row count:', rows.length);
-    res.json({ received: true });
-});
 
 // Get list of all dealers
 app.get('/api/dealers', async (req, res) => {
+    console.log('Received request for dealers');
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
-        console.log('Database connected for dealer fetch');
-        
+        console.log('Database connected successfully');
+
         const [rows] = await connection.query(`
             SELECT DISTINCT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
                 d.SalesmanCode,
-                s.SalesmanName,
-                a.StreetAddress,
-                a.City,
-                a.State,
-                a.ZipCode,
-                CAST(COALESCE(a.lat, 0) AS DECIMAL(10,8)) as Latitude,
-                CAST(COALESCE(a.lng, 0) AS DECIMAL(11,8)) as Longitude
+                s.SalesmanName
             FROM Dealerships d
             LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE COALESCE(a.lat, 0) != 0 
-            AND COALESCE(a.lng, 0) != 0
             ORDER BY d.DealershipName
         `);
 
-        console.log(`Found ${rows.length} dealers with coordinates`);
-        if (rows.length > 0) {
-            console.log('Sample dealer:', {
-                name: rows[0].DealershipName,
-                lat: rows[0].Latitude,
-                lng: rows[0].Longitude
-            });
-        }
+        console.log(`Successfully fetched ${rows.length} dealers`);
+        // Log a few rows to verify salesman data
+        console.log('Sample dealers:', rows.slice(0, 3));
         
         res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
-        res.status(500).json({ 
+            res.status(500).json({ 
             error: 'Failed to fetch dealers',
             details: error.message,
-            stack: error.stack
+            code: error.code
+        });
+    } finally {
+        if (connection) {
+            await connection.end();
+        }
+    }
+});
+
+// Get complete dealer details by dealer number
+app.get('/api/dealers/coordinates', async (req, res) => {
+    let connection;
+    try {
+        connection = await mysql.createConnection(dbConfig);
+        
+        console.log('Fetching dealer coordinates...');
+        
+        // Update query to get all dealers with coordinates
+        const [dealers] = await connection.query(`
+            SELECT 
+                d.KPMDealerNumber,
+                d.DealershipName,
+                d.DBA,
+                d.SalesmanCode,
+                s.SalesmanName,
+                a.StreetAddress,
+                CASE 
+                    WHEN a.City LIKE '% VA %' THEN SUBSTRING_INDEX(a.City, ' VA ', 1)
+                    ELSE a.City 
+                END as City,
+                COALESCE(a.State, 
+                    CASE 
+                        WHEN a.City LIKE '% VA %' THEN 'VA'
+                        WHEN a.City LIKE '% NC %' THEN 'NC'
+                        ELSE ''
+                    END
+                ) as State,
+                COALESCE(a.ZipCode,
+                    CASE 
+                        WHEN a.City LIKE '% VA %' THEN TRIM(SUBSTRING_INDEX(a.City, ' VA ', -1))
+                        WHEN a.City LIKE '% NC %' THEN TRIM(SUBSTRING_INDEX(a.City, ' NC ', -1))
+                        ELSE ''
+                    END
+                ) as ZipCode,
+                CAST(a.lat AS DECIMAL(10,8)) as lat,
+                CAST(a.lng AS DECIMAL(11,8)) as lng
+            FROM Dealerships d
+            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            WHERE a.StreetAddress IS NOT NULL
+        `);
+
+        console.log(`Found ${dealers.length} dealers with coordinates`);
+        if (dealers.length > 0) {
+            console.log('Sample dealer:', {
+                name: dealers[0].DealershipName,
+                address: dealers[0].StreetAddress,
+                coordinates: {
+                    lat: dealers[0].lat,
+                    lng: dealers[0].lng
+                }
+            });
+        }
+        
+        res.json(dealers);
+    } catch (error) {
+        console.error('Error fetching dealer coordinates:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch dealer coordinates',
+            details: error.message 
+        });
+    } finally {
+        if (connection) {
+            await connection.end();
+        }
+    }
+});
+
+// Get complete dealer details by dealer number
+app.get('/api/dealers/:dealerNumber', async (req, res) => {
+    let connection;
+    try {
+        console.log('=== GET DEALER DETAILS ===');
+        console.log('Dealer Number:', req.params.dealerNumber);
+
+        // Create connection
+        connection = await mysql.createConnection(dbConfig);
+
+        // Get dealer basic info with salesman details
+        const [dealerInfo] = await connection.query(`
+            SELECT 
+                d.KPMDealerNumber,
+                d.DealershipName,
+                d.DBA,
+                COALESCE(d.SalesmanCode, '') as SalesmanCode,
+                COALESCE(s.SalesmanName, '') as SalesmanName,
+                s.SalesmanCode as ConfirmedSalesmanCode
+            FROM Dealerships d
+            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            WHERE d.KPMDealerNumber = ?
+        `, [req.params.dealerNumber]);
+
+        if (dealerInfo.length === 0) {
+            return res.status(404).json({ error: 'Dealer not found' });
+        }
+
+        // Get address information
+        const [address] = await connection.query(`
+            SELECT 
+                StreetAddress,
+                BoxNumber,
+                City,
+                State,
+                ZipCode,
+                County
+            FROM Addresses 
+            WHERE KPMDealerNumber = ?
+        `, [req.params.dealerNumber]);
+
+        // Get contact information
+        const [contact] = await connection.query(`
+            SELECT 
+                MainPhone,
+                FaxNumber,
+                MainEmail
+            FROM ContactInformation 
+            WHERE KPMDealerNumber = ?
+        `, [req.params.dealerNumber]);
+
+   
+        // Get lines carried
+        const [lines] = await connection.query(`
+            SELECT 
+                LineName,
+                AccountNumber
+            FROM LinesCarried 
+            WHERE KPMDealerNumber = ?
+        `, [req.params.dealerNumber]);
+
+        // Structure the response
+        const dealerDetails = {
+            KPMDealerNumber: dealerInfo[0].KPMDealerNumber,
+            DealershipName: dealerInfo[0].DealershipName,
+            DBA: dealerInfo[0].DBA || '',
+            address: address[0] || {
+                StreetAddress: '',
+                BoxNumber: '',
+                City: '',
+                State: '',
+                ZipCode: '',
+                County: ''
+            },
+            contact: contact[0] || {
+                MainPhone: '',
+                FaxNumber: '',
+                MainEmail: ''
+            },
+            lines: lines || [],
+            salesman: {
+                SalesmanName: dealerInfo[0].SalesmanName || '',
+                SalesmanCode: dealerInfo[0].SalesmanCode || ''
+            }
+        };
+
+        console.log('Sending dealer details:', JSON.stringify(dealerDetails, null, 2));
+        res.json(dealerDetails);
+
+    } catch (error) {
+        console.error('Error fetching dealer details:', error);
+            res.status(500).json({ 
+            error: 'Failed to fetch dealer details',
+            details: error.message,
+            code: error.code
         });
     } finally {
         if (connection) {
@@ -100,59 +255,162 @@ app.get('/api/dealers', async (req, res) => {
     }
 });
 
-// Import dealers
-app.post('/api/import', async (req, res) => {
+// Add a root route
+app.get('/', (req, res) => {
+    res.json({ message: 'KPM Dealer Database API' });
+});
+
+// Add this endpoint for updating dealer details
+app.put('/api/dealers/:dealerNumber', async (req, res) => {
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
-        
-        // Check existing columns
-        const [columns] = await connection.query(`
-            SHOW COLUMNS FROM Addresses 
-            WHERE Field IN ('lat', 'lng')
-        `);
-        
-        // We'll use the existing lat/lng columns since they're already working
-        console.log('Using existing coordinate columns:', columns);
+        const dealerNumber = req.params.dealerNumber;
+        const updates = req.body;
 
+        // Update basic info
+        await connection.query(`
+            UPDATE Dealerships 
+            SET DBA = ?
+            WHERE KPMDealerNumber = ?
+        `, [updates.DBA, dealerNumber]);
+
+        // Update contact info
+        await connection.query(`
+            UPDATE ContactInformation 
+            SET MainPhone = ?, FaxNumber = ?, MainEmail = ?
+            WHERE KPMDealerNumber = ?
+        `, [updates.contact.MainPhone, updates.contact.FaxNumber, updates.contact.MainEmail, dealerNumber]);
+
+        // Update address
+        await connection.query(`
+            UPDATE Addresses 
+            SET StreetAddress = ?, BoxNumber = ?, City = ?, State = ?, ZipCode = ?, County = ?
+            WHERE KPMDealerNumber = ?
+        `, [
+            updates.address.StreetAddress,
+            updates.address.BoxNumber,
+            updates.address.City,
+            updates.address.State,
+            updates.address.ZipCode,
+            updates.address.County,
+            dealerNumber
+        ]);
+
+        // Fetch and return the complete updated dealer details
+        const [dealerInfo] = await connection.query(`
+            SELECT 
+                d.KPMDealerNumber,
+                d.DealershipName,
+                d.DBA,
+                d.SalesmanCode,
+                s.SalesmanName
+            FROM Dealerships d
+            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            WHERE d.KPMDealerNumber = ?
+        `, [dealerNumber]);
+
+        const [address] = await connection.query(`
+            SELECT * FROM Addresses WHERE KPMDealerNumber = ?
+        `, [dealerNumber]);
+
+        const [contact] = await connection.query(`
+            SELECT * FROM ContactInformation WHERE KPMDealerNumber = ?
+        `, [dealerNumber]);
+
+        const [lines] = await connection.query(`
+            SELECT * FROM LinesCarried WHERE KPMDealerNumber = ?
+        `, [dealerNumber]);
+
+        // Return the complete dealer details
+        const updatedDealer = {
+            KPMDealerNumber: dealerInfo[0].KPMDealerNumber,
+            DealershipName: dealerInfo[0].DealershipName,
+            DBA: dealerInfo[0].DBA || '',
+            address: address[0] || {
+                StreetAddress: '',
+                BoxNumber: '',
+                City: '',
+                State: '',
+                ZipCode: '',
+                County: ''
+            },
+            contact: contact[0] || {
+                MainPhone: '',
+                FaxNumber: '',
+                MainEmail: ''
+            },
+            lines: lines || [],
+            salesman: {
+                SalesmanName: dealerInfo[0].SalesmanName || '',
+                SalesmanCode: dealerInfo[0].SalesmanCode || ''
+            }
+        };
+
+        res.json(updatedDealer);
+    } catch (error) {
+        console.error('Error updating dealer:', error);
+        res.status(500).json({ error: 'Failed to update dealer details' });
+    } finally {
+        if (connection) await connection.end();
+    }
+});
+
+// Add import endpoint
+app.post('/api/import', async (req, res) => {
+    let connection;
+    try {
         const { headers, rows } = req.body;
         
-        console.log('=== IMPORT STARTED ===');
-        console.log('Column indexes:', {
-            dealerNumber: headers.indexOf('KPM Dealer Number'),
-            dealershipName: headers.indexOf('Dealership Name'),
-            streetAddress: headers.indexOf('Street Address'),
-            city: headers.indexOf('City'),
-            state: headers.indexOf('State'),
-            zipCode: headers.indexOf('Zip Code'),
-            salesmanCode: headers.indexOf('Salesman Code')
+        // Find the salesman code column, accounting for misspelling
+        const salesmanCodeIndex = headers.findIndex(h => 
+            h === 'Salesman Code' || 
+            h === 'Saelsman Code' || // Handle misspelling
+            h.toLowerCase().includes('salesman') && h.toLowerCase().includes('code')
+        );
+
+        console.log('Column info:', {
+            headers: headers,
+            salesmanCodeIndex: salesmanCodeIndex,
+            foundColumn: headers[salesmanCodeIndex]
         });
 
+        // Get valid salesman codes from database
+        const [validCodes] = await connection.query('SELECT SalesmanCode FROM Salesman');
+        console.log('Valid salesman codes in database:', validCodes);
+
+        connection = await mysql.createConnection(dbConfig);
         await connection.beginTransaction();
 
         let processedCount = 0;
         let updatedCount = 0;
         let errorCount = 0;
-        let addressCount = 0;
 
+        // Process each row
         for (const row of rows) {
             try {
+                const dealerNumber = row[headers.indexOf('KPM Dealer Number')]?.toString().trim();
+                if (!dealerNumber) continue;
+
+                const salesmanCode = row[salesmanCodeIndex]?.toString().trim();
+                
+                console.log('Processing dealer:', {
+                    dealerNumber,
+                    salesmanCode,
+                    rawValue: row[salesmanCodeIndex]
+                });
+
                 const dealerData = {
-                    dealerNumber: row[headers.indexOf('KPM Dealer Number')]?.toString().trim() || '',
-                    dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim() || '',
-                    dba: row[headers.indexOf('DBA')]?.toString().trim() || '',
-                    salesmanCode: row[headers.indexOf('Salesman Code')]?.toString().trim() || null,
-                    streetAddress: row[headers.indexOf('Street Address')]?.toString().trim() || '',
-                    city: row[headers.indexOf('City')]?.toString().trim() || '',
-                    state: row[headers.indexOf('State')]?.toString().trim() || '',
-                    zipCode: row[headers.indexOf('Zip Code')]?.toString().trim() || ''
+                    dealerNumber,
+                    dealershipName: row[headers.indexOf('Dealership Name')]?.toString().trim(),
+                    dba: row[headers.indexOf('DBA')]?.toString().trim(),
+                    salesmanCode: salesmanCode || null  // Ensure null if empty
                 };
 
-                if (!dealerData.dealerNumber) continue;
+                // Log the query parameters
+                console.log('Updating dealer:', dealerData);
 
-                console.log('Processing dealer:', dealerData);
-
-                // Update dealer info
+                // Explicitly update the salesman code
                 await connection.query(`
                     INSERT INTO Dealerships 
                         (KPMDealerNumber, DealershipName, DBA, SalesmanCode)
@@ -160,168 +418,69 @@ app.post('/api/import', async (req, res) => {
                     ON DUPLICATE KEY UPDATE
                         DealershipName = VALUES(DealershipName),
                         DBA = VALUES(DBA),
-                        SalesmanCode = VALUES(SalesmanCode)
+                        SalesmanCode = ?  -- Explicitly set salesman code
                 `, [
-                    dealerData.dealerNumber,
+                    dealerNumber,
                     dealerData.dealershipName,
-                    dealerData.dba,
-                    dealerData.salesmanCode
+                    dealerData.dba || '',
+                    dealerData.salesmanCode,
+                    dealerData.salesmanCode  // Pass salesmanCode again for UPDATE
                 ]);
 
-                // Update address if we have all required fields
-                if (dealerData.streetAddress && dealerData.city && dealerData.state) {
-                    const fullAddress = `${dealerData.streetAddress}, ${dealerData.city}, ${dealerData.state} ${dealerData.zipCode}`;
-                    console.log('Processing address:', fullAddress);
+                // Verify the update immediately
+                const [verifyResult] = await connection.query(
+                    'SELECT * FROM Dealerships WHERE KPMDealerNumber = ?',
+                    [dealerNumber]
+                );
+                console.log('Verification after update:', {
+                    dealerNumber,
+                    beforeSalesmanCode: salesmanCode,
+                    afterSalesmanCode: verifyResult[0]?.SalesmanCode,
+                    fullRecord: verifyResult[0]
+                });
 
-                    try {
-                        // Add delay between requests to avoid rate limiting
-                        await sleep(200); // 200ms delay between requests
-
-                        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
-                        
-                        const geocodeResponse = await axios.get(geocodeUrl);
-                        
-                        if (geocodeResponse.data.status === 'OK' && geocodeResponse.data.results?.[0]?.geometry?.location) {
-                            const { lat, lng } = geocodeResponse.data.results[0].geometry.location;
-                            console.log('Got coordinates for', dealerData.dealerNumber, ':', { lat, lng });
-                            
-                            await connection.query(`
-                                INSERT INTO Addresses 
-                                    (KPMDealerNumber, StreetAddress, City, State, ZipCode, lat, lng)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
-                                ON DUPLICATE KEY UPDATE
-                                    StreetAddress = VALUES(StreetAddress),
-                                    City = VALUES(City),
-                                    State = VALUES(State),
-                                    ZipCode = VALUES(ZipCode),
-                                    lat = VALUES(lat),
-                                    lng = VALUES(lng)
-                            `, [
-                                dealerData.dealerNumber,
-                                dealerData.streetAddress,
-                                dealerData.city,
-                                dealerData.state,
-                                dealerData.zipCode,
-                                lat,
-                                lng
-                            ]);
-                            
-                            // Verify the update
-                            const [verifyResult] = await connection.query(
-                                'SELECT * FROM Addresses WHERE KPMDealerNumber = ?',
-                                [dealerData.dealerNumber]
-                            );
-                            console.log('Address verification:', verifyResult[0]);
-                            
-                            addressCount++;
-                        } else {
-                            console.log('Geocoding failed for address:', fullAddress);
-                            console.log('Status:', geocodeResponse.data.status);
-                            console.log('Error message:', geocodeResponse.data.error_message);
-                        }
-                    } catch (geocodeError) {
-                        console.error('Geocoding error for', dealerData.dealerNumber, ':', {
-                            error: geocodeError.message,
-                            status: geocodeError.response?.status,
-                            data: geocodeError.response?.data
-                        });
-                    }
-                }
-
-                updatedCount++;
                 processedCount++;
+                updatedCount++;
             } catch (error) {
-                console.error('Error processing row:', error);
+                console.error(`Error processing row:`, {
+                    row,
+                    error: error.message
+                });
                 errorCount++;
             }
         }
 
         await connection.commit();
         
-        const response = {
-            message: 'Import completed',
+        console.log('=== IMPORT COMPLETED ===');
+        console.log('Results:', {
+            processed: processedCount,
+            updated: updatedCount,
+            errors: errorCount
+        });
+            
+            res.json({ 
+            message: 'Import completed successfully',
             stats: {
                 processed: processedCount,
                 updated: updatedCount,
-                addressesProcessed: addressCount,
                 errors: errorCount
             }
-        };
-        
-        console.log('Import results:', response);
-        res.json(response);
+        });
 
     } catch (error) {
         console.error('Import failed:', error);
-        if (connection) await connection.rollback();
+        if (connection) {
+            await connection.rollback();
+        }
         res.status(500).json({
             error: 'Failed to import data',
             details: error.message
         });
     } finally {
-        if (connection) await connection.end();
-    }
-});
-
-// Test geocoding endpoint
-app.get('/api/test-geocoding', async (req, res) => {
-    try {
-        const testAddress = '1600 Amphitheatre Parkway, Mountain View, CA';
-        const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(testAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
-        
-        console.log('Testing geocoding with URL:', geocodeUrl);
-        
-        const response = await axios.get(geocodeUrl);
-        
-        res.json({
-            success: true,
-            status: response.data.status,
-            results: response.data.results
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            details: error.response?.data
-        });
-    }
-});
-
-// Add this endpoint for individual dealer details
-app.get('/api/dealers/:dealerNumber', async (req, res) => {
-    let connection;
-    try {
-        connection = await mysql.createConnection(dbConfig);
-        const [rows] = await connection.query(`
-            SELECT 
-                d.*,
-                s.SalesmanName,
-                a.StreetAddress,
-                a.City,
-                a.State,
-                a.ZipCode,
-                CAST(COALESCE(a.lat, 0) AS DECIMAL(10,8)) as Latitude,
-                CAST(COALESCE(a.lng, 0) AS DECIMAL(11,8)) as Longitude
-            FROM Dealerships d
-            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
-            WHERE d.KPMDealerNumber = ?
-        `, [req.params.dealerNumber]);
-
-        if (rows.length === 0) {
-            res.status(404).json({ error: 'Dealer not found' });
-            return;
+        if (connection) {
+            await connection.end();
         }
-
-        res.json(rows[0]);
-    } catch (error) {
-        console.error('Error fetching dealer details:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch dealer details',
-            details: error.message 
-        });
-    } finally {
-        if (connection) await connection.end();
     }
 });
 
