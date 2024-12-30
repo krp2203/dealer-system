@@ -60,24 +60,14 @@ const formatLinesCarried = (lines: any): FormattedLine[] => {
     if (!lines) return [];
     
     const expandLineName = (line: string): FormattedLine => {
-        // Split by spaces and look for "Account:" pattern
-        const parts = line.trim().split(/\s+/);
-        const accountIndex = parts.findIndex(p => p.toLowerCase() === 'account:');
+        // Split by ' - Account: ' to separate name and account number
+        const [fullName, accountNumber] = line.trim().split(' - Account: ');
+        const code = fullName.split(' ')[0];  // Get the code (SG, SW, etc.)
         
-        if (accountIndex !== -1) {
-            // If we found "Account:", combine the parts properly
-            const name = LINE_MAPPINGS[parts[0]] || parts[0];
-            const accountNumber = parts[accountIndex + 1];
-            return {
-                name: name,
-                accountNumber: accountNumber
-            };
-        } else {
-            // If no account number found, just use the first part as the name
-            return {
-                name: LINE_MAPPINGS[parts[0]] || parts[0]
-            };
-        }
+        return {
+            name: LINE_MAPPINGS[code] || code,
+            accountNumber: accountNumber
+        };
     };
     
     if (typeof lines === 'string') {

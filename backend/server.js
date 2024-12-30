@@ -201,8 +201,7 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
         // Get lines carried
         const [lines] = await connection.query(`
             SELECT 
-                LineName,
-                AccountNumber
+                CONCAT(LineName, ' - Account: ', AccountNumber) as LineName
             FROM LinesCarried 
             WHERE KPMDealerNumber = ?
         `, [req.params.dealerNumber]);
@@ -225,7 +224,7 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
                 FaxNumber: '',
                 MainEmail: ''
             },
-            lines: lines[0]?.LineName || '',
+            lines: lines.map(l => l.LineName).join(', '),
             salesman: {
                 SalesmanName: dealerInfo[0].SalesmanName || '',
                 SalesmanCode: dealerInfo[0].SalesmanCode || ''
