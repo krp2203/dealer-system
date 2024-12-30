@@ -167,14 +167,29 @@ const DealerMap: React.FC<{
                 }}
             >
                 {dealers.map((dealer, index) => {
-                    const uniqueKey = dealer.KPMDealerNumber.startsWith('SHIPTO:') 
-                        ? `${dealer.KPMDealerNumber}_${index}`
-                        : dealer.KPMDealerNumber;
+                    if (!dealer?.lat || !dealer?.lng) return null;
+                    
+                    // Convert string coordinates to numbers
+                    const position = {
+                        lat: typeof dealer.lat === 'string' ? parseFloat(dealer.lat) : dealer.lat,
+                        lng: typeof dealer.lng === 'string' ? parseFloat(dealer.lng) : dealer.lng
+                    };
+
+                    // Use the full dealer number as the key
+                    const uniqueKey = dealer.KPMDealerNumber; // This will include SHIPTO: prefix if present
 
                     return (
-                        <div key={uniqueKey}>
-                            {/* Your marker and info window code */}
-                        </div>
+                        <Marker
+                            key={uniqueKey}
+                            position={position}
+                            onMouseOver={() => setHoveredDealer(dealer)}
+                            onMouseOut={() => {
+                                if (!isHoveringInfoWindow) {
+                                    setHoveredDealer(null);
+                                }
+                            }}
+                            onClick={() => onDealerSelect(dealer.KPMDealerNumber)}
+                        />
                     );
                 })}
 
