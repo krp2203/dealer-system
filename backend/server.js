@@ -172,7 +172,6 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
     try {
         connection = await mysql.createConnection(dbConfig);
 
-        // Get all dealer information in one query
         const [dealerInfo] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
@@ -195,17 +194,41 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
             LEFT JOIN ContactInformation c ON d.KPMDealerNumber = c.KPMDealerNumber
             LEFT JOIN LinesCarried l ON d.KPMDealerNumber = l.KPMDealerNumber
             WHERE d.KPMDealerNumber = ?
-            GROUP BY d.KPMDealerNumber
+            GROUP BY 
+                d.KPMDealerNumber,
+                d.DealershipName,
+                d.DBA,
+                d.SalesmanCode,
+                s.SalesmanName,
+                a.StreetAddress,
+                a.City,
+                a.State,
+                a.ZipCode,
+                a.County,
+                c.MainPhone,
+                c.FaxNumber,
+                c.MainEmail
         `, [req.params.dealerNumber]);
 
         if (dealerInfo.length === 0) {
             return res.status(404).json({ error: 'Dealer not found' });
         }
 
+        // Add debug logging
+        console.log('Dealer details found:', {
+            dealerNumber: dealerInfo[0].KPMDealerNumber,
+            hasAddress: !!dealerInfo[0].StreetAddress,
+            hasContact: !!dealerInfo[0].MainPhone || !!dealerInfo[0].MainEmail,
+            hasLines: !!dealerInfo[0].LinesCarried
+        });
+
         res.json(dealerInfo[0]);
     } catch (error) {
         console.error('Error fetching dealer details:', error);
-        res.status(500).json({ error: 'Failed to fetch dealer details' });
+        res.status(500).json({ 
+            error: 'Failed to fetch dealer details',
+            details: error.message 
+        });
     } finally {
         if (connection) await connection.end();
     }
