@@ -97,6 +97,17 @@ const formatLinesCarried = (lines: string) => {
     return lineArray.join(', ');
 };
 
+// Add a color mapping for salesman codes
+const SALESMAN_COLORS: { [key: string]: string } = {
+    '48': '#FF0000',    // Red
+    '49': '#00FF00',    // Green
+    '50': '#0000FF',    // Blue
+    // Add more salesman codes and colors as needed
+};
+
+// Default color for unknown salesman codes
+const DEFAULT_MARKER_COLOR = '#FF0000';
+
 const DealerMap: React.FC<{
     onDealerSelect: (dealerNumber: string) => void;
 }> = ({ onDealerSelect }) => {
@@ -192,6 +203,14 @@ const DealerMap: React.FC<{
                         <Marker
                             key={uniqueKey}
                             position={position}
+                            icon={{
+                                path: window.google.maps.SymbolPath.CIRCLE,
+                                fillColor: SALESMAN_COLORS[dealer.SalesmanCode] || DEFAULT_MARKER_COLOR,
+                                fillOpacity: 1,
+                                strokeWeight: 1,
+                                strokeColor: '#FFFFFF',
+                                scale: 10,
+                            }}
                             onMouseOver={() => setHoveredDealer(dealer)}
                             onMouseOut={() => {
                                 if (!isHoveringInfoWindow) {
