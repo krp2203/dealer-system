@@ -151,6 +151,43 @@ const DealerMap: React.FC<{
         return <div className="map-container">Error: {error}</div>;
     }
 
+    const renderInfoWindow = (dealer: any) => (
+        <div className="dealer-info">
+            <h3>{dealer.DealershipName}</h3>
+            {dealer.DBA && <p><strong>DBA:</strong> {dealer.DBA}</p>}
+            
+            {/* Address Information */}
+            <div className="address-info">
+                {dealer.StreetAddress && <p>{dealer.StreetAddress}</p>}
+                {dealer.City && dealer.State && dealer.ZipCode && (
+                    <p>{dealer.City}, {dealer.State} {dealer.ZipCode}</p>
+                )}
+            </div>
+
+            {/* Contact Information */}
+            <div className="contact-info">
+                {dealer.MainPhone && <p><strong>Phone:</strong> {dealer.MainPhone}</p>}
+                {dealer.FaxNumber && <p><strong>Fax:</strong> {dealer.FaxNumber}</p>}
+                {dealer.MainEmail && <p><strong>Email:</strong> {dealer.MainEmail}</p>}
+            </div>
+
+            {/* Lines Carried */}
+            {dealer.LinesCarried && (
+                <div className="lines-info">
+                    <p><strong>Lines Carried:</strong> {dealer.LinesCarried}</p>
+                </div>
+            )}
+
+            {/* Salesman Information */}
+            {dealer.SalesmanName && (
+                <div className="salesman-info">
+                    <p><strong>Salesman:</strong> {dealer.SalesmanName}</p>
+                    {dealer.SalesmanCode && <p><strong>Code:</strong> {dealer.SalesmanCode}</p>}
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <div className="map-container">
             <GoogleMap
@@ -202,18 +239,7 @@ const DealerMap: React.FC<{
                         onCloseClick={() => setHoveredDealer(null)}
                         options={{ pixelOffset: new window.google.maps.Size(0, -30) }}
                     >
-                        <div 
-                            onMouseEnter={() => setIsHoveringInfoWindow(true)}
-                            onMouseLeave={() => {
-                                setIsHoveringInfoWindow(false);
-                                setHoveredDealer(null);
-                            }}
-                            style={{ padding: '8px', minWidth: '200px' }}
-                        >
-                            <h3>{hoveredDealer.DealershipName}</h3>
-                            <p>{hoveredDealer.StreetAddress}</p>
-                            <p>{hoveredDealer.City}, {hoveredDealer.State} {hoveredDealer.ZipCode}</p>
-                        </div>
+                        {renderInfoWindow(hoveredDealer)}
                     </InfoWindow>
                 )}
             </GoogleMap>
