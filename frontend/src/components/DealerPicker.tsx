@@ -51,7 +51,18 @@ const LINE_MAPPINGS: { [key: string]: string } = {
     'WM': 'Wright',
     'GC': 'Grass Catcher',
     'RE': 'Rinnai',
-    'TI': 'Timbrin'
+    'TI': 'Timbrin',
+    'BG': 'BG',
+    'EZ': 'EZ',
+    'GGGR': 'Grass Gobbler GR',
+    'GV': 'GV',
+    'HB': 'HB',
+    'MCMS': 'MCMS',
+    'OTPL': 'OTR Plus',
+    'SC': 'SC',
+    'SGSP': 'SGSP',
+    'SU': 'SU',
+    'UMVK': 'Umount VK'
 };
 
 interface FormattedLine {
@@ -67,12 +78,24 @@ interface LineInfo {
 const formatLinesCarried = (lines: LineInfo[]): FormattedLine[] => {
     if (!Array.isArray(lines)) return [];
     
+    // Split any concatenated codes and create separate entries
+    const expandedLines = lines.flatMap(line => {
+        // If the code contains commas, split it
+        if (line.code.includes(',')) {
+            return line.code.split(',').map(code => ({
+                code: code.trim(),
+                accountNumber: line.accountNumber
+            }));
+        }
+        return [line];
+    });
+    
     // Sort lines by their display names
-    return lines
+    return expandedLines
         .map(line => ({
             name: LINE_MAPPINGS[line.code] || line.code,
             accountNumber: line.accountNumber,
-            originalCode: line.code // Keep original code for sorting
+            originalCode: line.code
         }))
         .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
         .map(({ name, accountNumber }) => ({
