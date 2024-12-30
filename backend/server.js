@@ -225,7 +225,7 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
                 FaxNumber: '',
                 MainEmail: ''
             },
-            lines: lines || [],
+            lines: lines[0]?.LineName || '',
             salesman: {
                 SalesmanName: dealerInfo[0].SalesmanName || '',
                 SalesmanCode: dealerInfo[0].SalesmanCode || ''
@@ -339,7 +339,7 @@ app.put('/api/dealers/:dealerNumber', async (req, res) => {
                 FaxNumber: '',
                 MainEmail: ''
             },
-            lines: lines || [],
+            lines: lines[0]?.LineName || '',
             salesman: {
                 SalesmanName: dealerInfo[0].SalesmanName || '',
                 SalesmanCode: dealerInfo[0].SalesmanCode || ''
@@ -454,8 +454,8 @@ app.post('/api/import', async (req, res) => {
 
         await connection.commit();
         console.log('Import completed with stats:', stats);
-        
-        res.json({
+            
+            res.json({ 
             success: true,
             message: 'Import completed successfully',
             stats: stats
