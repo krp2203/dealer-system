@@ -82,26 +82,24 @@ interface LineInfo {
 const formatLinesCarried = (lines: LineInfo[]): FormattedLine[] => {
     if (!Array.isArray(lines)) return [];
     
-    // Split any concatenated codes and create separate entries
-    const expandedLines = lines.flatMap(line => {
-        // If the code contains commas, split it
-        if (line.code.includes(',')) {
-            return line.code.split(',').map(code => ({
-                code: code.trim(),
+    // Process each line code and only include valid ones with mappings
+    const validLines = lines.flatMap(line => {
+        // Split in case there are multiple codes
+        const codes = line.code.split(/[,\s]+/).filter(Boolean);
+        
+        return codes
+            .map(code => code.trim())
+            .filter(code => LINE_MAPPINGS[code]) // Only include codes that have mappings
+            .map(code => ({
+                name: LINE_MAPPINGS[code],
+                code: code,
                 accountNumber: line.accountNumber
             }));
-        }
-        return [line];
     });
-    
-    // Sort lines by their display names
-    return expandedLines
-        .map(line => ({
-            name: LINE_MAPPINGS[line.code] || line.code,
-            accountNumber: line.accountNumber,
-            originalCode: line.code
-        }))
-        .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+
+    // Sort by full line names
+    return validLines
+        .sort((a, b) => a.name.localeCompare(b.name))
         .map(({ name, accountNumber }) => ({
             name,
             accountNumber
