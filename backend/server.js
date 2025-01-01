@@ -365,18 +365,13 @@ app.post('/api/import', async (req, res) => {
     let stats = {
         processedCount: 0,
         updatedCount: 0,
-        errorCount: 0
+        errorCount: 0,
+        newDealersCount: 0
     };
     let currentDealerNumber = null;
 
     try {
         const { headers, rows } = req.body;
-        
-        console.log('Starting import with:', {
-            headerCount: headers.length,
-            rowCount: rows.length
-        });
-
         connection = await mysql.createConnection(dbConfig);
         await connection.beginTransaction();
 
@@ -388,7 +383,27 @@ app.post('/api/import', async (req, res) => {
                     continue;
                 }
 
-                // Update ContactInformation table
+                // First check if dealer exists
+                const [existingDealer] = await connection.query(
+                    'SELECT KPMDealerNumber FROM Dealerships WHERE KPMDealerNumber = ?',
+                    [currentDealerNumber]
+                );
+
+                // If dealer doesn't exist, create it
+                if (existingDealer.length === 0) {
+                    console.log(`Creating new dealer: ${currentDealerNumber}`);
+                    await connection.query(`
+                        INSERT INTO Dealerships 
+                            (KPMDealerNumber, DealershipName)
+                        VALUES (?, ?)
+                    `, [
+                        currentDealerNumber,
+                        row[headers.indexOf('Dealership Name')]?.toString().trim() || 'Unknown'
+                    ]);
+                    stats.newDealersCount++;
+                }
+
+                // Now proceed with contact information
                 await connection.query(`
                     INSERT INTO ContactInformation 
                         (KPMDealerNumber, MainPhone, FaxNumber, MainEmail, SecondEmail, 
@@ -450,7 +465,8 @@ app.post('/api/import', async (req, res) => {
             } catch (error) {
                 console.error('Error processing dealer:', {
                     dealerNumber: currentDealerNumber,
-                    error: error.message
+                    error: error.message,
+                    stack: error.stack
                 });
                 stats.errorCount++;
             }
@@ -458,8 +474,8 @@ app.post('/api/import', async (req, res) => {
 
         await connection.commit();
         console.log('Import completed with stats:', stats);
-            
-            res.json({ 
+        
+        res.json({ 
             success: true,
             message: 'Import completed successfully',
             stats: stats
