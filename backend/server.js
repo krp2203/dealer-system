@@ -138,7 +138,6 @@ async function ensureDealerSalesmenTable(connection) {
 
 // Get list of all dealers
 app.get('/api/dealers', async (req, res) => {
-    console.log('Received request for dealers');
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
@@ -158,13 +157,10 @@ app.get('/api/dealers', async (req, res) => {
         `);
 
         console.log(`Successfully fetched ${rows.length} dealers`);
-        // Log a few rows to verify salesman data
-        console.log('Sample dealers:', rows.slice(0, 3));
-        
         res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
-            res.status(500).json({ 
+        res.status(500).json({ 
             error: 'Failed to fetch dealers',
             details: error.message,
             code: error.code
