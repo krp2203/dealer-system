@@ -169,17 +169,13 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
         // Create connection
         connection = await mysql.createConnection(dbConfig);
 
-        // Get dealer basic info with salesman details
+        // Get dealer basic info
         const [dealerInfo] = await connection.query(`
             SELECT 
                 d.KPMDealerNumber,
                 d.DealershipName,
-                d.DBA,
-                COALESCE(d.SalesmanCode, '') as SalesmanCode,
-                COALESCE(s.SalesmanName, '') as SalesmanName,
-                s.SalesmanCode as ConfirmedSalesmanCode
+                d.DBA
             FROM Dealerships d
-            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
             WHERE d.KPMDealerNumber = ?
         `, [req.params.dealerNumber]);
 
@@ -258,8 +254,8 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
                 accountNumber: line.AccountNumber
             })),
             salesman: {
-                SalesmanName: dealerInfo[0].SalesmanName || '',
-                SalesmanCode: dealerInfo[0].SalesmanCode || ''
+                SalesmanName: salesmen[0]?.SalesmanName || '',
+                SalesmanCode: salesmen[0]?.SalesmanCode || ''
             },
             salesmen: salesmen.map(s => ({
                 SalesmanName: s.SalesmanName,
