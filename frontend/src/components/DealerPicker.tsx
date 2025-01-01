@@ -263,20 +263,25 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const loadDetailsForSearch = async (searchTerm: string) => {
         setIsSearchLoading(true);
         try {
-            // First search basic info
-            let results = dealers.filter(dealer => 
-                (dealer.DealershipName || '').toLowerCase().includes(searchTerm) ||
-                (dealer.KPMDealerNumber || '').toLowerCase().includes(searchTerm) ||
-                (dealer.DBA || '').toLowerCase().includes(searchTerm)
-            );
-
-            // If no results found in basic info, search detailed info
-            if (results.length === 0 && searchTerm.length >= 3) {
-                const response = await axios.get(`${API_URL}/api/dealers/search?term=${encodeURIComponent(searchTerm)}`);
-                results = response.data;
+            // For short search terms, only search basic info
+            if (searchTerm.length < 3) {
+                const basicResults = dealers.filter(dealer => 
+                    (dealer.DealershipName || '').toLowerCase().includes(searchTerm) ||
+                    (dealer.KPMDealerNumber || '').toLowerCase().includes(searchTerm) ||
+                    (dealer.DBA || '').toLowerCase().includes(searchTerm)
+                );
+                setFilteredDealers(basicResults);
+                return;
             }
 
-            setFilteredDealers(results);
+            // For 3 or more characters, search all fields via API
+            const response = await axios.get<Dealer[]>(
+                `${API_URL}/api/dealers/search?term=${encodeURIComponent(searchTerm)}`
+            );
+            
+            console.log('Search results:', response.data); // Debug log
+            setFilteredDealers(response.data);
+
         } catch (error) {
             console.error('Search error:', error);
             setFilteredDealers([]);
@@ -311,11 +316,17 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         []  // Empty dependency array since we don't want to recreate this
     );
 
-    // Update the input handler
+    // Update the input handler to use debounced search
     const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setSearchTerm(value);
         setIsDropdownVisible(true);
+        
+        if (!value.trim()) {
+            setFilteredDealers(dealers);
+            return;
+        }
+        
         debouncedSearch(value);
     };
 

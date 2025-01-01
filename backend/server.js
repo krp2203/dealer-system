@@ -738,7 +738,10 @@ app.get('/api/dealers/search', async (req, res) => {
         connection = await mysql.createConnection(dbConfig);
         
         const [rows] = await connection.query(`
-            SELECT DISTINCT d.* 
+            SELECT DISTINCT 
+                d.KPMDealerNumber,
+                d.DealershipName,
+                d.DBA
             FROM Dealerships d
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             LEFT JOIN ContactInformation c ON d.KPMDealerNumber = c.KPMDealerNumber
@@ -756,8 +759,10 @@ app.get('/api/dealers/search', async (req, res) => {
                 c.FaxNumber LIKE ? OR
                 c.MainEmail LIKE ? OR
                 s.SalesmanName LIKE ?
+            ORDER BY d.DealershipName
         `, Array(11).fill(`%${searchTerm}%`));
 
+        console.log(`Search found ${rows.length} results for "${searchTerm}"`);
         res.json(rows);
     } catch (error) {
         console.error('Search error:', error);
