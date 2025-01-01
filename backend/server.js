@@ -410,6 +410,18 @@ app.post('/api/import', async (req, res) => {
                 if (existingDealer.length === 0) {
                     console.log(`Creating new dealer: ${currentDealerNumber}`);
                     
+                    // Get and log salesman code
+                    const salesmanCode = row[headers.indexOf('Salesman Code')]?.toString().trim() || 
+                                        row[headers.indexOf('SalesmanCode')]?.toString().trim() || 
+                                        row[headers.indexOf('Rep Code')]?.toString().trim() || null;
+                    
+                    console.log('Salesman data:', {
+                        dealerNumber: currentDealerNumber,
+                        salesmanCode: salesmanCode,
+                        foundInHeaders: headers.includes('Salesman Code'),
+                        allHeaders: headers // This will show us all available headers
+                    });
+                    
                     // Insert into Dealerships table with SalesmanCode
                     await connection.query(`
                         INSERT INTO Dealerships 
@@ -418,7 +430,7 @@ app.post('/api/import', async (req, res) => {
                     `, [
                         currentDealerNumber,
                         row[headers.indexOf('Dealership Name')]?.toString().trim() || 'Unknown',
-                        row[headers.indexOf('Salesman Code')]?.toString().trim() || null
+                        salesmanCode
                     ]);
 
                     // Get address components
