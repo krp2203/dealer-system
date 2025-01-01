@@ -726,6 +726,47 @@ app.get('/api/dealers/:dealerNumber/details', async (req, res) => {
     }
 });
 
+// Add search endpoint
+app.get('/api/dealers/search', async (req, res) => {
+    const searchTerm = req.query.term?.toLowerCase();
+    if (!searchTerm) {
+        return res.json([]);
+    }
+
+    let connection;
+    try {
+        connection = await mysql.createConnection(dbConfig);
+        
+        const [rows] = await connection.query(`
+            SELECT DISTINCT d.* 
+            FROM Dealerships d
+            LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
+            LEFT JOIN ContactInformation c ON d.KPMDealerNumber = c.KPMDealerNumber
+            LEFT JOIN DealerSalesmen ds ON d.KPMDealerNumber = ds.KPMDealerNumber
+            LEFT JOIN Salesman s ON ds.SalesmanCode = s.SalesmanCode
+            WHERE 
+                d.KPMDealerNumber LIKE ? OR
+                d.DealershipName LIKE ? OR
+                d.DBA LIKE ? OR
+                a.StreetAddress LIKE ? OR
+                a.City LIKE ? OR
+                a.State LIKE ? OR
+                a.ZipCode LIKE ? OR
+                c.MainPhone LIKE ? OR
+                c.FaxNumber LIKE ? OR
+                c.MainEmail LIKE ? OR
+                s.SalesmanName LIKE ?
+        `, Array(11).fill(`%${searchTerm}%`));
+
+        res.json(rows);
+    } catch (error) {
+        console.error('Search error:', error);
+        res.status(500).json({ error: 'Search failed' });
+    } finally {
+        if (connection) await connection.end();
+    }
+});
+
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

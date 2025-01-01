@@ -136,10 +136,10 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     useEffect(() => {
         const fetchDealers = async () => {
             try {
-                console.log('Fetching fresh dealer list...');
+                console.log('Fetching dealer list...');
                 const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
-                console.log('Received dealers:', response.data);
                 setDealers(response.data);
+                setFilteredDealers(response.data); // Initialize filtered list
                 setLoading(false);
             } catch (err) {
                 setError('Failed to fetch dealers');
@@ -259,95 +259,43 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
     };
 
-    // Load all dealer details when component mounts
-    useEffect(() => {
-        const loadAllDealerDetails = async () => {
-            setIsSearching(true);
-            try {
-                const promises = dealers.map(dealer => fetchDealerDetails(dealer.KPMDealerNumber));
-                const results = await Promise.all(promises);
-                
-                const newDetails: { [key: string]: DealerDetails } = {};
-                dealers.forEach((dealer, index) => {
-                    if (results[index]) {
-                        newDetails[dealer.KPMDealerNumber] = results[index]!;
-                    }
-                });
-                
-                setAllDealerDetails(newDetails);
-                setIsInitialLoad(false);
-            } catch (error) {
-                console.error('Error loading dealer details:', error);
-            } finally {
-                setIsSearching(false);
-            }
-        };
+    // Add a function to load details for search
+    const loadDetailsForSearch = async (searchTerm: string) => {
+        setIsSearchLoading(true);
+        try {
+            // First search basic info
+            let results = dealers.filter(dealer => 
+                (dealer.DealershipName || '').toLowerCase().includes(searchTerm) ||
+                (dealer.KPMDealerNumber || '').toLowerCase().includes(searchTerm) ||
+                (dealer.DBA || '').toLowerCase().includes(searchTerm)
+            );
 
-        if (dealers.length > 0) {
-            loadAllDealerDetails();
+            // If no results found in basic info, search detailed info
+            if (results.length === 0 && searchTerm.length >= 3) {
+                const response = await axios.get(`${API_URL}/api/dealers/search?term=${encodeURIComponent(searchTerm)}`);
+                results = response.data;
+            }
+
+            setFilteredDealers(results);
+        } catch (error) {
+            console.error('Search error:', error);
+            setFilteredDealers([]);
+        } finally {
+            setIsSearchLoading(false);
         }
-    }, [dealers]);
-
-    // Create a memoized search function
-    const searchDealers = (searchTerm: string) => {
-        if (!searchTerm) return [];
-        const searchLower = searchTerm.toLowerCase();
-
-        return dealers.filter(dealer => {
-            // Basic info search
-            if (dealer.DealershipName?.toLowerCase().includes(searchLower) ||
-                dealer.KPMDealerNumber?.toLowerCase().includes(searchLower) ||
-                dealer.DBA?.toLowerCase().includes(searchLower)) {
-                return true;
-            }
-
-            // Detailed info search
-            const details = allDealerDetails[dealer.KPMDealerNumber];
-            if (!details) return false;
-
-            // Address search
-            const address = details.address;
-            if (address &&
-                (address.StreetAddress?.toLowerCase().includes(searchLower) ||
-                 address.City?.toLowerCase().includes(searchLower) ||
-                 address.State?.toLowerCase().includes(searchLower) ||
-                 address.ZipCode?.toLowerCase().includes(searchLower) ||
-                 address.County?.toLowerCase().includes(searchLower))) {
-                return true;
-            }
-
-            // Contact search
-            const contact = details.contact;
-            if (contact &&
-                (contact.MainPhone?.toLowerCase().includes(searchLower) ||
-                 contact.FaxNumber?.toLowerCase().includes(searchLower) ||
-                 contact.MainEmail?.toLowerCase().includes(searchLower))) {
-                return true;
-            }
-
-            // Salesman search
-            return details.salesmen?.some(salesman =>
-                salesman.SalesmanName?.toLowerCase().includes(searchLower) ||
-                salesman.SalesmanCode?.toLowerCase().includes(searchLower)
-            ) || false;
-        });
     };
 
-    // Update the search handlers
+    // Update the performSearch function
     const performSearch = (value: string) => {
         setSearchTerm(value);
-        setIsSearchLoading(true);
+        const searchLower = value.toLowerCase().trim();
         
-        // If no search term, show all dealers
-        if (!value.trim()) {
+        if (!searchLower) {
             setFilteredDealers(dealers);
-            setIsSearchLoading(false);
             return;
         }
 
-        const results = searchDealers(value);
-        setFilteredDealers(results);
-        setIsSearchLoading(false);
+        loadDetailsForSearch(searchLower);
     };
 
     // Add an effect to initialize filtered dealers
@@ -407,8 +355,8 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                     />
                     {isDropdownVisible && (
                         <div className="search-results">
-                            {isInitialLoad || isSearchLoading ? (
-                                <div className="searching">Loading dealer data...</div>
+                            {isSearchLoading ? (
+                                <div className="searching">Searching...</div>
                             ) : filteredDealers.length > 0 ? (
                                 filteredDealers.map((dealer: Dealer) => (
                                     <div
@@ -425,12 +373,6 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                                             {dealer.DBA && <span className="dealer-dba"> (DBA: {dealer.DBA})</span>}
                                         </div>
                                         <div className="dealer-number">{dealer.KPMDealerNumber}</div>
-                                        {allDealerDetails[dealer.KPMDealerNumber] && (
-                                            <div className="search-result-details">
-                                                {allDealerDetails[dealer.KPMDealerNumber].address.City}, 
-                                                {allDealerDetails[dealer.KPMDealerNumber].address.State}
-                                            </div>
-                                        )}
                                     </div>
                                 ))
                             ) : (
