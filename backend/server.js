@@ -188,7 +188,7 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
-                d.SalesmanCode,
+                ds.SalesmanCode,
                 s.SalesmanName,
                 a.StreetAddress,
                 a.City,
@@ -197,13 +197,13 @@ app.get('/api/dealers/coordinates', async (req, res) => {
                 CAST(a.lat AS DECIMAL(10,8)) as lat,
                 CAST(a.lng AS DECIMAL(11,8)) as lng
             FROM Dealerships d
-            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            LEFT JOIN DealerSalesmen ds ON d.KPMDealerNumber = ds.KPMDealerNumber
+            LEFT JOIN Salesman s ON ds.SalesmanCode = s.SalesmanCode
             LEFT JOIN Addresses a ON d.KPMDealerNumber = a.KPMDealerNumber
             WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
         `);
         
         console.log(`Found ${dealers.length} dealers with coordinates`);
-        // Log a few examples to verify data
         if (dealers.length > 0) {
             console.log('Sample dealers with coordinates:', 
                 dealers.slice(0, 3).map(d => ({
