@@ -259,75 +259,44 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
     };
 
-    // Add a function to load details for search
-    const loadDetailsForSearch = async (searchTerm: string) => {
+    // Update the search handler
+    const onInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setSearchTerm(value);
+        setIsDropdownVisible(true);
         setIsSearchLoading(true);
+
         try {
-            // For short search terms, only search basic info
-            if (searchTerm.length < 3) {
-                const basicResults = dealers.filter(dealer => 
-                    (dealer.DealershipName || '').toLowerCase().includes(searchTerm) ||
-                    (dealer.KPMDealerNumber || '').toLowerCase().includes(searchTerm) ||
-                    (dealer.DBA || '').toLowerCase().includes(searchTerm)
-                );
-                setFilteredDealers(basicResults);
+            if (!value.trim()) {
+                setFilteredDealers(dealers);
                 return;
             }
 
-            // For 3 or more characters, search all fields via API
-            const response = await axios.get<Dealer[]>(
-                `${API_URL}/api/dealers/search?term=${encodeURIComponent(searchTerm)}`
-            );
+            const searchLower = value.toLowerCase();
             
-            console.log('Search results:', response.data); // Debug log
-            setFilteredDealers(response.data);
+            // Always do basic search first
+            let results = dealers.filter(dealer => 
+                (dealer.DealershipName || '').toLowerCase().includes(searchLower) ||
+                (dealer.KPMDealerNumber || '').toLowerCase().includes(searchLower) ||
+                (dealer.DBA || '').toLowerCase().includes(searchLower)
+            );
 
+            // If 3 or more characters and no basic results, try detailed search
+            if (value.length >= 3 && results.length === 0) {
+                const response = await axios.get<Dealer[]>(
+                    `${API_URL}/api/dealers/search?term=${encodeURIComponent(searchLower)}`
+                );
+                results = response.data;
+            }
+
+            console.log(`Search found ${results.length} results for "${value}"`);
+            setFilteredDealers(results);
         } catch (error) {
             console.error('Search error:', error);
             setFilteredDealers([]);
         } finally {
             setIsSearchLoading(false);
         }
-    };
-
-    // Update the performSearch function
-    const performSearch = (value: string) => {
-        setSearchTerm(value);
-        const searchLower = value.toLowerCase().trim();
-        
-        if (!searchLower) {
-            setFilteredDealers(dealers);
-            return;
-        }
-
-        loadDetailsForSearch(searchLower);
-    };
-
-    // Add an effect to initialize filtered dealers
-    useEffect(() => {
-        if (dealers.length > 0) {
-            setFilteredDealers(dealers);
-        }
-    }, [dealers]);
-
-    // Create a memoized debounced search
-    const debouncedSearch = React.useCallback(
-        debounce((value: string) => performSearch(value), 300),
-        []  // Empty dependency array since we don't want to recreate this
-    );
-
-    // Update the input handler to use debounced search
-    const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setSearchTerm(value);
-        setIsDropdownVisible(true);
-        
-        if (!value.trim()) {
-            setFilteredDealers(dealers);
-            return;
-        }
-        
-        debouncedSearch(value);
     };
 
     useEffect(() => {
