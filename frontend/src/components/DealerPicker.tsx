@@ -119,6 +119,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const detailsRef = useRef<HTMLDivElement>(null);
     const [allDealerDetails, setAllDealerDetails] = useState<{ [key: string]: DealerDetails }>({});
+    const [isSearching, setIsSearching] = useState(false);
 
     useEffect(() => {
         const fetchDealers = async () => {
@@ -294,29 +295,36 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         return salesmanMatch || false;
     });
 
-    // Add useEffect to load details when search term changes
+    // Update the useEffect for search
     useEffect(() => {
         const loadDetails = async () => {
-            if (searchTerm.length >= 3) {
-                // Load details for all dealers that don't have details yet
-                const promises = dealers
-                    .filter(dealer => !allDealerDetails[dealer.KPMDealerNumber])
-                    .map(async dealer => {
-                        const details = await fetchDealerDetails(dealer.KPMDealerNumber);
-                        if (details) {
-                            setAllDealerDetails(prev => ({
-                                ...prev,
-                                [dealer.KPMDealerNumber]: details
-                            }));
+            if (searchTerm.length >= 2) { // Reduced to 2 characters to start search earlier
+                setIsSearching(true);
+                try {
+                    // Load all dealer details in parallel
+                    const promises = dealers.map(async dealer => {
+                        if (!allDealerDetails[dealer.KPMDealerNumber]) {
+                            const details = await fetchDealerDetails(dealer.KPMDealerNumber);
+                            if (details) {
+                                setAllDealerDetails(prev => ({
+                                    ...prev,
+                                    [dealer.KPMDealerNumber]: details
+                                }));
+                            }
                         }
                     });
 
-                await Promise.all(promises);
+                    await Promise.all(promises);
+                } catch (error) {
+                    console.error('Error loading dealer details:', error);
+                } finally {
+                    setIsSearching(false);
+                }
             }
         };
 
         loadDetails();
-    }, [searchTerm, dealers]);
+    }, [searchTerm]);
 
     useEffect(() => {
         if (initialDealer) {
@@ -357,7 +365,9 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                     />
                     {isDropdownVisible && searchTerm && (
                         <div className="search-results">
-                            {filteredDealers.length > 0 ? (
+                            {isSearching ? (
+                                <div className="searching">Loading results...</div>
+                            ) : filteredDealers.length > 0 ? (
                                 filteredDealers.map(dealer => (
                                     <div
                                         key={dealer.KPMDealerNumber}
@@ -373,6 +383,13 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                                             {dealer.DBA && <span className="dealer-dba"> (DBA: {dealer.DBA})</span>}
                                         </div>
                                         <div className="dealer-number">{dealer.KPMDealerNumber}</div>
+                                        {/* Add matched details if any */}
+                                        {allDealerDetails[dealer.KPMDealerNumber] && (
+                                            <div className="search-result-details">
+                                                {allDealerDetails[dealer.KPMDealerNumber].address.City}, 
+                                                {allDealerDetails[dealer.KPMDealerNumber].address.State}
+                                            </div>
+                                        )}
                                     </div>
                                 ))
                             ) : (
