@@ -337,10 +337,25 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const performSearch = (value: string) => {
         setSearchTerm(value);
         setIsSearchLoading(true);
+        
+        // If no search term, show all dealers
+        if (!value.trim()) {
+            setFilteredDealers(dealers);
+            setIsSearchLoading(false);
+            return;
+        }
+
         const results = searchDealers(value);
         setFilteredDealers(results);
         setIsSearchLoading(false);
     };
+
+    // Add an effect to initialize filtered dealers
+    useEffect(() => {
+        if (dealers.length > 0) {
+            setFilteredDealers(dealers);
+        }
+    }, [dealers]);
 
     // Create a memoized debounced search
     const debouncedSearch = React.useCallback(
@@ -390,7 +405,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                         onChange={onInputChange}
                         onFocus={() => setIsDropdownVisible(true)}
                     />
-                    {isDropdownVisible && searchTerm && (
+                    {isDropdownVisible && (
                         <div className="search-results">
                             {isInitialLoad || isSearchLoading ? (
                                 <div className="searching">Loading dealer data...</div>
