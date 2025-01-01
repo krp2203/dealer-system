@@ -406,23 +406,16 @@ app.post('/api/import', async (req, res) => {
                     [currentDealerNumber]
                 );
 
-                // If dealer doesn't exist, create it
                 if (existingDealer.length === 0) {
+                    // Create new dealer
                     console.log(`Creating new dealer: ${currentDealerNumber}`);
                     
-                    // Get and log salesman code
+                    // Get salesman code
                     const salesmanCode = row[headers.indexOf('Salesman Code')]?.toString().trim() || 
                                         row[headers.indexOf('SalesmanCode')]?.toString().trim() || 
                                         row[headers.indexOf('Rep Code')]?.toString().trim() || null;
                     
-                    console.log('Salesman data:', {
-                        dealerNumber: currentDealerNumber,
-                        salesmanCode: salesmanCode,
-                        foundInHeaders: headers.includes('Salesman Code'),
-                        allHeaders: headers // This will show us all available headers
-                    });
-                    
-                    // Insert into Dealerships table with SalesmanCode
+                    // Insert into Dealerships table
                     await connection.query(`
                         INSERT INTO Dealerships 
                             (KPMDealerNumber, DealershipName, SalesmanCode)
@@ -432,104 +425,93 @@ app.post('/api/import', async (req, res) => {
                         row[headers.indexOf('Dealership Name')]?.toString().trim() || 'Unknown',
                         salesmanCode
                     ]);
-
-                    // Get address components
-                    const streetAddress = row[headers.indexOf('Street Address')]?.toString().trim();
-                    const city = row[headers.indexOf('City')]?.toString().trim();
-                    const state = row[headers.indexOf('State')]?.toString().trim();
-                    const zipCode = row[headers.indexOf('Zip Code')]?.toString().trim();
-                    const county = row[headers.indexOf('County')]?.toString().trim();
-
-                    // Geocode the address
-                    const fullAddress = `${streetAddress}, ${city}, ${state} ${zipCode}`;
-                    const coordinates = await geocodeAddress(fullAddress);
-
-                    // Insert into Addresses table with coordinates
+                } else {
+                    // Update existing dealer
+                    console.log(`Updating existing dealer: ${currentDealerNumber}`);
+                    
+                    // Update Dealerships table
+                    const salesmanCode = row[headers.indexOf('Salesman Code')]?.toString().trim() || 
+                                        row[headers.indexOf('SalesmanCode')]?.toString().trim() || 
+                                        row[headers.indexOf('Rep Code')]?.toString().trim() || null;
+                    
                     await connection.query(`
-                        INSERT INTO Addresses 
-                            (KPMDealerNumber, StreetAddress, City, State, ZipCode, County, lat, lng)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        UPDATE Dealerships 
+                        SET 
+                            DealershipName = ?,
+                            SalesmanCode = ?
+                        WHERE KPMDealerNumber = ?
                     `, [
-                        currentDealerNumber,
-                        streetAddress,
-                        city,
-                        state,
-                        zipCode,
-                        county,
-                        coordinates?.lat || null,
-                        coordinates?.lng || null
+                        row[headers.indexOf('Dealership Name')]?.toString().trim() || 'Unknown',
+                        salesmanCode,
+                        currentDealerNumber
                     ]);
-
-                    // Handle Lines Carried for new dealer
-                    const linesCarried = row[headers.indexOf('Lines Carried')]?.toString().trim();
-                    if (linesCarried) {
-                        await connection.query(`
-                            INSERT INTO LinesCarried 
-                                (KPMDealerNumber, LineName)
-                            VALUES (?, ?)
-                        `, [
-                            currentDealerNumber,
-                            linesCarried
-                        ]);
-                    }
-
-                    stats.newDealersCount++;
                 }
 
-                // Now proceed with contact information
+                // Handle address for both new and existing dealers
+                const streetAddress = row[headers.indexOf('Street Address')]?.toString().trim();
+                const city = row[headers.indexOf('City')]?.toString().trim();
+                const state = row[headers.indexOf('State')]?.toString().trim();
+                const zipCode = row[headers.indexOf('Zip Code')]?.toString().trim();
+                const county = row[headers.indexOf('County')]?.toString().trim();
+
+                // Geocode the address
+                const fullAddress = `${streetAddress}, ${city}, ${state} ${zipCode}`;
+                const coordinates = await geocodeAddress(fullAddress);
+
+                // Insert or update address
+                await connection.query(`
+                    INSERT INTO Addresses 
+                        (KPMDealerNumber, StreetAddress, City, State, ZipCode, County, lat, lng)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        StreetAddress = VALUES(StreetAddress),
+                        City = VALUES(City),
+                        State = VALUES(State),
+                        ZipCode = VALUES(ZipCode),
+                        County = VALUES(County),
+                        lat = VALUES(lat),
+                        lng = VALUES(lng)
+                `, [
+                    currentDealerNumber,
+                    streetAddress,
+                    city,
+                    state,
+                    zipCode,
+                    county,
+                    coordinates?.lat || null,
+                    coordinates?.lng || null
+                ]);
+
+                // Handle Lines Carried
+                const linesCarried = row[headers.indexOf('Lines Carried')]?.toString().trim();
+                if (linesCarried) {
+                    await connection.query(`
+                        INSERT INTO LinesCarried 
+                            (KPMDealerNumber, LineName)
+                        VALUES (?, ?)
+                        ON DUPLICATE KEY UPDATE
+                            LineName = VALUES(LineName)
+                    `, [
+                        currentDealerNumber,
+                        linesCarried
+                    ]);
+                }
+
+                // Handle Contact Information
                 await connection.query(`
                     INSERT INTO ContactInformation 
-                        (KPMDealerNumber, MainPhone, FaxNumber, MainEmail, SecondEmail, 
-                         ThirdEmail, FourthEmail, FifthEmail)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        (KPMDealerNumber, MainPhone, FaxNumber, MainEmail)
+                    VALUES (?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
                         MainPhone = VALUES(MainPhone),
                         FaxNumber = VALUES(FaxNumber),
-                        MainEmail = VALUES(MainEmail),
-                        SecondEmail = VALUES(SecondEmail),
-                        ThirdEmail = VALUES(ThirdEmail),
-                        FourthEmail = VALUES(FourthEmail),
-                        FifthEmail = VALUES(FifthEmail)
+                        MainEmail = VALUES(MainEmail)
                 `, [
                     currentDealerNumber,
                     row[headers.indexOf('Main Phone')]?.toString().trim(),
                     row[headers.indexOf('Fax Number')]?.toString().trim(),
-                    row[headers.indexOf('Main Email')]?.toString().trim(),
-                    row[headers.indexOf('Second Email')]?.toString().trim(),
-                    row[headers.indexOf('Third Email')]?.toString().trim(),
-                    row[headers.indexOf('Forth Email')]?.toString().trim(),
-                    row[headers.indexOf('Fifth Email')]?.toString().trim()
+                    row[headers.indexOf('Main Email')]?.toString().trim()
                 ]);
-
-                // Update LinesCarried table
-                const linesCarried = row[headers.indexOf('Lines Carried')]?.toString().trim();
-                if (linesCarried) {
-                    console.log('Processing Lines Carried:', {
-                        dealerNumber: currentDealerNumber,
-                        lines: linesCarried
-                    });
-                    
-                    try {
-                        await connection.query(`
-                            INSERT INTO LinesCarried 
-                                (KPMDealerNumber, LineName)
-                            VALUES (?, ?)
-                            ON DUPLICATE KEY UPDATE
-                                LineName = VALUES(LineName)
-                        `, [
-                            currentDealerNumber,
-                            linesCarried
-                        ]);
-                        console.log('Successfully updated Lines Carried');
-                    } catch (error) {
-                        console.error('Error updating Lines Carried:', {
-                            dealerNumber: currentDealerNumber,
-                            error: error.message,
-                            lines: linesCarried
-                        });
-                        throw error; // Re-throw to be caught by outer try-catch
-                    }
-                }
 
                 console.log(`Successfully processed dealer: ${currentDealerNumber}`);
                 stats.processedCount++;
