@@ -392,6 +392,8 @@ app.post('/api/import', async (req, res) => {
                 // If dealer doesn't exist, create it
                 if (existingDealer.length === 0) {
                     console.log(`Creating new dealer: ${currentDealerNumber}`);
+                    
+                    // Insert into Dealerships table
                     await connection.query(`
                         INSERT INTO Dealerships 
                             (KPMDealerNumber, DealershipName)
@@ -400,6 +402,34 @@ app.post('/api/import', async (req, res) => {
                         currentDealerNumber,
                         row[headers.indexOf('Dealership Name')]?.toString().trim() || 'Unknown'
                     ]);
+
+                    // Get address components
+                    const streetAddress = row[headers.indexOf('Street Address')]?.toString().trim();
+                    const city = row[headers.indexOf('City')]?.toString().trim();
+                    const state = row[headers.indexOf('State')]?.toString().trim();
+                    const zipCode = row[headers.indexOf('Zip Code')]?.toString().trim();
+                    const county = row[headers.indexOf('County')]?.toString().trim();
+
+                    // Geocode the address
+                    const fullAddress = `${streetAddress}, ${city}, ${state} ${zipCode}`;
+                    const coordinates = await geocodeAddress(fullAddress);
+
+                    // Insert into Addresses table with coordinates
+                    await connection.query(`
+                        INSERT INTO Addresses 
+                            (KPMDealerNumber, StreetAddress, City, State, ZipCode, County, lat, lng)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    `, [
+                        currentDealerNumber,
+                        streetAddress,
+                        city,
+                        state,
+                        zipCode,
+                        county,
+                        coordinates?.lat || null,
+                        coordinates?.lng || null
+                    ]);
+
                     stats.newDealersCount++;
                 }
 
