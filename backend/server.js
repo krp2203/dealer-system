@@ -199,18 +199,6 @@ app.get('/api/dealers/coordinates', async (req, res) => {
             WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
         `);
         
-        console.log(`Found ${dealers.length} dealers with coordinates`);
-        if (dealers.length > 0) {
-            console.log('Sample dealers with coordinates:', 
-                dealers.slice(0, 3).map(d => ({
-                    number: d.KPMDealerNumber,
-                    name: d.DealershipName,
-                    lat: d.lat,
-                    lng: d.lng
-                }))
-            );
-        }
-        
         res.json(dealers);
     } catch (error) {
         console.error('Error fetching coordinates:', error);

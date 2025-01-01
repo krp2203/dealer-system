@@ -7,6 +7,23 @@ interface Dealer {
     DealershipName: string;
     DBA?: string;
     MainPhone?: string;
+    SalesmanCode?: string;
+    SalesmanName?: string;
+}
+
+interface DealerDetails extends Dealer {
+    address?: {
+        StreetAddress: string;
+        City: string;
+        State: string;
+        ZipCode: string;
+        County?: string;
+    };
+    contact?: {
+        MainPhone: string;
+        FaxNumber?: string;
+        MainEmail?: string;
+    };
 }
 
 interface DealerPickerProps {
@@ -28,6 +45,10 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
         const fetchDealers = async () => {
             try {
                 const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
+                console.log('Initial dealers loaded:', {
+                    total: response.data.length,
+                    sample: response.data.slice(0, 3)
+                });
                 setDealers(response.data);
                 setFilteredDealers(response.data);
                 setLoading(false);
@@ -55,17 +76,48 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
         setSearchTerm(value);
         setShowDropdown(true);
 
+        console.log('Search initiated:', {
+            searchValue: value,
+            totalDealers: dealers.length
+        });
+
         if (!value.trim()) {
             setFilteredDealers(dealers);
             return;
         }
 
         const searchLower = value.toLowerCase().trim();
-        const matches = dealers.filter(dealer => 
-            (dealer.DealershipName || '').toLowerCase().includes(searchLower) ||
-            (dealer.KPMDealerNumber || '').toLowerCase().includes(searchLower) ||
-            (dealer.MainPhone || '').toLowerCase().includes(searchLower)
+        
+        // Log a few dealers before filtering
+        console.log('Sample dealers before filter:', 
+            dealers.slice(0, 3).map(d => ({
+                name: d.DealershipName,
+                number: d.KPMDealerNumber,
+                phone: d.MainPhone
+            }))
         );
+
+        const matches = dealers.filter(dealer => {
+            const isMatch = 
+                (dealer.DealershipName || '').toLowerCase().includes(searchLower) ||
+                (dealer.KPMDealerNumber || '').toLowerCase().includes(searchLower) ||
+                (dealer.MainPhone || '').toLowerCase().includes(searchLower);
+            
+            if (isMatch) {
+                console.log('Found match:', {
+                    searchTerm: searchLower,
+                    dealerName: dealer.DealershipName,
+                    dealerNumber: dealer.KPMDealerNumber
+                });
+            }
+            
+            return isMatch;
+        });
+
+        console.log('Search results:', {
+            searchTerm: searchLower,
+            matchesFound: matches.length
+        });
 
         setFilteredDealers(matches);
     };
@@ -73,7 +125,9 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
     // Handle dealer selection
     const handleDealerSelect = async (dealer: Dealer) => {
         try {
-            const response = await axios.get<Dealer>(`${API_URL}/api/dealers/${dealer.KPMDealerNumber}`);
+            const response = await axios.get<DealerDetails>(
+                `${API_URL}/api/dealers/${dealer.KPMDealerNumber}/details`
+            );
             setSelectedDealer(response.data);
             setSearchTerm('');
             setShowDropdown(false);
