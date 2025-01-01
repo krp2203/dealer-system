@@ -72,6 +72,25 @@ const geocodeAddress = async (address) => {
     }
 };
 
+// Add this function near the top of the file
+async function ensureDealerSalesmenTable(connection) {
+    try {
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS DealerSalesmen (
+                KPMDealerNumber VARCHAR(255),
+                SalesmanCode VARCHAR(255),
+                PRIMARY KEY (KPMDealerNumber, SalesmanCode),
+                FOREIGN KEY (KPMDealerNumber) REFERENCES Dealerships(KPMDealerNumber),
+                FOREIGN KEY (SalesmanCode) REFERENCES Salesman(SalesmanCode)
+            )
+        `);
+        console.log('DealerSalesmen table created or verified');
+    } catch (error) {
+        console.error('Error creating DealerSalesmen table:', error);
+        throw error;
+    }
+}
+
 // Get list of all dealers
 app.get('/api/dealers', async (req, res) => {
     console.log('Received request for dealers');
@@ -169,6 +188,9 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
         // Create connection
         connection = await mysql.createConnection(dbConfig);
 
+        // Ensure the DealerSalesmen table exists
+        await ensureDealerSalesmenTable(connection);
+
         // Get dealer basic info
         const [dealerInfo] = await connection.query(`
             SELECT 
@@ -222,14 +244,41 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
         `, [req.params.dealerNumber]);
 
         // Modify the dealer details query
-        const [salesmen] = await connection.query(`
-            SELECT 
-                s.SalesmanCode,
-                s.SalesmanName
-            FROM DealerSalesmen ds
-            JOIN Salesman s ON ds.SalesmanCode = s.SalesmanCode
-            WHERE ds.KPMDealerNumber = ?
-        `, [req.params.dealerNumber]);
+        let salesmen = [];
+        try {
+            // Check if DealerSalesmen table exists
+            const [tables] = await connection.query(`
+                SELECT TABLE_NAME 
+                FROM information_schema.TABLES 
+                WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'DealerSalesmen'
+            `, [process.env.DB_NAME]);
+
+            if (tables.length > 0) {
+                // If table exists, query it
+                [salesmen] = await connection.query(`
+                    SELECT 
+                        s.SalesmanCode,
+                        s.SalesmanName
+                    FROM DealerSalesmen ds
+                    JOIN Salesman s ON ds.SalesmanCode = s.SalesmanCode
+                    WHERE ds.KPMDealerNumber = ?
+                `, [req.params.dealerNumber]);
+            } else {
+                // If table doesn't exist, fall back to old method
+                const [oldSalesman] = await connection.query(`
+                    SELECT 
+                        s.SalesmanCode,
+                        s.SalesmanName
+                    FROM Dealerships d
+                    JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+                    WHERE d.KPMDealerNumber = ?
+                `, [req.params.dealerNumber]);
+                salesmen = oldSalesman;
+            }
+        } catch (error) {
+            console.error('Error fetching salesmen:', error);
+            salesmen = []; // Default to empty array if there's an error
+        }
 
         // Structure the response
         const dealerDetails = {
@@ -398,9 +447,13 @@ app.post('/api/import', async (req, res) => {
     let currentDealerNumber = null;
 
     try {
-        const { headers, rows } = req.body;
         connection = await mysql.createConnection(dbConfig);
         await connection.beginTransaction();
+        
+        // Ensure the DealerSalesmen table exists
+        await ensureDealerSalesmenTable(connection);
+
+        const { headers, rows } = req.body;
 
         for (const row of rows) {
             try {
