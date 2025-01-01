@@ -149,10 +149,11 @@ app.get('/api/dealers', async (req, res) => {
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
-                d.SalesmanCode,
+                COALESCE(ds.SalesmanCode, d.SalesmanCode) as SalesmanCode,
                 s.SalesmanName
             FROM Dealerships d
-            LEFT JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
+            LEFT JOIN DealerSalesmen ds ON d.KPMDealerNumber = ds.KPMDealerNumber
+            LEFT JOIN Salesman s ON COALESCE(ds.SalesmanCode, d.SalesmanCode) = s.SalesmanCode
             ORDER BY d.DealershipName
         `);
 
@@ -291,35 +292,27 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
         // Modify the dealer details query
         let salesmen = [];
         try {
-            // Check if DealerSalesmen table exists
-            const [tables] = await connection.query(`
-                SELECT TABLE_NAME 
-                FROM information_schema.TABLES 
-                WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'DealerSalesmen'
-            `, [process.env.DB_NAME]);
-
-            if (tables.length > 0) {
-                // If table exists, query it
-                [salesmen] = await connection.query(`
-                    SELECT 
-                        s.SalesmanCode,
-                        s.SalesmanName
-                    FROM DealerSalesmen ds
-                    JOIN Salesman s ON ds.SalesmanCode = s.SalesmanCode
-                    WHERE ds.KPMDealerNumber = ?
-                `, [req.params.dealerNumber]);
-            } else {
-                // If table doesn't exist, fall back to old method
-                const [oldSalesman] = await connection.query(`
-                    SELECT 
-                        s.SalesmanCode,
-                        s.SalesmanName
-                    FROM Dealerships d
-                    JOIN Salesman s ON d.SalesmanCode = s.SalesmanCode
-                    WHERE d.KPMDealerNumber = ?
-                `, [req.params.dealerNumber]);
-                salesmen = oldSalesman;
-            }
+            // Get salesmen from both old and new structures
+            const [allSalesmen] = await connection.query(`
+                SELECT DISTINCT 
+                    s.SalesmanCode,
+                    s.SalesmanName
+                FROM (
+                    -- Get salesmen from old structure
+                    SELECT SalesmanCode
+                    FROM Dealerships
+                    WHERE KPMDealerNumber = ? AND SalesmanCode IS NOT NULL
+                    UNION
+                    -- Get salesmen from new structure
+                    SELECT SalesmanCode
+                    FROM DealerSalesmen
+                    WHERE KPMDealerNumber = ?
+                ) AS combined
+                JOIN Salesman s ON combined.SalesmanCode = s.SalesmanCode
+            `, [req.params.dealerNumber, req.params.dealerNumber]);
+            
+            salesmen = allSalesmen;
+            console.log('Found salesmen:', salesmen);
         } catch (error) {
             console.error('Error fetching salesmen:', error);
             salesmen = []; // Default to empty array if there's an error
