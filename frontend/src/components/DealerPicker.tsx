@@ -269,33 +269,39 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         try {
             if (!value.trim()) {
                 setFilteredDealers(dealers);
+                setIsSearchLoading(false);
                 return;
             }
 
             const searchLower = value.toLowerCase();
             
-            // Always do basic search first
-            let results = dealers.filter(dealer => 
+            // Do basic search
+            const results = dealers.filter(dealer => 
                 (dealer.DealershipName || '').toLowerCase().includes(searchLower) ||
                 (dealer.KPMDealerNumber || '').toLowerCase().includes(searchLower) ||
                 (dealer.DBA || '').toLowerCase().includes(searchLower)
             );
 
-            // If 3 or more characters and no basic results, try detailed search
-            if (value.length >= 3 && results.length === 0) {
-                const response = await axios.get<Dealer[]>(
-                    `${API_URL}/api/dealers/search?term=${encodeURIComponent(searchLower)}`
-                );
-                results = response.data;
-            }
-
-            console.log(`Search found ${results.length} results for "${value}"`);
+            console.log(`Found ${results.length} matching dealers`);
             setFilteredDealers(results);
         } catch (error) {
             console.error('Search error:', error);
             setFilteredDealers([]);
         } finally {
             setIsSearchLoading(false);
+        }
+    };
+
+    // Add a separate handler for dealer selection
+    const handleDealerSelect = async (dealer: Dealer) => {
+        try {
+            console.log('Selected dealer:', dealer);
+            await loadDealerDetails(dealer.KPMDealerNumber);
+            setSearchTerm('');
+            setIsDropdownVisible(false);
+            setSelectedDealerName(dealer.DealershipName);
+        } catch (error) {
+            console.error('Error selecting dealer:', error);
         }
     };
 
@@ -342,11 +348,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                                     <div
                                         key={dealer.KPMDealerNumber}
                                         className="search-result-item"
-                                        onClick={() => {
-                                            loadDealerDetails(dealer.KPMDealerNumber);
-                                            setSearchTerm('');
-                                            setIsDropdownVisible(false);
-                                        }}
+                                        onClick={() => handleDealerSelect(dealer)}
                                     >
                                         <div className="dealer-name">
                                             {dealer.DealershipName}
