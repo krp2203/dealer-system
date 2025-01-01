@@ -120,6 +120,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const detailsRef = useRef<HTMLDivElement>(null);
     const [allDealerDetails, setAllDealerDetails] = useState<{ [key: string]: DealerDetails }>({});
     const [isSearching, setIsSearching] = useState(false);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
 
     useEffect(() => {
         const fetchDealers = async () => {
@@ -255,6 +256,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
     // Then update the search filter
     const filteredDealers = dealers.filter(dealer => {
+        if (!searchTerm) return false;
         const searchLower = searchTerm.toLowerCase();
         
         // Basic dealer info
@@ -265,7 +267,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
         if (basicMatch) return true;
 
-        // Check cached details
+        // Get dealer details
         const details = allDealerDetails[dealer.KPMDealerNumber];
         if (!details) return false;
 
@@ -274,6 +276,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
             containsSearch(details.address?.StreetAddress, searchLower) ||
             containsSearch(details.address?.City, searchLower) ||
             containsSearch(details.address?.State, searchLower) ||
+            containsSearch(details.address?.ZipCode, searchLower) ||
             containsSearch(details.address?.County, searchLower);
 
         if (addressMatch) return true;
@@ -295,36 +298,33 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         return salesmanMatch || false;
     });
 
-    // Update the useEffect for search
+    // Update the useEffect for initial load
     useEffect(() => {
-        const loadDetails = async () => {
-            if (searchTerm.length >= 2) { // Reduced to 2 characters to start search earlier
-                setIsSearching(true);
-                try {
-                    // Load all dealer details in parallel
-                    const promises = dealers.map(async dealer => {
-                        if (!allDealerDetails[dealer.KPMDealerNumber]) {
-                            const details = await fetchDealerDetails(dealer.KPMDealerNumber);
-                            if (details) {
-                                setAllDealerDetails(prev => ({
-                                    ...prev,
-                                    [dealer.KPMDealerNumber]: details
-                                }));
-                            }
-                        }
-                    });
-
-                    await Promise.all(promises);
-                } catch (error) {
-                    console.error('Error loading dealer details:', error);
-                } finally {
-                    setIsSearching(false);
-                }
+        const loadAllDealerDetails = async () => {
+            setIsSearching(true);
+            try {
+                const promises = dealers.map(async dealer => {
+                    const details = await fetchDealerDetails(dealer.KPMDealerNumber);
+                    if (details) {
+                        setAllDealerDetails(prev => ({
+                            ...prev,
+                            [dealer.KPMDealerNumber]: details
+                        }));
+                    }
+                });
+                await Promise.all(promises);
+                setIsInitialLoad(false);
+            } catch (error) {
+                console.error('Error loading all dealer details:', error);
+            } finally {
+                setIsSearching(false);
             }
         };
 
-        loadDetails();
-    }, [searchTerm]);
+        if (isInitialLoad && dealers.length > 0) {
+            loadAllDealerDetails();
+        }
+    }, [dealers, isInitialLoad]);
 
     useEffect(() => {
         if (initialDealer) {
@@ -365,8 +365,8 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                     />
                     {isDropdownVisible && searchTerm && (
                         <div className="search-results">
-                            {isSearching ? (
-                                <div className="searching">Loading results...</div>
+                            {isInitialLoad ? (
+                                <div className="searching">Loading all dealer data...</div>
                             ) : filteredDealers.length > 0 ? (
                                 filteredDealers.map(dealer => (
                                     <div
@@ -383,7 +383,6 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                                             {dealer.DBA && <span className="dealer-dba"> (DBA: {dealer.DBA})</span>}
                                         </div>
                                         <div className="dealer-number">{dealer.KPMDealerNumber}</div>
-                                        {/* Add matched details if any */}
                                         {allDealerDetails[dealer.KPMDealerNumber] && (
                                             <div className="search-result-details">
                                                 {allDealerDetails[dealer.KPMDealerNumber].address.City}, 
