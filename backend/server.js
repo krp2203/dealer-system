@@ -72,21 +72,66 @@ const geocodeAddress = async (address) => {
     }
 };
 
-// Add this function near the top of the file
+// Add this function near the top with other functions
+async function migrateSalesmanData(connection) {
+    try {
+        // Check if there's data to migrate
+        const [dealers] = await connection.query(`
+            SELECT KPMDealerNumber, SalesmanCode 
+            FROM Dealerships 
+            WHERE SalesmanCode IS NOT NULL AND SalesmanCode != ''
+        `);
+
+        if (dealers.length > 0) {
+            console.log(`Found ${dealers.length} dealers with salesman data to migrate`);
+            
+            // Insert existing relationships into DealerSalesmen
+            for (const dealer of dealers) {
+                await connection.query(`
+                    INSERT IGNORE INTO DealerSalesmen 
+                        (KPMDealerNumber, SalesmanCode)
+                    VALUES (?, ?)
+                `, [dealer.KPMDealerNumber, dealer.SalesmanCode]);
+            }
+            
+            console.log('Salesman data migration completed');
+        }
+    } catch (error) {
+        console.error('Error migrating salesman data:', error);
+        throw error;
+    }
+}
+
+// Modify the ensureDealerSalesmenTable function to include migration
 async function ensureDealerSalesmenTable(connection) {
     try {
-        await connection.query(`
-            CREATE TABLE IF NOT EXISTS DealerSalesmen (
-                KPMDealerNumber VARCHAR(255),
-                SalesmanCode VARCHAR(255),
-                PRIMARY KEY (KPMDealerNumber, SalesmanCode),
-                FOREIGN KEY (KPMDealerNumber) REFERENCES Dealerships(KPMDealerNumber),
-                FOREIGN KEY (SalesmanCode) REFERENCES Salesman(SalesmanCode)
-            )
-        `);
-        console.log('DealerSalesmen table created or verified');
+        // Check if table exists first
+        const [tables] = await connection.query(`
+            SELECT TABLE_NAME 
+            FROM information_schema.TABLES 
+            WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'DealerSalesmen'
+        `, [process.env.DB_NAME]);
+
+        const tableExists = tables.length > 0;
+
+        if (!tableExists) {
+            // Create the table if it doesn't exist
+            await connection.query(`
+                CREATE TABLE IF NOT EXISTS DealerSalesmen (
+                    KPMDealerNumber VARCHAR(255),
+                    SalesmanCode VARCHAR(255),
+                    PRIMARY KEY (KPMDealerNumber, SalesmanCode),
+                    FOREIGN KEY (KPMDealerNumber) REFERENCES Dealerships(KPMDealerNumber),
+                    FOREIGN KEY (SalesmanCode) REFERENCES Salesman(SalesmanCode)
+                )
+            `);
+            console.log('DealerSalesmen table created');
+
+            // Migrate existing data
+            await migrateSalesmanData(connection);
+        }
     } catch (error) {
-        console.error('Error creating DealerSalesmen table:', error);
+        console.error('Error creating/migrating DealerSalesmen table:', error);
         throw error;
     }
 }
