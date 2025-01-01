@@ -225,6 +225,16 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
             ORDER BY LineName
         `, [req.params.dealerNumber]);
 
+        // Modify the dealer details query
+        const [salesmen] = await connection.query(`
+            SELECT 
+                s.SalesmanCode,
+                s.SalesmanName
+            FROM DealerSalesmen ds
+            JOIN Salesman s ON ds.SalesmanCode = s.SalesmanCode
+            WHERE ds.KPMDealerNumber = ?
+        `, [req.params.dealerNumber]);
+
         // Structure the response
         const dealerDetails = {
             KPMDealerNumber: dealerInfo[0].KPMDealerNumber,
@@ -250,7 +260,11 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
             salesman: {
                 SalesmanName: dealerInfo[0].SalesmanName || '',
                 SalesmanCode: dealerInfo[0].SalesmanCode || ''
-            }
+            },
+            salesmen: salesmen.map(s => ({
+                SalesmanName: s.SalesmanName,
+                SalesmanCode: s.SalesmanCode
+            }))
         };
 
         console.log('Sending dealer details:', JSON.stringify(dealerDetails, null, 2));
@@ -410,40 +424,42 @@ app.post('/api/import', async (req, res) => {
                     // Create new dealer
                     console.log(`Creating new dealer: ${currentDealerNumber}`);
                     
-                    // Get salesman code
-                    const salesmanCode = row[headers.indexOf('Salesman Code')]?.toString().trim() || 
-                                        row[headers.indexOf('SalesmanCode')]?.toString().trim() || 
-                                        row[headers.indexOf('Rep Code')]?.toString().trim() || null;
-                    
-                    // Insert into Dealerships table
                     await connection.query(`
                         INSERT INTO Dealerships 
-                            (KPMDealerNumber, DealershipName, SalesmanCode)
-                        VALUES (?, ?, ?)
+                            (KPMDealerNumber, DealershipName)
+                        VALUES (?, ?)
                     `, [
                         currentDealerNumber,
-                        row[headers.indexOf('Dealership Name')]?.toString().trim() || 'Unknown',
-                        salesmanCode
+                        row[headers.indexOf('Dealership Name')]?.toString().trim() || 'Unknown'
                     ]);
                 } else {
                     // Update existing dealer
                     console.log(`Updating existing dealer: ${currentDealerNumber}`);
                     
-                    // Update Dealerships table
-                    const salesmanCode = row[headers.indexOf('Salesman Code')]?.toString().trim() || 
-                                        row[headers.indexOf('SalesmanCode')]?.toString().trim() || 
-                                        row[headers.indexOf('Rep Code')]?.toString().trim() || null;
-                    
                     await connection.query(`
                         UPDATE Dealerships 
-                        SET 
-                            DealershipName = ?,
-                            SalesmanCode = ?
+                        SET DealershipName = ?
                         WHERE KPMDealerNumber = ?
                     `, [
                         row[headers.indexOf('Dealership Name')]?.toString().trim() || 'Unknown',
-                        salesmanCode,
                         currentDealerNumber
+                    ]);
+                }
+
+                // Handle salesman assignment
+                const salesmanCode = row[headers.indexOf('Salesman Code')]?.toString().trim() || 
+                                    row[headers.indexOf('SalesmanCode')]?.toString().trim() || 
+                                    row[headers.indexOf('Rep Code')]?.toString().trim();
+
+                if (salesmanCode) {
+                    // Insert new salesman relationship if it doesn't exist
+                    await connection.query(`
+                        INSERT IGNORE INTO DealerSalesmen 
+                            (KPMDealerNumber, SalesmanCode)
+                        VALUES (?, ?)
+                    `, [
+                        currentDealerNumber,
+                        salesmanCode
                     ]);
                 }
 
