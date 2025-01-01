@@ -352,3 +352,21 @@
     font-size: 0.9em;
     color: #666;
 }
+
+.dealer-dba {
+    color: #666;
+    font-size: 0.9em;
+    margin-left: 8px;
+}
+
+.search-match {
+    background-color: #fff3cd;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.search-result-details {
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 4px;
+}

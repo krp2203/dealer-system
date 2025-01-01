@@ -230,10 +230,54 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
     };
 
-    const filteredDealers = dealers.filter(dealer => 
-        dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        dealer.KPMDealerNumber.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // First, add a helper function to safely check if a string contains the search term
+    const containsSearch = (text: string | undefined | null, searchTerm: string): boolean => {
+        if (!text) return false;
+        return text.toLowerCase().includes(searchTerm);
+    };
+
+    // Then update the search filter
+    const filteredDealers = dealers.filter(dealer => {
+        const searchLower = searchTerm.toLowerCase();
+        
+        // Basic dealer info
+        const basicMatch = 
+            containsSearch(dealer.DealershipName, searchLower) ||
+            containsSearch(dealer.KPMDealerNumber, searchLower) ||
+            containsSearch(dealer.DBA, searchLower);
+
+        if (basicMatch) return true;
+
+        // Load full details for deeper search if needed
+        const details = dealerDetails;
+        if (!details) return false;
+
+        // Check address fields
+        const addressMatch = 
+            containsSearch(details.address?.StreetAddress, searchLower) ||
+            containsSearch(details.address?.City, searchLower) ||
+            containsSearch(details.address?.State, searchLower) ||
+            containsSearch(details.address?.ZipCode, searchLower) ||
+            containsSearch(details.address?.County, searchLower);
+
+        if (addressMatch) return true;
+
+        // Check contact information
+        const contactMatch = 
+            containsSearch(details.contact?.MainPhone, searchLower) ||
+            containsSearch(details.contact?.FaxNumber, searchLower) ||
+            containsSearch(details.contact?.MainEmail, searchLower);
+
+        if (contactMatch) return true;
+
+        // Check salesman information
+        const salesmanMatch = details.salesmen?.some(salesman => 
+            containsSearch(salesman.SalesmanName, searchLower) ||
+            containsSearch(salesman.SalesmanCode, searchLower)
+        );
+
+        return salesmanMatch || false;
+    });
 
     useEffect(() => {
         if (initialDealer) {
@@ -264,7 +308,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                 <div className="search-container">
                     <input
                         type="text"
-                        placeholder="Search dealers by name or number..."
+                        placeholder="Search by name, number, address, phone, or any other details..."
                         value={searchTerm}
                         onChange={(e) => {
                             setSearchTerm(e.target.value);
@@ -285,7 +329,10 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                                             setIsDropdownVisible(false);
                                         }}
                                     >
-                                        <div className="dealer-name">{dealer.DealershipName}</div>
+                                        <div className="dealer-name">
+                                            {dealer.DealershipName}
+                                            {dealer.DBA && <span className="dealer-dba"> (DBA: {dealer.DBA})</span>}
+                                        </div>
                                         <div className="dealer-number">{dealer.KPMDealerNumber}</div>
                                     </div>
                                 ))
