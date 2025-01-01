@@ -259,7 +259,16 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
     };
 
-    // Update the search handler
+    // Add a debug function
+    const debugDealer = (dealer: Dealer, searchTerm: string) => {
+        console.log('Checking dealer:', {
+            name: dealer.DealershipName,
+            searchTerm: searchTerm,
+            includes: dealer.DealershipName.toLowerCase().includes(searchTerm.toLowerCase())
+        });
+    };
+
+    // Simplify the search handler to only search dealer names
     const onInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setSearchTerm(value);
@@ -267,22 +276,27 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         setIsSearchLoading(true);
 
         try {
+            // If empty search, show all dealers
             if (!value.trim()) {
                 setFilteredDealers(dealers);
                 setIsSearchLoading(false);
                 return;
             }
 
-            const searchLower = value.toLowerCase();
+            const searchLower = value.toLowerCase().trim();
             
-            // Do basic search
+            // Only search dealer names
             const results = dealers.filter(dealer => 
-                (dealer.DealershipName || '').toLowerCase().includes(searchLower) ||
-                (dealer.KPMDealerNumber || '').toLowerCase().includes(searchLower) ||
-                (dealer.DBA || '').toLowerCase().includes(searchLower)
+                dealer.DealershipName.toLowerCase().includes(searchLower)
             );
 
-            console.log(`Found ${results.length} matching dealers`);
+            console.log({
+                searchTerm: searchLower,
+                totalDealers: dealers.length,
+                matchesFound: results.length,
+                sampleMatch: results[0]?.DealershipName
+            });
+
             setFilteredDealers(results);
         } catch (error) {
             console.error('Search error:', error);
@@ -334,12 +348,12 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                 <div className="search-container">
                     <input
                         type="text"
-                        placeholder="Search by name, number, address, phone, or any other details..."
+                        placeholder="Search by dealer name..."
                         value={searchTerm}
                         onChange={onInputChange}
                         onFocus={() => setIsDropdownVisible(true)}
                     />
-                    {isDropdownVisible && (
+                    {isDropdownVisible && searchTerm && (
                         <div className="search-results">
                             {isSearchLoading ? (
                                 <div className="searching">Searching...</div>
@@ -358,7 +372,9 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                                     </div>
                                 ))
                             ) : (
-                                <div className="no-results">No dealers found</div>
+                                <div className="no-results">
+                                    No dealers found matching "{searchTerm}"
+                                </div>
                             )}
                         </div>
                     )}
