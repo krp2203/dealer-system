@@ -82,28 +82,32 @@ interface LineInfo {
 const formatLinesCarried = (lines: LineInfo[]): FormattedLine[] => {
     if (!Array.isArray(lines)) return [];
     
-    // Process each line code and only include valid ones with mappings
-    const validLines = lines.flatMap(line => {
-        // Split in case there are multiple codes
+    // Use a Map to track unique lines and their account numbers
+    const uniqueLines = new Map<string, string | undefined>();
+    
+    // Process each line code
+    lines.forEach(line => {
         const codes = line.code.split(/[,\s]+/).filter(Boolean);
         
-        return codes
+        codes
             .map(code => code.trim())
-            .filter(code => LINE_MAPPINGS[code]) // Only include codes that have mappings
-            .map(code => ({
-                name: LINE_MAPPINGS[code],
-                code: code,
-                accountNumber: line.accountNumber
-            }));
+            .filter(code => LINE_MAPPINGS[code])
+            .forEach(code => {
+                const lineName = LINE_MAPPINGS[code];
+                // Only update if we don't already have this line or if we have a new account number
+                if (!uniqueLines.has(lineName) || line.accountNumber) {
+                    uniqueLines.set(lineName, line.accountNumber);
+                }
+            });
     });
 
-    // Sort by full line names
-    return validLines
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map(({ name, accountNumber }) => ({
+    // Convert Map to array and sort
+    return Array.from(uniqueLines)
+        .map(([name, accountNumber]) => ({
             name,
             accountNumber
-        }));
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 };
 
 const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
