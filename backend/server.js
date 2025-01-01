@@ -41,26 +41,35 @@ const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
 // Add this function at the top with other imports
 const geocodeAddress = async (address) => {
-  try {
-    const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
-      params: {
-        address: address,
-        key: GOOGLE_MAPS_API_KEY
-      }
-    });
+    try {
+        console.log('Geocoding address:', address);
+        const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+            params: {
+                address: address,
+                key: GOOGLE_MAPS_API_KEY
+            }
+        });
 
-    if (response.data.results && response.data.results.length > 0) {
-      const location = response.data.results[0].geometry.location;
-      return {
-        lat: location.lat,
-        lng: location.lng
-      };
+        if (response.data.results && response.data.results.length > 0) {
+            const location = response.data.results[0].geometry.location;
+            console.log('Geocoding successful:', {
+                address: address,
+                coordinates: location
+            });
+            return {
+                lat: location.lat,
+                lng: location.lng
+            };
+        }
+        console.warn('No geocoding results for address:', address);
+        return null;
+    } catch (error) {
+        console.error('Geocoding error:', {
+            address: address,
+            error: error.message
+        });
+        return null;
     }
-    return null;
-  } catch (error) {
-    console.error('Geocoding error:', error);
-    return null;
-  }
 };
 
 // Get list of all dealers
@@ -129,8 +138,16 @@ app.get('/api/dealers/coordinates', async (req, res) => {
         `);
         
         console.log(`Found ${dealers.length} dealers with coordinates`);
+        // Log a few examples to verify data
         if (dealers.length > 0) {
-            console.log('Sample dealer:', dealers[0]);
+            console.log('Sample dealers with coordinates:', 
+                dealers.slice(0, 3).map(d => ({
+                    number: d.KPMDealerNumber,
+                    name: d.DealershipName,
+                    lat: d.lat,
+                    lng: d.lng
+                }))
+            );
         }
         
         res.json(dealers);
@@ -393,14 +410,15 @@ app.post('/api/import', async (req, res) => {
                 if (existingDealer.length === 0) {
                     console.log(`Creating new dealer: ${currentDealerNumber}`);
                     
-                    // Insert into Dealerships table
+                    // Insert into Dealerships table with SalesmanCode
                     await connection.query(`
                         INSERT INTO Dealerships 
-                            (KPMDealerNumber, DealershipName)
-                        VALUES (?, ?)
+                            (KPMDealerNumber, DealershipName, SalesmanCode)
+                        VALUES (?, ?, ?)
                     `, [
                         currentDealerNumber,
-                        row[headers.indexOf('Dealership Name')]?.toString().trim() || 'Unknown'
+                        row[headers.indexOf('Dealership Name')]?.toString().trim() || 'Unknown',
+                        row[headers.indexOf('Salesman Code')]?.toString().trim() || null
                     ]);
 
                     // Get address components
@@ -429,6 +447,19 @@ app.post('/api/import', async (req, res) => {
                         coordinates?.lat || null,
                         coordinates?.lng || null
                     ]);
+
+                    // Handle Lines Carried for new dealer
+                    const linesCarried = row[headers.indexOf('Lines Carried')]?.toString().trim();
+                    if (linesCarried) {
+                        await connection.query(`
+                            INSERT INTO LinesCarried 
+                                (KPMDealerNumber, LineName)
+                            VALUES (?, ?)
+                        `, [
+                            currentDealerNumber,
+                            linesCarried
+                        ]);
+                    }
 
                     stats.newDealersCount++;
                 }
