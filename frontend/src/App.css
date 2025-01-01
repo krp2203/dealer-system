@@ -325,3 +325,19 @@
     border-color: #282c34;
     outline: none;
 }
+
+.salesmen-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.salesman-item {
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+}
+
+.salesman-item p {
+    margin: 5px 0;
+}

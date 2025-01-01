@@ -33,6 +33,10 @@ interface DealerDetails {
         SalesmanName: string;
         SalesmanCode: string;
     };
+    salesmen: Array<{
+        SalesmanName: string;
+        SalesmanCode: string;
+    }>;
 }
 
 const API_URL = 'http://35.212.41.99:3002';
@@ -454,11 +458,17 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
                             <section>
                                 <h3>Salesman Information</h3>
-                                {dealerDetails.salesman.SalesmanCode && (
-                                    <>
-                                        <p><strong>Name:</strong> {dealerDetails.salesman.SalesmanName}</p>
-                                        <p><strong>Code:</strong> {dealerDetails.salesman.SalesmanCode}</p>
-                                    </>
+                                {dealerDetails.salesmen && dealerDetails.salesmen.length > 0 ? (
+                                    <div className="salesmen-list">
+                                        {dealerDetails.salesmen.map((salesman, index) => (
+                                            <div key={index} className="salesman-item">
+                                                <p><strong>Name:</strong> {salesman.SalesmanName}</p>
+                                                <p><strong>Code:</strong> {salesman.SalesmanCode}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p>No salesman assigned</p>
                                 )}
                             </section>
 

@@ -149,11 +149,11 @@ app.get('/api/dealers', async (req, res) => {
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
-                COALESCE(ds.SalesmanCode, d.SalesmanCode) as SalesmanCode,
+                ds.SalesmanCode,
                 s.SalesmanName
             FROM Dealerships d
             LEFT JOIN DealerSalesmen ds ON d.KPMDealerNumber = ds.KPMDealerNumber
-            LEFT JOIN Salesman s ON COALESCE(ds.SalesmanCode, d.SalesmanCode) = s.SalesmanCode
+            LEFT JOIN Salesman s ON ds.SalesmanCode = s.SalesmanCode
             ORDER BY d.DealershipName
         `);
 
@@ -297,19 +297,10 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
                 SELECT DISTINCT 
                     s.SalesmanCode,
                     s.SalesmanName
-                FROM (
-                    -- Get salesmen from old structure
-                    SELECT SalesmanCode
-                    FROM Dealerships
-                    WHERE KPMDealerNumber = ? AND SalesmanCode IS NOT NULL
-                    UNION
-                    -- Get salesmen from new structure
-                    SELECT SalesmanCode
-                    FROM DealerSalesmen
-                    WHERE KPMDealerNumber = ?
-                ) AS combined
-                JOIN Salesman s ON combined.SalesmanCode = s.SalesmanCode
-            `, [req.params.dealerNumber, req.params.dealerNumber]);
+                FROM DealerSalesmen ds
+                JOIN Salesman s ON ds.SalesmanCode = s.SalesmanCode
+                WHERE ds.KPMDealerNumber = ?
+            `, [req.params.dealerNumber]);
             
             salesmen = allSalesmen;
             console.log('Found salesmen:', salesmen);
@@ -539,15 +530,36 @@ app.post('/api/import', async (req, res) => {
                                     row[headers.indexOf('Rep Code')]?.toString().trim();
 
                 if (salesmanCode) {
-                    // Insert new salesman relationship if it doesn't exist
-                    await connection.query(`
-                        INSERT IGNORE INTO DealerSalesmen 
-                            (KPMDealerNumber, SalesmanCode)
-                        VALUES (?, ?)
-                    `, [
-                        currentDealerNumber,
-                        salesmanCode
-                    ]);
+                    console.log(`Processing salesman assignment for dealer ${currentDealerNumber}:`, {
+                        salesmanCode,
+                        existingSalesmen: await connection.query(`
+                            SELECT SalesmanCode 
+                            FROM DealerSalesmen 
+                            WHERE KPMDealerNumber = ?
+                        `, [currentDealerNumber])
+                    });
+
+                    // Check existing assignments
+                    const [existingAssignment] = await connection.query(`
+                        SELECT SalesmanCode 
+                        FROM DealerSalesmen 
+                        WHERE KPMDealerNumber = ? AND SalesmanCode = ?
+                    `, [currentDealerNumber, salesmanCode]);
+
+                    if (existingAssignment.length === 0) {
+                        // Insert new salesman relationship
+                        await connection.query(`
+                            INSERT INTO DealerSalesmen 
+                                (KPMDealerNumber, SalesmanCode)
+                            VALUES (?, ?)
+                        `, [
+                            currentDealerNumber,
+                            salesmanCode
+                        ]);
+                        console.log(`Added new salesman ${salesmanCode} to dealer ${currentDealerNumber}`);
+                    } else {
+                        console.log(`Salesman ${salesmanCode} already assigned to dealer ${currentDealerNumber}`);
+                    }
                 }
 
                 // Handle address for both new and existing dealers
