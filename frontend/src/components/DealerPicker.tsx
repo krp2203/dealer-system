@@ -106,9 +106,9 @@ interface SearchableDealer extends Dealer {
 }
 
 // Add debounce utility at the top of the file
-const debounce = (func: Function, wait: number) => {
+const debounce = <T extends (...args: any[]) => void>(func: T, wait: number) => {
     let timeout: NodeJS.Timeout;
-    return (...args: any[]) => {
+    return (...args: Parameters<T>) => {
         clearTimeout(timeout);
         timeout = setTimeout(() => func(...args), wait);
     };
@@ -131,6 +131,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const [isSearching, setIsSearching] = useState(false);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [isSearchLoading, setIsSearchLoading] = useState(false);
+    const [filteredDealers, setFilteredDealers] = useState<Dealer[]>([]);
 
     useEffect(() => {
         const fetchDealers = async () => {
@@ -332,21 +333,27 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         });
     };
 
-    // Debounced search handler
-    const handleSearchChange = debounce((value: string) => {
+    // Update the search handlers
+    const performSearch = (value: string) => {
         setSearchTerm(value);
         setIsSearchLoading(true);
         const results = searchDealers(value);
         setFilteredDealers(results);
         setIsSearchLoading(false);
-    }, 300);
+    };
+
+    // Create a memoized debounced search
+    const debouncedSearch = React.useCallback(
+        debounce((value: string) => performSearch(value), 300),
+        []  // Empty dependency array since we don't want to recreate this
+    );
 
     // Update the input handler
     const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setSearchTerm(value);
         setIsDropdownVisible(true);
-        handleSearchChange(value);
+        debouncedSearch(value);
     };
 
     useEffect(() => {
@@ -388,7 +395,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                             {isInitialLoad || isSearchLoading ? (
                                 <div className="searching">Loading dealer data...</div>
                             ) : filteredDealers.length > 0 ? (
-                                filteredDealers.map(dealer => (
+                                filteredDealers.map((dealer: Dealer) => (
                                     <div
                                         key={dealer.KPMDealerNumber}
                                         className="search-result-item"
