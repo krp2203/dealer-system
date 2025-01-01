@@ -113,6 +113,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     const detailsRef = useRef<HTMLDivElement>(null);
+    const [allDealerDetails, setAllDealerDetails] = useState<{ [key: string]: DealerDetails }>({});
 
     useEffect(() => {
         const fetchDealers = async () => {
@@ -130,6 +131,16 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
         fetchDealers();
     }, []);
+
+    const fetchDealerDetails = async (dealerNumber: string) => {
+        try {
+            const response = await axios.get<DealerDetails>(`${API_URL}/api/dealers/${dealerNumber}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching dealer details:', error);
+            return null;
+        }
+    };
 
     const loadDealerDetails = async (dealerNumber: string) => {
         if (!dealerNumber) {
@@ -237,7 +248,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     };
 
     // Then update the search filter
-    const filteredDealers = dealers.filter(dealer => {
+    const filteredDealers = dealers.filter(async dealer => {
         const searchLower = searchTerm.toLowerCase();
         
         // Basic dealer info
@@ -248,8 +259,18 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
         if (basicMatch) return true;
 
-        // Load full details for deeper search if needed
-        const details = dealerDetails;
+        // Get dealer details if not already loaded
+        let details = allDealerDetails[dealer.KPMDealerNumber];
+        if (!details) {
+            details = await fetchDealerDetails(dealer.KPMDealerNumber);
+            if (details) {
+                setAllDealerDetails(prev => ({
+                    ...prev,
+                    [dealer.KPMDealerNumber]: details
+                }));
+            }
+        }
+
         if (!details) return false;
 
         // Check address fields
@@ -257,7 +278,6 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
             containsSearch(details.address?.StreetAddress, searchLower) ||
             containsSearch(details.address?.City, searchLower) ||
             containsSearch(details.address?.State, searchLower) ||
-            containsSearch(details.address?.ZipCode, searchLower) ||
             containsSearch(details.address?.County, searchLower);
 
         if (addressMatch) return true;
@@ -278,6 +298,24 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
         return salesmanMatch || false;
     });
+
+    // Add useEffect to load details when search term changes
+    useEffect(() => {
+        if (searchTerm.length >= 3) {
+            // Load details for all dealers that don't have details yet
+            dealers.forEach(async dealer => {
+                if (!allDealerDetails[dealer.KPMDealerNumber]) {
+                    const details = await fetchDealerDetails(dealer.KPMDealerNumber);
+                    if (details) {
+                        setAllDealerDetails(prev => ({
+                            ...prev,
+                            [dealer.KPMDealerNumber]: details
+                        }));
+                    }
+                }
+            });
+        }
+    }, [searchTerm, dealers]);
 
     useEffect(() => {
         if (initialDealer) {
