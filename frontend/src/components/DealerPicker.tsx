@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 interface Dealer {
@@ -9,9 +9,13 @@ interface Dealer {
     MainPhone?: string;
 }
 
+interface DealerPickerProps {
+    selectedDealer?: string | null;
+}
+
 const API_URL = 'http://35.212.41.99:3002';
 
-const DealerPicker: React.FC = () => {
+const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDealer }) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [filteredDealers, setFilteredDealers] = useState<Dealer[]>([]);
@@ -23,7 +27,7 @@ const DealerPicker: React.FC = () => {
     useEffect(() => {
         const fetchDealers = async () => {
             try {
-                const response = await axios.get(`${API_URL}/api/dealers`);
+                const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
                 setDealers(response.data);
                 setFilteredDealers(response.data);
                 setLoading(false);
@@ -35,18 +39,28 @@ const DealerPicker: React.FC = () => {
         fetchDealers();
     }, []);
 
+    // Load initial dealer if provided
+    useEffect(() => {
+        if (initialDealer && dealers.length > 0) {
+            const dealer = dealers.find(d => d.KPMDealerNumber === initialDealer);
+            if (dealer) {
+                handleDealerSelect(dealer);
+            }
+        }
+    }, [initialDealer, dealers]);
+
     // Handle search input
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setSearchTerm(value);
         setShowDropdown(true);
 
-            if (!value.trim()) {
-                setFilteredDealers(dealers);
-                return;
-            }
+        if (!value.trim()) {
+            setFilteredDealers(dealers);
+            return;
+        }
 
-            const searchLower = value.toLowerCase().trim();
+        const searchLower = value.toLowerCase().trim();
         const matches = dealers.filter(dealer => 
             (dealer.DealershipName || '').toLowerCase().includes(searchLower) ||
             (dealer.KPMDealerNumber || '').toLowerCase().includes(searchLower) ||
@@ -59,7 +73,7 @@ const DealerPicker: React.FC = () => {
     // Handle dealer selection
     const handleDealerSelect = async (dealer: Dealer) => {
         try {
-            const response = await axios.get(`${API_URL}/api/dealers/${dealer.KPMDealerNumber}`);
+            const response = await axios.get<Dealer>(`${API_URL}/api/dealers/${dealer.KPMDealerNumber}`);
             setSelectedDealer(response.data);
             setSearchTerm('');
             setShowDropdown(false);
@@ -78,26 +92,26 @@ const DealerPicker: React.FC = () => {
     if (loading) return <div>Loading...</div>;
 
     return (
-            <div className="dealer-picker">
-                <div className="search-container">
-                    <input
-                        type="text"
+        <div className="dealer-picker">
+            <div className="search-container">
+                <input
+                    type="text"
                     placeholder="Search by dealer name, number, or phone..."
-                        value={searchTerm}
+                    value={searchTerm}
                     onChange={handleSearch}
                     onKeyDown={handleKeyDown}
                     onFocus={() => setShowDropdown(true)}
-                    />
+                />
                 
                 {showDropdown && (
-                        <div className="search-results">
+                    <div className="search-results">
                         {filteredDealers.length > 0 ? (
                             filteredDealers.map(dealer => (
-                                    <div
-                                        key={dealer.KPMDealerNumber}
-                                        className="search-result-item"
-                                        onClick={() => handleDealerSelect(dealer)}
-                                    >
+                                <div
+                                    key={dealer.KPMDealerNumber}
+                                    className="search-result-item"
+                                    onClick={() => handleDealerSelect(dealer)}
+                                >
                                     <div className="dealer-name">{dealer.DealershipName}</div>
                                     <div className="dealer-info">
                                         <span>{dealer.KPMDealerNumber}</span>
@@ -107,14 +121,13 @@ const DealerPicker: React.FC = () => {
                             ))
                         ) : (
                             <div className="no-results">No dealers found</div>
-                            )}
-                        </div>
-                    )}
+                        )}
+                    </div>
+                )}
             </div>
 
             {selectedDealer && (
-                        <div className="dealer-details">
-                    {/* Dealer details display */}
+                <div className="dealer-details">
                     <h2>{selectedDealer.DealershipName}</h2>
                     {/* Add other dealer details here */}
                 </div>
