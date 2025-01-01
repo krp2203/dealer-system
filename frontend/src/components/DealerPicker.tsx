@@ -100,6 +100,11 @@ const formatLinesCarried = (lines: LineInfo[]): FormattedLine[] => {
         .sort((a, b) => a.name.localeCompare(b.name));
 };
 
+// Add type for search results
+interface SearchableDealer extends Dealer {
+    details?: DealerDetails;
+}
+
 const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
@@ -248,7 +253,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     };
 
     // Then update the search filter
-    const filteredDealers = dealers.filter(async dealer => {
+    const filteredDealers = dealers.filter(dealer => {
         const searchLower = searchTerm.toLowerCase();
         
         // Basic dealer info
@@ -259,18 +264,8 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
         if (basicMatch) return true;
 
-        // Get dealer details if not already loaded
-        let details = allDealerDetails[dealer.KPMDealerNumber];
-        if (!details) {
-            details = await fetchDealerDetails(dealer.KPMDealerNumber);
-            if (details) {
-                setAllDealerDetails(prev => ({
-                    ...prev,
-                    [dealer.KPMDealerNumber]: details
-                }));
-            }
-        }
-
+        // Check cached details
+        const details = allDealerDetails[dealer.KPMDealerNumber];
         if (!details) return false;
 
         // Check address fields
@@ -301,20 +296,26 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
 
     // Add useEffect to load details when search term changes
     useEffect(() => {
-        if (searchTerm.length >= 3) {
-            // Load details for all dealers that don't have details yet
-            dealers.forEach(async dealer => {
-                if (!allDealerDetails[dealer.KPMDealerNumber]) {
-                    const details = await fetchDealerDetails(dealer.KPMDealerNumber);
-                    if (details) {
-                        setAllDealerDetails(prev => ({
-                            ...prev,
-                            [dealer.KPMDealerNumber]: details
-                        }));
-                    }
-                }
-            });
-        }
+        const loadDetails = async () => {
+            if (searchTerm.length >= 3) {
+                // Load details for all dealers that don't have details yet
+                const promises = dealers
+                    .filter(dealer => !allDealerDetails[dealer.KPMDealerNumber])
+                    .map(async dealer => {
+                        const details = await fetchDealerDetails(dealer.KPMDealerNumber);
+                        if (details) {
+                            setAllDealerDetails(prev => ({
+                                ...prev,
+                                [dealer.KPMDealerNumber]: details
+                            }));
+                        }
+                    });
+
+                await Promise.all(promises);
+            }
+        };
+
+        loadDetails();
     }, [searchTerm, dealers]);
 
     useEffect(() => {
