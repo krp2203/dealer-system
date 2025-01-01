@@ -105,6 +105,15 @@ interface SearchableDealer extends Dealer {
     details?: DealerDetails;
 }
 
+// Add debounce utility at the top of the file
+const debounce = (func: Function, wait: number) => {
+    let timeout: NodeJS.Timeout;
+    return (...args: any[]) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
+};
+
 const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDealer: initialDealer }) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [selectedDealer, setSelectedDealer] = useState<string | null>(null);
@@ -249,83 +258,96 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         }
     };
 
-    // First, add a helper function to safely check if a string contains the search term
-    const containsSearch = (text: string | undefined | null, searchTerm: string): boolean => {
-        if (!text) return false;
-        return text.toLowerCase().includes(searchTerm);
-    };
-
-    // Then update the search filter
-    const filteredDealers = dealers.filter(dealer => {
-        if (!searchTerm) return false;
-        const searchLower = searchTerm.toLowerCase();
-        
-        // Basic dealer info
-        const basicMatch = 
-            containsSearch(dealer.DealershipName, searchLower) ||
-            containsSearch(dealer.KPMDealerNumber, searchLower) ||
-            containsSearch(dealer.DBA, searchLower);
-
-        if (basicMatch) return true;
-
-        // Get dealer details
-        const details = allDealerDetails[dealer.KPMDealerNumber];
-        if (!details) return false;
-
-        // Check address fields
-        const addressMatch = 
-            containsSearch(details.address?.StreetAddress, searchLower) ||
-            containsSearch(details.address?.City, searchLower) ||
-            containsSearch(details.address?.State, searchLower) ||
-            containsSearch(details.address?.ZipCode, searchLower) ||
-            containsSearch(details.address?.County, searchLower);
-
-        if (addressMatch) return true;
-
-        // Check contact information
-        const contactMatch = 
-            containsSearch(details.contact?.MainPhone, searchLower) ||
-            containsSearch(details.contact?.FaxNumber, searchLower) ||
-            containsSearch(details.contact?.MainEmail, searchLower);
-
-        if (contactMatch) return true;
-
-        // Check salesman information
-        const salesmanMatch = details.salesmen?.some(salesman => 
-            containsSearch(salesman.SalesmanName, searchLower) ||
-            containsSearch(salesman.SalesmanCode, searchLower)
-        );
-
-        return salesmanMatch || false;
-    });
-
-    // Update the useEffect for initial load
+    // Load all dealer details when component mounts
     useEffect(() => {
         const loadAllDealerDetails = async () => {
             setIsSearching(true);
             try {
-                const promises = dealers.map(async dealer => {
-                    const details = await fetchDealerDetails(dealer.KPMDealerNumber);
-                    if (details) {
-                        setAllDealerDetails(prev => ({
-                            ...prev,
-                            [dealer.KPMDealerNumber]: details
-                        }));
+                const promises = dealers.map(dealer => fetchDealerDetails(dealer.KPMDealerNumber));
+                const results = await Promise.all(promises);
+                
+                const newDetails: { [key: string]: DealerDetails } = {};
+                dealers.forEach((dealer, index) => {
+                    if (results[index]) {
+                        newDetails[dealer.KPMDealerNumber] = results[index]!;
                     }
                 });
-                await Promise.all(promises);
+                
+                setAllDealerDetails(newDetails);
                 setIsInitialLoad(false);
             } catch (error) {
-                console.error('Error loading all dealer details:', error);
+                console.error('Error loading dealer details:', error);
             } finally {
                 setIsSearching(false);
             }
         };
 
-        if (isInitialLoad && dealers.length > 0) {
+        if (dealers.length > 0) {
             loadAllDealerDetails();
         }
-    }, [dealers, isInitialLoad]);
+    }, [dealers]);
+
+    // Create a memoized search function
+    const searchDealers = (searchTerm: string) => {
+        if (!searchTerm) return [];
+        const searchLower = searchTerm.toLowerCase();
+
+        return dealers.filter(dealer => {
+            // Basic info search
+            if (dealer.DealershipName?.toLowerCase().includes(searchLower) ||
+                dealer.KPMDealerNumber?.toLowerCase().includes(searchLower) ||
+                dealer.DBA?.toLowerCase().includes(searchLower)) {
+                return true;
+            }
+
+            // Detailed info search
+            const details = allDealerDetails[dealer.KPMDealerNumber];
+            if (!details) return false;
+
+            // Address search
+            const address = details.address;
+            if (address &&
+                (address.StreetAddress?.toLowerCase().includes(searchLower) ||
+                 address.City?.toLowerCase().includes(searchLower) ||
+                 address.State?.toLowerCase().includes(searchLower) ||
+                 address.ZipCode?.toLowerCase().includes(searchLower) ||
+                 address.County?.toLowerCase().includes(searchLower))) {
+                return true;
+            }
+
+            // Contact search
+            const contact = details.contact;
+            if (contact &&
+                (contact.MainPhone?.toLowerCase().includes(searchLower) ||
+                 contact.FaxNumber?.toLowerCase().includes(searchLower) ||
+                 contact.MainEmail?.toLowerCase().includes(searchLower))) {
+                return true;
+            }
+
+            // Salesman search
+            return details.salesmen?.some(salesman =>
+                salesman.SalesmanName?.toLowerCase().includes(searchLower) ||
+                salesman.SalesmanCode?.toLowerCase().includes(searchLower)
+            ) || false;
+        });
+    };
+
+    // Debounced search handler
+    const handleSearchChange = debounce((value: string) => {
+        setSearchTerm(value);
+        setIsSearchLoading(true);
+        const results = searchDealers(value);
+        setFilteredDealers(results);
+        setIsSearchLoading(false);
+    }, 300);
+
+    // Update the input handler
+    const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setSearchTerm(value);
+        setIsDropdownVisible(true);
+        handleSearchChange(value);
+    };
 
     useEffect(() => {
         if (initialDealer) {
@@ -347,41 +369,6 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         };
     }, []);
 
-    const handleSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setSearchTerm(value);
-        setIsDropdownVisible(true);
-        
-        if (value.length >= 2) {
-            setIsSearchLoading(true);
-            // If we still need to load details, do it now
-            const unloadedDealers = dealers.filter(
-                dealer => !allDealerDetails[dealer.KPMDealerNumber]
-            );
-            
-            if (unloadedDealers.length > 0) {
-                try {
-                    const promises = unloadedDealers.map(dealer => 
-                        fetchDealerDetails(dealer.KPMDealerNumber)
-                    );
-                    const results = await Promise.all(promises);
-                    
-                    const newDetails = { ...allDealerDetails };
-                    unloadedDealers.forEach((dealer, index) => {
-                        if (results[index]) {
-                            newDetails[dealer.KPMDealerNumber] = results[index]!;
-                        }
-                    });
-                    
-                    setAllDealerDetails(newDetails);
-                } catch (error) {
-                    console.error('Error loading dealer details:', error);
-                }
-            }
-            setIsSearchLoading(false);
-        }
-    };
-
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
 
@@ -393,7 +380,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                         type="text"
                         placeholder="Search by name, number, address, phone, or any other details..."
                         value={searchTerm}
-                        onChange={handleSearchChange}
+                        onChange={onInputChange}
                         onFocus={() => setIsDropdownVisible(true)}
                     />
                     {isDropdownVisible && searchTerm && (
