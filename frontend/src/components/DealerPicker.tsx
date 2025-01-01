@@ -121,6 +121,7 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
     const [allDealerDetails, setAllDealerDetails] = useState<{ [key: string]: DealerDetails }>({});
     const [isSearching, setIsSearching] = useState(false);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [isSearchLoading, setIsSearchLoading] = useState(false);
 
     useEffect(() => {
         const fetchDealers = async () => {
@@ -346,6 +347,41 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
         };
     }, []);
 
+    const handleSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setSearchTerm(value);
+        setIsDropdownVisible(true);
+        
+        if (value.length >= 2) {
+            setIsSearchLoading(true);
+            // If we still need to load details, do it now
+            const unloadedDealers = dealers.filter(
+                dealer => !allDealerDetails[dealer.KPMDealerNumber]
+            );
+            
+            if (unloadedDealers.length > 0) {
+                try {
+                    const promises = unloadedDealers.map(dealer => 
+                        fetchDealerDetails(dealer.KPMDealerNumber)
+                    );
+                    const results = await Promise.all(promises);
+                    
+                    const newDetails = { ...allDealerDetails };
+                    unloadedDealers.forEach((dealer, index) => {
+                        if (results[index]) {
+                            newDetails[dealer.KPMDealerNumber] = results[index]!;
+                        }
+                    });
+                    
+                    setAllDealerDetails(newDetails);
+                } catch (error) {
+                    console.error('Error loading dealer details:', error);
+                }
+            }
+            setIsSearchLoading(false);
+        }
+    };
+
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
 
@@ -357,16 +393,13 @@ const DealerPicker: React.FC<{ selectedDealer?: string | null }> = ({ selectedDe
                         type="text"
                         placeholder="Search by name, number, address, phone, or any other details..."
                         value={searchTerm}
-                        onChange={(e) => {
-                            setSearchTerm(e.target.value);
-                            setIsDropdownVisible(true);
-                        }}
+                        onChange={handleSearchChange}
                         onFocus={() => setIsDropdownVisible(true)}
                     />
                     {isDropdownVisible && searchTerm && (
                         <div className="search-results">
-                            {isInitialLoad ? (
-                                <div className="searching">Loading all dealer data...</div>
+                            {isInitialLoad || isSearchLoading ? (
+                                <div className="searching">Loading dealer data...</div>
                             ) : filteredDealers.length > 0 ? (
                                 filteredDealers.map(dealer => (
                                     <div
