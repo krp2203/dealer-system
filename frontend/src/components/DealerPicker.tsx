@@ -48,7 +48,7 @@ const LINE_MAPPINGS: { [key: string]: string } = {
     'YB': 'Ybrovo',
     'OT': 'OTR Tire',
     'TY': 'Toyotomi',
-    'GG': 'Grass Gobbler',
+    'GG': 'Grass Gobbler GR',
     'VK': 'Velke',
     'BB': 'Blue Bird',
     'UM': 'Umount',
@@ -56,17 +56,7 @@ const LINE_MAPPINGS: { [key: string]: string } = {
     'GC': 'Grass Catcher',
     'RE': 'Rinnai',
     'TI': 'Timbrin',
-    'BG': 'BG',
-    'EZ': 'EZ',
-    'GGGR': 'Grass Gobbler GR',
-    'GV': 'GV',
-    'HB': 'HB',
-    'MCMS': 'MCMS',
-    'OTPL': 'OTR Plus',
-    'SC': 'SC',
-    'SGSP': 'SGSP',
-    'SU': 'SU',
-    'UMVK': 'Umount VK'
+    'GV': 'Giant Vac'
 };
 
 interface FormattedLine {
