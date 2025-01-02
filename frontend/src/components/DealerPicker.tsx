@@ -7,23 +7,31 @@ interface Dealer {
     DealershipName: string;
     DBA?: string;
     MainPhone?: string;
-    SalesmanCode?: string;
-    SalesmanName?: string;
+}
+
+interface Salesman {
+    SalesmanCode: string;
+    SalesmanName: string;
+}
+
+interface Address {
+    StreetAddress: string;
+    City: string;
+    State: string;
+    ZipCode: string;
+    County?: string;
+}
+
+interface Contact {
+    MainPhone?: string;
+    FaxNumber?: string;
+    MainEmail?: string;
 }
 
 interface DealerDetails extends Dealer {
-    address?: {
-        StreetAddress: string;
-        City: string;
-        State: string;
-        ZipCode: string;
-        County?: string;
-    };
-    contact?: {
-        MainPhone: string;
-        FaxNumber?: string;
-        MainEmail?: string;
-    };
+    address?: Address;
+    contact?: Contact;
+    salesmen?: Salesman[];
 }
 
 interface DealerPickerProps {
@@ -41,7 +49,7 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [filteredDealers, setFilteredDealers] = useState<Dealer[]>([]);
-    const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
+    const [selectedDealer, setSelectedDealer] = useState<DealerDetails | null>(null);
     const [showDropdown, setShowDropdown] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -125,14 +133,19 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
     // Handle dealer selection
     const handleDealerSelect = async (dealer: Dealer) => {
         try {
-            // First get the basic dealer details
             const response = await axios.get<DealerDetails>(
                 `${API_URL}/api/dealers/${dealer.KPMDealerNumber}`
             );
             
             console.log('Selected dealer details:', response.data);
             
-            setSelectedDealer(response.data);
+            // Ensure the response matches our interface
+            const dealerDetails: DealerDetails = {
+                ...dealer,
+                ...response.data
+            };
+            
+            setSelectedDealer(dealerDetails);
             setSearchTerm('');
             setShowDropdown(false);
         } catch (error) {
@@ -248,10 +261,10 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
                             </div>
                         )}
                         
-                        {selectedDealer.salesmen && selectedDealer.salesmen.length > 0 && (
+                        {selectedDealer?.salesmen && selectedDealer.salesmen.length > 0 && (
                             <div className="dealer-salesmen">
                                 <h3>Salesmen</h3>
-                                {selectedDealer.salesmen.map((salesman, index) => (
+                                {selectedDealer.salesmen.map((salesman: Salesman, index: number) => (
                                     <p key={`${salesman.SalesmanCode}-${index}`}>
                                         {salesman.SalesmanName} ({salesman.SalesmanCode})
                                     </p>
