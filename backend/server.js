@@ -177,7 +177,6 @@ app.get('/api/dealers/coordinates', async (req, res) => {
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
-        console.log('Fetching dealers with coordinates...');
         
         const [dealers] = await connection.query(`
             SELECT 

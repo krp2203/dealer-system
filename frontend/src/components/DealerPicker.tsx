@@ -76,47 +76,18 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
         setSearchTerm(value);
         setShowDropdown(true);
 
-        console.log('Search initiated:', {
-            searchValue: value,
-            totalDealers: dealers.length
-        });
-
         if (!value.trim()) {
             setFilteredDealers(dealers);
             return;
         }
 
         const searchLower = value.toLowerCase().trim();
-        
-        // Log a few dealers before filtering
-        console.log('Sample dealers before filter:', 
-            dealers.slice(0, 3).map(d => ({
-                name: d.DealershipName,
-                number: d.KPMDealerNumber,
-                phone: d.MainPhone
-            }))
-        );
-
         const matches = dealers.filter(dealer => {
-            const isMatch = 
-                (dealer.DealershipName || '').toLowerCase().includes(searchLower) ||
-                (dealer.KPMDealerNumber || '').toLowerCase().includes(searchLower) ||
-                (dealer.MainPhone || '').toLowerCase().includes(searchLower);
-            
-            if (isMatch) {
-                console.log('Found match:', {
-                    searchTerm: searchLower,
-                    dealerName: dealer.DealershipName,
-                    dealerNumber: dealer.KPMDealerNumber
-                });
-            }
-            
-            return isMatch;
-        });
+            const nameMatch = (dealer.DealershipName || '').toLowerCase().includes(searchLower);
+            const numberMatch = (dealer.KPMDealerNumber || '').toLowerCase().includes(searchLower);
+            const phoneMatch = dealer.MainPhone?.toLowerCase().includes(searchLower);
 
-        console.log('Search results:', {
-            searchTerm: searchLower,
-            matchesFound: matches.length
+            return nameMatch || numberMatch || phoneMatch;
         });
 
         setFilteredDealers(matches);
@@ -125,10 +96,17 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
     // Handle dealer selection
     const handleDealerSelect = async (dealer: Dealer) => {
         try {
-            const response = await axios.get<DealerDetails>(
+            const detailsResponse = await axios.get<DealerDetails>(
                 `${API_URL}/api/dealers/${dealer.KPMDealerNumber}/details`
             );
-            setSelectedDealer(response.data);
+            
+            // Combine the basic dealer info with the details
+            const fullDealerInfo: DealerDetails = {
+                ...dealer,
+                ...detailsResponse.data
+            };
+            
+            setSelectedDealer(fullDealerInfo);
             setSearchTerm('');
             setShowDropdown(false);
         } catch (error) {
@@ -142,6 +120,22 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
             handleDealerSelect(filteredDealers[0]);
         }
     };
+
+    // Add this near the top of the component
+    useEffect(() => {
+        console.log('Current filtered dealers:', {
+            total: filteredDealers.length,
+            sample: filteredDealers.slice(0, 3).map(d => d.DealershipName)
+        });
+    }, [filteredDealers]);
+
+    // Add this to verify initial data load
+    useEffect(() => {
+        console.log('All dealers loaded:', {
+            total: dealers.length,
+            sample: dealers.slice(0, 3).map(d => d.DealershipName)
+        });
+    }, [dealers]);
 
     if (loading) return <div>Loading...</div>;
 
