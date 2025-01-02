@@ -49,6 +49,30 @@ interface UniqueDealers {
     [key: string]: Dealer;
 }
 
+// Add this near the top with other constants
+const LINE_CODE_MAP: { [key: string]: string } = {
+    'SG': 'Scag',
+    'SW': 'Snow Way',
+    'VX': 'Vortex',
+    'YB': 'Ybrovo',
+    'OT': 'OTR Tire',
+    'TY': 'Toyotomi',
+    'GG': 'Grass Gobbler',
+    'VK': 'Velke',
+    'BB': 'Blue Bird',
+    'UM': 'Umount',
+    'WM': 'Wright',
+    'GC': 'Grass Catcher',
+    'RE': 'Rinnai',
+    'TI': 'Timbrin',
+    'GV': 'Giant Vac'
+};
+
+// Add this helper function
+const getLineName = (code: string): string => {
+    return LINE_CODE_MAP[code] || code;
+};
+
 const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDealer }) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -268,14 +292,16 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
                         {selectedDealer.lines && selectedDealer.lines.length > 0 && (
                             <div className="info-section">
                                 <h3>Lines Carried</h3>
-                                {selectedDealer.lines.map((line, index) => (
-                                    <p key={index}>
-                                        <strong>{line.code}</strong>
-                                        {line.accountNumber && (
-                                            <span className="account-number"> (Acct: {line.accountNumber})</span>
-                                        )}
-                                    </p>
-                                ))}
+                                {selectedDealer.lines
+                                    .filter(line => LINE_CODE_MAP[line.code]) // Only show mapped lines
+                                    .map((line, index) => (
+                                        <p key={index}>
+                                            <strong>{getLineName(line.code)}</strong>
+                                            {line.accountNumber && (
+                                                <span className="account-number"> (Acct: {line.accountNumber})</span>
+                                            )}
+                                        </p>
+                                    ))}
                             </div>
                         )}
                     </div>
