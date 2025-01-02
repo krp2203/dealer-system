@@ -57,7 +57,7 @@ const LINE_MAPPINGS: { [key: string]: string } = {
     'YB': 'Ybrovo',
     'OT': 'OTR Tire',
     'TY': 'Toyotomi',
-    'GG': 'Grass Gobbler',
+    'GG': 'Grass Gobbler GR',
     'VK': 'Velke',
     'BB': 'Blue Bird',
     'UM': 'Umount',
@@ -66,6 +66,43 @@ const LINE_MAPPINGS: { [key: string]: string } = {
     'RE': 'Rinnai',
     'TI': 'Timbrin',
     'GV': 'Giant Vac'
+};
+
+// First, add these interfaces near the top
+interface LineInfo {
+    LineName: string;
+    AccountNumber?: string;
+}
+
+interface FormattedLine {
+    name: string;
+    accountNumber?: string;
+}
+
+// Add the formatLinesCarried function
+const formatLinesCarried = (lines: LineInfo[]): FormattedLine[] => {
+    if (!Array.isArray(lines)) return [];
+    
+    // Use a Map to track unique lines and their account numbers
+    const uniqueLines = new Map<string, string | undefined>();
+    
+    lines.forEach(line => {
+        if (LINE_MAPPINGS[line.LineName]) {
+            const lineName = LINE_MAPPINGS[line.LineName];
+            // Only update if we don't already have this line or if we have a new account number
+            if (!uniqueLines.has(lineName) || line.AccountNumber) {
+                uniqueLines.set(lineName, line.AccountNumber);
+            }
+        }
+    });
+
+    // Convert Map to array and sort
+    return Array.from(uniqueLines)
+        .map(([name, accountNumber]) => ({
+            name,
+            accountNumber
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 };
 
 const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDealer }) => {
@@ -293,20 +330,16 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
                         {selectedDealer.lines && selectedDealer.lines.length > 0 && (
                             <div className="info-section">
                                 <h3>Lines Carried</h3>
-                                {selectedDealer.lines
-                                    .filter(line => LINE_MAPPINGS[line.LineName]) // Only show lines we have mappings for
-                                    .map((line, index) => (
-                                        <p key={index} className="line-item">
-                                            <span className="line-name">
-                                                {LINE_MAPPINGS[line.LineName]}
-                                            </span>
-                                            {line.AccountNumber && (
-                                                <span className="account-number">
-                                                    (Acct: {line.AccountNumber})
-                                                </span>
+                                <div className="lines-list">
+                                    {formatLinesCarried(selectedDealer.lines).map((line, index) => (
+                                        <div key={`${line.name}-${index}`} className="line-item">
+                                            <span className="line-name">{line.name}</span>
+                                            {line.accountNumber && (
+                                                <span className="line-account">- Account: {line.accountNumber}</span>
                                             )}
-                                        </p>
+                                        </div>
                                     ))}
+                                </div>
                             </div>
                         )}
                     </div>
