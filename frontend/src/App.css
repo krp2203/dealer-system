@@ -421,3 +421,9 @@
 .info-section strong {
     color: #444;
 }
+
+.account-number {
+    color: #666;
+    font-size: 0.9em;
+    margin-left: 8px;
+}

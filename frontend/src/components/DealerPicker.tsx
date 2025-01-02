@@ -264,6 +264,20 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
                                 ))}
                             </div>
                         )}
+
+                        {selectedDealer.lines && selectedDealer.lines.length > 0 && (
+                            <div className="info-section">
+                                <h3>Lines Carried</h3>
+                                {selectedDealer.lines.map((line, index) => (
+                                    <p key={index}>
+                                        <strong>{line.code}</strong>
+                                        {line.accountNumber && (
+                                            <span className="account-number"> (Acct: {line.accountNumber})</span>
+                                        )}
+                                    </p>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
