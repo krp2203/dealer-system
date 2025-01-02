@@ -207,20 +207,31 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
     let connection;
     try {
         console.log('Fetching dealer details for:', req.params.dealerNumber);
-        
         connection = await mysql.createConnection(dbConfig);
-        
-        // Get lines carried with debug logging
+
+        // Debug query to check table structure and data
+        const [tableInfo] = await connection.query(`
+            DESCRIBE LinesCarried
+        `);
+        console.log('LinesCarried table structure:', tableInfo);
+
+        // Check if we have any lines data at all
+        const [allLines] = await connection.query(`
+            SELECT * FROM LinesCarried LIMIT 5
+        `);
+        console.log('Sample lines data:', allLines);
+
+        // Get lines for specific dealer with detailed logging
         const [lines] = await connection.query(`
             SELECT LineName, AccountNumber
             FROM LinesCarried 
             WHERE KPMDealerNumber = ?
         `, [req.params.dealerNumber]);
 
-        console.log('Lines query result:', {
+        console.log('Lines for dealer:', {
             dealerNumber: req.params.dealerNumber,
-            linesFound: lines.length,
-            lines: lines
+            count: lines.length,
+            lines: JSON.stringify(lines, null, 2)
         });
 
         // Get dealer basic info
