@@ -149,7 +149,13 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
                 `${API_URL}/api/dealers/${dealer.KPMDealerNumber}`
             );
             
-            console.log('Selected dealer details:', response.data);
+            console.log('Selected dealer details:', {
+                dealerNumber: dealer.KPMDealerNumber,
+                fullResponse: response.data,
+                lines: response.data.lines,  // Let's specifically look at the lines data
+                firstLine: response.data.lines?.[0]  // Look at the structure of the first line if it exists
+            });
+            
             setSelectedDealer(response.data);
             setSearchTerm('');
             setShowDropdown(false);

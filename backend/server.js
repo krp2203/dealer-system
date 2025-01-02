@@ -206,15 +206,19 @@ app.get('/api/dealers/coordinates', async (req, res) => {
 app.get('/api/dealers/:dealerNumber', async (req, res) => {
     let connection;
     try {
-        console.log('=== GET DEALER DETAILS ===');
-        console.log('Dealer Number:', req.params.dealerNumber);
-
-        // Create connection
+        console.log('Fetching dealer details for:', req.params.dealerNumber);
+        
         connection = await mysql.createConnection(dbConfig);
+        
+        // Get lines carried
+        const [lines] = await connection.query(`
+            SELECT LineName, AccountNumber
+            FROM LinesCarried 
+            WHERE KPMDealerNumber = ?
+        `, [req.params.dealerNumber]);
 
-        // Ensure the DealerSalesmen table exists
-        await ensureDealerSalesmenTable(connection);
-
+        console.log('Lines carried found:', lines);
+        
         // Get dealer basic info
         const [dealerInfo] = await connection.query(`
             SELECT 
@@ -257,16 +261,6 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
         `, [req.params.dealerNumber]);
 
    
-        // Get lines carried
-        const [lines] = await connection.query(`
-            SELECT 
-                LineName,
-                AccountNumber
-            FROM LinesCarried 
-            WHERE KPMDealerNumber = ?
-            ORDER BY LineName
-        `, [req.params.dealerNumber]);
-
         // Modify the dealer details query
         let salesmen = [];
         try {
@@ -306,8 +300,8 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
                 MainEmail: ''
             },
             lines: lines.map(line => ({
-                code: line.LineName,
-                accountNumber: line.AccountNumber
+                LineName: line.LineName,
+                AccountNumber: line.AccountNumber
             })),
             salesman: {
                 SalesmanName: salesmen[0]?.SalesmanName || '',
@@ -324,20 +318,9 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching dealer details:', error);
-            res.status(500).json({ 
-            error: 'Failed to fetch dealer details',
-            details: error.message,
-            code: error.code
-        });
+        res.status(500).json({ error: 'Failed to fetch dealer details' });
     } finally {
-        if (connection) {
-            try {
-                await connection.end();
-                console.log('Database connection closed');
-            } catch (err) {
-                console.error('Error closing connection:', err);
-            }
-        }
+        if (connection) await connection.end();
     }
 });
 
