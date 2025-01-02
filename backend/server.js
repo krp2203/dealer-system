@@ -622,8 +622,8 @@ app.post('/api/import', async (req, res) => {
 
         await connection.commit();
         console.log('Import completed with stats:', stats);
-        
-        res.json({ 
+            
+            res.json({ 
             success: true,
             message: 'Import completed successfully',
             stats: stats
