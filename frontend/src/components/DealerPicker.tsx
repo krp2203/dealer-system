@@ -50,12 +50,23 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
         const fetchDealers = async () => {
             try {
                 const response = await axios.get<Dealer[]>(`${API_URL}/api/dealers`);
-                console.log('Initial dealers loaded:', {
-                    total: response.data.length,
-                    sample: response.data.slice(0, 3)
+                
+                // Ensure unique dealers by using an object
+                const uniqueDealersMap: UniqueDealers = {};
+                response.data.forEach(dealer => {
+                    uniqueDealersMap[dealer.KPMDealerNumber] = dealer;
                 });
-                setDealers(response.data);
-                setFilteredDealers(response.data);
+                
+                // Convert back to array
+                const uniqueDealers = Object.values(uniqueDealersMap);
+                
+                console.log('Initial dealers loaded:', {
+                    total: uniqueDealers.length,
+                    sample: uniqueDealers.slice(0, 3).map(d => d.DealershipName)
+                });
+                
+                setDealers(uniqueDealers);
+                setFilteredDealers(uniqueDealers);
                 setLoading(false);
             } catch (error) {
                 console.error('Error loading dealers:', error);
@@ -174,7 +185,7 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
                         {filteredDealers.length > 0 ? (
                             filteredDealers.map((dealer, index) => (
                                 <div
-                                    key={`${dealer.KPMDealerNumber}-${index}`}
+                                    key={`search-${dealer.KPMDealerNumber}-${index}-${searchTerm}`}
                                     className="search-result-item"
                                     onClick={() => handleDealerSelect(dealer)}
                                 >
