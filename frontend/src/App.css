@@ -171,9 +171,10 @@
 }
 
 .search-result-item {
-    padding: 10px;
+    padding: 10px 15px;
     cursor: pointer;
     border-bottom: 1px solid #eee;
+    transition: background-color 0.2s;
 }
 
 .search-result-item:hover {
@@ -186,11 +187,28 @@
 
 .dealer-name {
     font-weight: 500;
-    color: #282c34;
+    margin-bottom: 4px;
+}
+
+.dealer-dba {
+    font-weight: normal;
+    color: #666;
+    margin-left: 8px;
+    font-size: 0.9em;
+}
+
+.dealer-info {
+    display: flex;
+    gap: 12px;
+    color: #666;
+    font-size: 0.9em;
 }
 
 .dealer-number {
-    font-size: 0.9em;
+    color: #444;
+}
+
+.dealer-phone {
     color: #666;
 }
 

@@ -32,6 +32,11 @@ interface DealerPickerProps {
 
 const API_URL = 'http://35.212.41.99:3002';
 
+// Add this interface to track unique dealers
+interface UniqueDealers {
+    [key: string]: Dealer;
+}
+
 const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDealer }) => {
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -83,25 +88,24 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
 
         const searchLower = value.toLowerCase().trim();
         
-        // Create a Set to track unique dealer numbers
-        const seenDealers = new Set<string>();
+        // Use an object to ensure unique dealers
+        const uniqueDealers: UniqueDealers = {};
         
-        const matches = dealers.filter(dealer => {
-            // Skip if we've already seen this dealer
-            if (seenDealers.has(dealer.KPMDealerNumber)) {
-                return false;
-            }
-            
+        dealers.forEach(dealer => {
             const nameMatch = (dealer.DealershipName || '').toLowerCase().includes(searchLower);
             const numberMatch = (dealer.KPMDealerNumber || '').toLowerCase().includes(searchLower);
             const phoneMatch = dealer.MainPhone?.toLowerCase().includes(searchLower);
             
             if (nameMatch || numberMatch || phoneMatch) {
-                seenDealers.add(dealer.KPMDealerNumber);
-                return true;
+                uniqueDealers[dealer.KPMDealerNumber] = dealer;
             }
-            
-            return false;
+        });
+
+        const matches = Object.values(uniqueDealers);
+        console.log('Search results:', {
+            term: searchLower,
+            matches: matches.length,
+            sample: matches.slice(0, 3).map(d => d.DealershipName)
         });
 
         setFilteredDealers(matches);
@@ -168,23 +172,36 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
                 {showDropdown && (
                     <div className="search-results">
                         {filteredDealers.length > 0 ? (
-                            filteredDealers.map(dealer => (
+                            filteredDealers.map((dealer, index) => (
                                 <div
-                                    key={`dealer-${dealer.KPMDealerNumber}`}
+                                    key={`${dealer.KPMDealerNumber}-${index}`}
                                     className="search-result-item"
                                     onClick={() => handleDealerSelect(dealer)}
                                 >
-                                    <div className="dealer-name">{dealer.DealershipName}</div>
+                                    <div className="dealer-name">
+                                        {dealer.DealershipName}
+                                        {dealer.DBA && (
+                                            <span className="dealer-dba">
+                                                (DBA: {dealer.DBA})
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="dealer-info">
-                                        <span>#{dealer.KPMDealerNumber}</span>
+                                        <span className="dealer-number">
+                                            #{dealer.KPMDealerNumber}
+                                        </span>
                                         {dealer.MainPhone && (
-                                            <span className="dealer-phone">{dealer.MainPhone}</span>
+                                            <span className="dealer-phone">
+                                                {dealer.MainPhone}
+                                            </span>
                                         )}
                                     </div>
                                 </div>
                             ))
                         ) : (
-                            <div className="no-results">No dealers found</div>
+                            <div className="no-results">
+                                No dealers found matching "{searchTerm}"
+                            </div>
                         )}
                     </div>
                 )}
