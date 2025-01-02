@@ -33,8 +33,8 @@ interface DealerDetails extends Dealer {
     };
     salesmen?: Salesman[];
     lines?: {
-        code: string;
-        accountNumber: string;
+        LineName: string;
+        AccountNumber?: string;
     }[];
 }
 
@@ -49,8 +49,8 @@ interface UniqueDealers {
     [key: string]: Dealer;
 }
 
-// Add this near the top with other constants
-const LINE_CODE_MAP: { [key: string]: string } = {
+// Add the line mapping constant
+const LINE_MAPPINGS: { [key: string]: string } = {
     'SG': 'Scag',
     'SW': 'Snow Way',
     'VX': 'Vortex',
@@ -66,11 +66,6 @@ const LINE_CODE_MAP: { [key: string]: string } = {
     'RE': 'Rinnai',
     'TI': 'Timbrin',
     'GV': 'Giant Vac'
-};
-
-// Add this helper function
-const getLineName = (code: string): string => {
-    return LINE_CODE_MAP[code] || code;
 };
 
 const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDealer }) => {
@@ -293,12 +288,16 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
                             <div className="info-section">
                                 <h3>Lines Carried</h3>
                                 {selectedDealer.lines
-                                    .filter(line => LINE_CODE_MAP[line.code]) // Only show mapped lines
+                                    .filter(line => LINE_MAPPINGS[line.LineName]) // Only show lines we have mappings for
                                     .map((line, index) => (
-                                        <p key={index}>
-                                            <strong>{getLineName(line.code)}</strong>
-                                            {line.accountNumber && (
-                                                <span className="account-number"> (Acct: {line.accountNumber})</span>
+                                        <p key={index} className="line-item">
+                                            <span className="line-name">
+                                                {LINE_MAPPINGS[line.LineName]}
+                                            </span>
+                                            {line.AccountNumber && (
+                                                <span className="account-number">
+                                                    (Acct: {line.AccountNumber})
+                                                </span>
                                             )}
                                         </p>
                                     ))}
