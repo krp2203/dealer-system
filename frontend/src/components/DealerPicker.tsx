@@ -57,7 +57,7 @@ const LINE_MAPPINGS: { [key: string]: string } = {
     'YB': 'Ybrovo',
     'OT': 'OTR Tire',
     'TY': 'Toyotomi',
-    'GG': 'Grass Gobbler GR',
+    'GG': 'Grass Gobbler',
     'VK': 'Velke',
     'BB': 'Blue Bird',
     'UM': 'Umount',
@@ -87,13 +87,20 @@ const formatLinesCarried = (lines: LineInfo[]): FormattedLine[] => {
     const uniqueLines = new Map<string, string | undefined>();
     
     lines.forEach(line => {
-        if (LINE_MAPPINGS[line.LineName]) {
-            const lineName = LINE_MAPPINGS[line.LineName];
-            // Only update if we don't already have this line or if we have a new account number
-            if (!uniqueLines.has(lineName) || line.AccountNumber) {
-                uniqueLines.set(lineName, line.AccountNumber);
+        // Split the LineName if it contains multiple codes
+        const codes = line.LineName.split(/[,\s\(\)]+/).filter(Boolean);
+        
+        codes.forEach(code => {
+            // Clean up the code and check if it's in our mapping
+            const cleanCode = code.trim().toUpperCase();
+            if (LINE_MAPPINGS[cleanCode]) {
+                const lineName = LINE_MAPPINGS[cleanCode];
+                // Only update if we don't already have this line or if we have a new account number
+                if (!uniqueLines.has(lineName) || line.AccountNumber) {
+                    uniqueLines.set(lineName, line.AccountNumber);
+                }
             }
-        }
+        });
     });
 
     // Convert Map to array and sort
