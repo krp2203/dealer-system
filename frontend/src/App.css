@@ -70,26 +70,48 @@
 }
 
 .dealer-details {
-  background-color: white;
+  margin-top: 20px;
   padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
 }
 
 .dealer-details h2 {
-  margin-top: 0;
-  color: #282c34;
+  margin: 0 0 20px 0;
+  color: #333;
   border-bottom: 2px solid #eee;
   padding-bottom: 10px;
 }
 
-.dealer-details section {
-  margin: 15px 0;
+.dealer-details h3 {
+  color: #666;
+  margin: 15px 0 10px 0;
+  font-size: 1.1em;
 }
 
-.dealer-details h3 {
-  color: #444;
-  margin: 10px 0;
+.dealer-info-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.dealer-basic-info,
+.dealer-address,
+.dealer-contact,
+.dealer-salesmen {
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.dealer-details p {
+  margin: 5px 0;
+  line-height: 1.4;
+}
+
+.dealer-details strong {
+  color: #555;
 }
 
 .lines-list {
@@ -112,216 +134,6 @@
 .line-account {
     color: #666;
     font-size: 0.9em;
-}
-
-.dealer-details p {
-    margin: 5px 0;
-    line-height: 1.4;
-}
-
-.dealer-details strong {
-    color: #444;
-}
-
-.dealer-details section {
-    background-color: #f8f8f8;
-    padding: 15px;
-    border-radius: 6px;
-    margin-bottom: 15px;
-}
-
-.dealer-details section h3 {
-    margin-top: 0;
-    color: #282c34;
-    border-bottom: 2px solid #eee;
-    padding-bottom: 8px;
-    margin-bottom: 12px;
-}
-
-.search-container {
-    position: relative;
-    width: 100%;
-}
-
-.search-container input {
-    width: 100%;
-    padding: 12px;
-    font-size: 1em;
-    border: 2px solid #ddd;
-    border-radius: 6px;
-    outline: none;
-    transition: border-color 0.2s;
-}
-
-.search-container input:focus {
-    border-color: #282c34;
-}
-
-.search-results {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: white;
-    border: 1px solid #ddd;
-    max-height: 300px;
-    overflow-y: auto;
-    z-index: 1000;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.search-result-item {
-    padding: 10px 15px;
-    cursor: pointer;
-    border-bottom: 1px solid #eee;
-    transition: background-color 0.2s;
-}
-
-.search-result-item:hover {
-    background-color: #f5f5f5;
-}
-
-.search-result-item:last-child {
-    border-bottom: none;
-}
-
-.dealer-name {
-    font-weight: 500;
-    margin-bottom: 4px;
-}
-
-.dealer-dba {
-    font-weight: normal;
-    color: #666;
-    margin-left: 8px;
-    font-size: 0.9em;
-}
-
-.dealer-info {
-    display: flex;
-    gap: 12px;
-    color: #666;
-    font-size: 0.9em;
-}
-
-.dealer-number {
-    color: #444;
-}
-
-.dealer-phone {
-    color: #666;
-}
-
-.no-results {
-    padding: 15px;
-    text-align: center;
-    color: #666;
-}
-
-.directions-button {
-    margin-top: 10px;
-    padding: 8px 12px;
-    background-color: #4285f4;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.9em;
-    transition: background-color 0.2s;
-}
-
-.directions-button:hover {
-    background-color: #3367d6;
-}
-
-.directions-button span {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-@media screen and (min-width: 768px) {
-    .App {
-        padding: 20px;
-    }
-
-    .main-content {
-        flex-direction: row;
-        padding: 0 20px;
-    }
-
-    .map-section {
-        flex: 3;
-        min-height: 600px;
-        order: 1;
-        position: relative;
-        top: auto;
-        z-index: auto;
-    }
-
-    .details-section {
-        flex: 1;
-        max-width: 400px;
-        order: 2;
-    }
-
-    .map-container {
-        min-height: 600px;
-    }
-
-    .search-results {
-        max-height: 300px;
-    }
-}
-
-.edit-buttons {
-    margin: 10px 0 20px;
-    display: flex;
-    gap: 10px;
-}
-
-.edit-button, .save-button, .cancel-button {
-    padding: 8px 16px;
-    border-radius: 4px;
-    border: none;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background-color 0.2s;
-}
-
-.edit-button {
-    background-color: #4CAF50;
-    color: white;
-}
-
-.edit-button:hover {
-    background-color: #45a049;
-}
-
-.save-button {
-    background-color: #2196F3;
-    color: white;
-}
-
-.save-button:hover {
-    background-color: #1976D2;
-}
-
-.save-button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-}
-
-.cancel-button {
-    background-color: #f44336;
-    color: white;
-}
-
-.cancel-button:hover {
-    background-color: #d32f2f;
 }
 
 .dealer-details input {
