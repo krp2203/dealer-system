@@ -70,15 +70,16 @@
 }
 
 .dealer-details {
-  background-color: white;
+  margin-top: 20px;
   padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
 }
 
 .dealer-details h2 {
-  margin-top: 0;
-  color: #282c34;
+  margin: 0 0 20px 0;
+  color: #333;
   border-bottom: 2px solid #eee;
   padding-bottom: 10px;
 }
@@ -392,4 +393,31 @@
     text-align: center;
     color: #666;
     font-style: italic;
+}
+
+.dealer-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.info-section {
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+}
+
+.info-section h3 {
+    margin: 0 0 15px 0;
+    color: #444;
+    font-size: 1.1em;
+}
+
+.info-section p {
+    margin: 8px 0;
+    color: #666;
+}
+
+.info-section strong {
+    color: #444;
 }

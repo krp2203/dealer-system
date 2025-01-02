@@ -114,17 +114,12 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
     // Handle dealer selection
     const handleDealerSelect = async (dealer: Dealer) => {
         try {
-            const detailsResponse = await axios.get<DealerDetails>(
-                `${API_URL}/api/dealers/${dealer.KPMDealerNumber}/details`
+            const response = await axios.get<DealerDetails>(
+                `${API_URL}/api/dealers/${dealer.KPMDealerNumber}`
             );
             
-            // Combine the basic dealer info with the details
-            const fullDealerInfo: DealerDetails = {
-                ...dealer,
-                ...detailsResponse.data
-            };
-            
-            setSelectedDealer(fullDealerInfo);
+            console.log('Selected dealer details:', response.data);
+            setSelectedDealer(response.data);
             setSearchTerm('');
             setShowDropdown(false);
         } catch (error) {
@@ -210,7 +205,54 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
             {selectedDealer && (
                 <div className="dealer-details">
                     <h2>{selectedDealer.DealershipName}</h2>
-                    {/* Add other dealer details here */}
+                    <div className="dealer-info-grid">
+                        <div className="info-section">
+                            <h3>Basic Information</h3>
+                            <p><strong>Dealer Number:</strong> {selectedDealer.KPMDealerNumber}</p>
+                            {selectedDealer.DBA && (
+                                <p><strong>DBA:</strong> {selectedDealer.DBA}</p>
+                            )}
+                        </div>
+
+                        {selectedDealer.address && (
+                            <div className="info-section">
+                                <h3>Address</h3>
+                                <p>{selectedDealer.address.StreetAddress}</p>
+                                <p>
+                                    {selectedDealer.address.City}, {selectedDealer.address.State} {selectedDealer.address.ZipCode}
+                                </p>
+                                {selectedDealer.address.County && (
+                                    <p><strong>County:</strong> {selectedDealer.address.County}</p>
+                                )}
+                            </div>
+                        )}
+
+                        {selectedDealer.contact && (
+                            <div className="info-section">
+                                <h3>Contact Information</h3>
+                                {selectedDealer.contact.MainPhone && (
+                                    <p><strong>Phone:</strong> {selectedDealer.contact.MainPhone}</p>
+                                )}
+                                {selectedDealer.contact.FaxNumber && (
+                                    <p><strong>Fax:</strong> {selectedDealer.contact.FaxNumber}</p>
+                                )}
+                                {selectedDealer.contact.MainEmail && (
+                                    <p><strong>Email:</strong> {selectedDealer.contact.MainEmail}</p>
+                                )}
+                            </div>
+                        )}
+
+                        {selectedDealer.salesmen && selectedDealer.salesmen.length > 0 && (
+                            <div className="info-section">
+                                <h3>Salesmen</h3>
+                                {selectedDealer.salesmen.map((salesman, index) => (
+                                    <p key={index}>
+                                        {salesman.SalesmanName} ({salesman.SalesmanCode})
+                                    </p>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
