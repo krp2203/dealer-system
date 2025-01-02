@@ -141,34 +141,29 @@ app.get('/api/dealers', async (req, res) => {
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
-        console.log('Database connected successfully');
-
+        
         const [rows] = await connection.query(`
             SELECT DISTINCT 
                 d.KPMDealerNumber,
                 d.DealershipName,
                 d.DBA,
-                ds.SalesmanCode,
-                s.SalesmanName
+                GROUP_CONCAT(DISTINCT ds.SalesmanCode) as SalesmanCodes,
+                GROUP_CONCAT(DISTINCT s.SalesmanName) as SalesmanNames,
+                c.MainPhone
             FROM Dealerships d
             LEFT JOIN DealerSalesmen ds ON d.KPMDealerNumber = ds.KPMDealerNumber
             LEFT JOIN Salesman s ON ds.SalesmanCode = s.SalesmanCode
+            LEFT JOIN ContactInformation c ON d.KPMDealerNumber = c.KPMDealerNumber
+            GROUP BY d.KPMDealerNumber, d.DealershipName, d.DBA, c.MainPhone
             ORDER BY d.DealershipName
         `);
 
-        console.log(`Successfully fetched ${rows.length} dealers`);
         res.json(rows);
     } catch (error) {
         console.error('Database error:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch dealers',
-            details: error.message,
-            code: error.code
-        });
+        res.status(500).json({ error: 'Failed to fetch dealers' });
     } finally {
-        if (connection) {
-            await connection.end();
-        }
+        if (connection) await connection.end();
     }
 });
 

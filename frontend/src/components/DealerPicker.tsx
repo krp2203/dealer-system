@@ -82,12 +82,26 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
         }
 
         const searchLower = value.toLowerCase().trim();
+        
+        // Create a Set to track unique dealer numbers
+        const seenDealers = new Set<string>();
+        
         const matches = dealers.filter(dealer => {
+            // Skip if we've already seen this dealer
+            if (seenDealers.has(dealer.KPMDealerNumber)) {
+                return false;
+            }
+            
             const nameMatch = (dealer.DealershipName || '').toLowerCase().includes(searchLower);
             const numberMatch = (dealer.KPMDealerNumber || '').toLowerCase().includes(searchLower);
             const phoneMatch = dealer.MainPhone?.toLowerCase().includes(searchLower);
-
-            return nameMatch || numberMatch || phoneMatch;
+            
+            if (nameMatch || numberMatch || phoneMatch) {
+                seenDealers.add(dealer.KPMDealerNumber);
+                return true;
+            }
+            
+            return false;
         });
 
         setFilteredDealers(matches);
@@ -156,14 +170,16 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
                         {filteredDealers.length > 0 ? (
                             filteredDealers.map(dealer => (
                                 <div
-                                    key={dealer.KPMDealerNumber}
+                                    key={`dealer-${dealer.KPMDealerNumber}`}
                                     className="search-result-item"
                                     onClick={() => handleDealerSelect(dealer)}
                                 >
                                     <div className="dealer-name">{dealer.DealershipName}</div>
                                     <div className="dealer-info">
-                                        <span>{dealer.KPMDealerNumber}</span>
-                                        {dealer.MainPhone && <span>{dealer.MainPhone}</span>}
+                                        <span>#{dealer.KPMDealerNumber}</span>
+                                        {dealer.MainPhone && (
+                                            <span className="dealer-phone">{dealer.MainPhone}</span>
+                                        )}
                                     </div>
                                 </div>
                             ))
