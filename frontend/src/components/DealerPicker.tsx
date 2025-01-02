@@ -7,8 +7,11 @@ interface Dealer {
     DealershipName: string;
     DBA?: string;
     MainPhone?: string;
-    SalesmanCode?: string;
-    SalesmanName?: string;
+}
+
+interface Salesman {
+    SalesmanCode: string;
+    SalesmanName: string;
 }
 
 interface DealerDetails extends Dealer {
@@ -23,7 +26,16 @@ interface DealerDetails extends Dealer {
         MainPhone: string;
         FaxNumber?: string;
         MainEmail?: string;
+        SecondEmail?: string;
+        ThirdEmail?: string;
+        FourthEmail?: string;
+        FifthEmail?: string;
     };
+    salesmen?: Salesman[];
+    lines?: {
+        code: string;
+        accountNumber: string;
+    }[];
 }
 
 interface DealerPickerProps {
@@ -41,7 +53,7 @@ const DealerPicker: React.FC<DealerPickerProps> = ({ selectedDealer: initialDeal
     const [dealers, setDealers] = useState<Dealer[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [filteredDealers, setFilteredDealers] = useState<Dealer[]>([]);
-    const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
+    const [selectedDealer, setSelectedDealer] = useState<DealerDetails | null>(null);
     const [showDropdown, setShowDropdown] = useState(false);
     const [loading, setLoading] = useState(true);
 
