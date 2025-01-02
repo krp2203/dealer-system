@@ -210,15 +210,19 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
         
         connection = await mysql.createConnection(dbConfig);
         
-        // Get lines carried
+        // Get lines carried with debug logging
         const [lines] = await connection.query(`
             SELECT LineName, AccountNumber
             FROM LinesCarried 
             WHERE KPMDealerNumber = ?
         `, [req.params.dealerNumber]);
 
-        console.log('Lines carried found:', lines);
-        
+        console.log('Lines query result:', {
+            dealerNumber: req.params.dealerNumber,
+            linesFound: lines.length,
+            lines: lines
+        });
+
         // Get dealer basic info
         const [dealerInfo] = await connection.query(`
             SELECT 
@@ -281,7 +285,7 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
             salesmen = []; // Default to empty array if there's an error
         }
 
-        // Structure the response
+        // Structure the response with explicit lines data
         const dealerDetails = {
             KPMDealerNumber: dealerInfo[0].KPMDealerNumber,
             DealershipName: dealerInfo[0].DealershipName,
@@ -313,7 +317,12 @@ app.get('/api/dealers/:dealerNumber', async (req, res) => {
             }))
         };
 
-        console.log('Sending dealer details:', JSON.stringify(dealerDetails, null, 2));
+        console.log('Sending dealer details with lines:', {
+            dealerNumber: req.params.dealerNumber,
+            lineCount: dealerDetails.lines.length,
+            lines: dealerDetails.lines
+        });
+
         res.json(dealerDetails);
 
     } catch (error) {
